@@ -164,7 +164,7 @@ const estimateMetaMap: Record<string, EstimateMeta> = {
   "ce-006": {
     tenantId: T1, projectId: P3, groups: buildingGroups,
     name: "Kosztorys budowlany — Bud. A", description: null,
-    status: 1, totalNet: 6450000, ownerName: "Michał Kowalski", workScheduleId: "ws-004",
+    status: 1, totalNet: 6450000, ownerName: "Michał Kowalski", workScheduleId: "ws-006",
     sharedWith: [],
     currency: { code: "PLN", symbol: "zł" },
     customize: (g) => customizeGroups(g,
@@ -219,7 +219,7 @@ const estimateMetaMap: Record<string, EstimateMeta> = {
   "ce-009": {
     tenantId: T2, projectId: P5, groups: preliminaryGroups,
     name: "Kosztorys wstępny — Rezydencja", description: "Kosztorys koncepcyjny, waluta EUR",
-    status: 0, totalNet: 3200000, ownerName: "Michał Kowalski", workScheduleId: null,
+    status: 0, totalNet: 3200000, ownerName: "Michał Kowalski", workScheduleId: "ws-007",
     sharedWith: [],
     currency: { code: "EUR", symbol: "€" },
   },
@@ -312,9 +312,13 @@ const scheduleListData: Array<{
   { id: "ws-002", projectId: P1, name: "Harmonogram instalacji sanitarnych", createdAt: date("2026-02-10"), createdByUserId: "u-008", createdByUserName: "Piotr Zieliński" },
   // P2
   { id: "ws-003", projectId: P2, name: "Harmonogram — Etap II", createdAt: date("2026-05-15"), createdByUserId: uid, createdByUserName: "Michał Kowalski", costEstimateId: "ce-004" },
+  // P3
+  { id: "ws-006", projectId: P3, name: "Harmonogram — Bud. A", createdAt: date("2025-12-15"), createdByUserId: uid, createdByUserName: "Michał Kowalski", costEstimateId: "ce-006" },
   // P4
   { id: "ws-004", projectId: P4, name: "Harmonogram — Bud. A", createdAt: date("2026-01-05"), createdByUserId: "u-010", createdByUserName: "Ewa Majewska", costEstimateId: "ce-005" },
   { id: "ws-005", projectId: P4, name: "Harmonogram — Apartamenty Centrum", createdAt: date("2025-07-20"), createdByUserId: uid, createdByUserName: "Michał Kowalski", costEstimateId: "ce-007" },
+  // P5
+  { id: "ws-007", projectId: P5, name: "Harmonogram — Rezydencja Jeziorki", createdAt: date("2026-02-01"), createdByUserId: uid, createdByUserName: "Michał Kowalski", costEstimateId: "ce-009" },
 ];
 
 /** Zwraca szczegółowe dane harmonogramu dla danego wsId — zgodne z WorkScheduleDetailsWeb */
@@ -1113,6 +1117,145 @@ function buildWs005Details(): object {
   };
 }
 
+function buildWs006Details(): object {
+  return {
+    id: "ws-006", tenantId: T1, projectId: P3, costEstimateId: "ce-006",
+    name: "Harmonogram — Bud. A",
+    createdAt: date("2025-12-15"), createdByUserId: uid, createdByUserName: "Michał Kowalski",
+    stages: [
+      {
+        id: "stg-ws6-1", name: "1. Fundamenty i konstrukcja", order: 0, parentStageId: null, costEstimateGroupId: "ce-006-g-0",
+        works: [
+          { id: "w-ws6-001", name: "Wykopy wąskoprzestrzenne", order: 0, colorRgb: "#4A7FEF", isClosed: true,
+            periods: [
+              { id: "p-ws6-001", startDate: "2025-06-01", endDate: "2025-06-25", isClosed: true },
+            ],
+            assignees: assignee({ userId: "u-002", userName: "Tomasz Wójcik" }),
+            comments: [comment("c-ws6-001", "Wykopy zakończone zgodnie z planem.", 280, "u-002", "Tomasz Wójcik")],
+          },
+          { id: "w-ws6-002", name: "Ławy fundamentowe zbrojone", order: 1, colorRgb: "#E07B39", isClosed: true,
+            periods: [
+              { id: "p-ws6-002", startDate: "2025-07-01", endDate: "2025-08-15", isClosed: true },
+            ],
+            assignees: assignee({ userId: "u-002", userName: "Tomasz Wójcik" }),
+            comments: [comment("c-ws6-002", "Betonowanie ław zakończone.", 250, uid, "Michał Kowalski")],
+          },
+          { id: "w-ws6-003", name: "Słupy żelbetowe prefabrykowane", order: 2, colorRgb: "#805AD5", isClosed: false,
+            periods: [
+              { id: "p-ws6-003", startDate: "2025-10-01", endDate: "2025-12-20", isClosed: true },
+              { id: "p-ws6-004", startDate: "2025-12-21", endDate: "2026-02-28", isClosed: false },
+            ],
+            assignees: assignee({ userId: "u-006", userName: "Anna Nowak" }),
+            comments: [comment("c-ws6-003", "Opóźnienie dostaw prefabrykatów — 3 tygodnie.", 120, "u-006", "Anna Nowak")],
+          },
+          { id: "w-ws6-004", name: "Płyta żelbetowa stropodachu", order: 3, colorRgb: "#3182CE", isClosed: false,
+            periods: [
+              { id: "p-ws6-005", startDate: "2026-02-01", endDate: "2026-04-30", isClosed: false },
+            ],
+            assignees: assignee({ userId: "u-002", userName: "Tomasz Wójcik" }),
+            comments: [],
+          },
+        ],
+      },
+      {
+        id: "stg-ws6-2", name: "2. Ściany i wykończenia", order: 1, parentStageId: null, costEstimateGroupId: "ce-006-g-2",
+        works: [
+          { id: "w-ws6-005", name: "Ściany osłonowe z płyt warstwowych", order: 0, colorRgb: "#38A169", isClosed: false,
+            periods: [
+              { id: "p-ws6-006", startDate: "2026-03-01", endDate: "2026-05-31", isClosed: false },
+            ],
+            assignees: assignee({ userId: "u-006", userName: "Anna Nowak" }),
+            comments: [],
+          },
+          { id: "w-ws6-006", name: "Stolarka aluminiowa", order: 1, colorRgb: "#DD6B20", isClosed: false,
+            periods: [
+              { id: "p-ws6-007", startDate: "2026-05-01", endDate: "2026-07-31", isClosed: false },
+            ],
+            assignees: assignee({ userId: uid, userName: "Michał Kowalski" }),
+            comments: [],
+          },
+          { id: "w-ws6-007", name: "Prace wykończeniowe wewnętrzne", order: 2, colorRgb: "#2B6CB0", isClosed: false,
+            periods: [
+              { id: "p-ws6-008", startDate: "2026-06-01", endDate: "2026-09-30", isClosed: false },
+            ],
+            assignees: assignee({ userId: "u-006", userName: "Anna Nowak" }),
+            comments: [],
+          },
+        ],
+      },
+    ],
+    dependencies: [
+      { id: "dep-ws6-01", predecessorWorkId: "w-ws6-001", successorWorkId: "w-ws6-002", dependencyType: 0, lagDays: 0 },
+      { id: "dep-ws6-02", predecessorWorkId: "w-ws6-002", successorWorkId: "w-ws6-003", dependencyType: 0, lagDays: 0 },
+      { id: "dep-ws6-03", predecessorWorkId: "w-ws6-003", successorWorkId: "w-ws6-004", dependencyType: 0, lagDays: 5 },
+      { id: "dep-ws6-04", predecessorWorkId: "w-ws6-004", successorWorkId: "w-ws6-005", dependencyType: 0, lagDays: 7 },
+      { id: "dep-ws6-05", predecessorWorkId: "w-ws6-005", successorWorkId: "w-ws6-006", dependencyType: 0, lagDays: 0 },
+      { id: "dep-ws6-06", predecessorWorkId: "w-ws6-006", successorWorkId: "w-ws6-007", dependencyType: 0, lagDays: 5 },
+    ],
+  };
+}
+
+function buildWs007Details(): object {
+  return {
+    id: "ws-007", tenantId: T2, projectId: P5, costEstimateId: "ce-009",
+    name: "Harmonogram — Rezydencja Jeziorki",
+    createdAt: date("2026-02-01"), createdByUserId: uid, createdByUserName: "Michał Kowalski",
+    stages: [
+      {
+        id: "stg-ws7-1", name: "1. Prace projektowe i przygotowawcze", order: 0, parentStageId: null,
+        works: [
+          { id: "w-ws7-001", name: "Projekt koncepcyjny", order: 0, colorRgb: "#805AD5", isClosed: true,
+            periods: [
+              { id: "p-ws7-001", startDate: "2025-07-01", endDate: "2025-08-31", isClosed: true },
+            ],
+            assignees: assignee({ userId: uid, userName: "Michał Kowalski" }),
+            comments: [comment("c-ws7-001", "Koncepcja zatwierdzona przez inwestora.", 300, uid, "Michał Kowalski")],
+          },
+          { id: "w-ws7-002", name: "Badania geotechniczne", order: 1, colorRgb: "#4A7FEF", isClosed: true,
+            periods: [
+              { id: "p-ws7-002", startDate: "2026-02-01", endDate: "2026-03-15", isClosed: true },
+            ],
+            assignees: assignee({ userId: "u-002", userName: "Tomasz Wójcik" }),
+            comments: [],
+          },
+          { id: "w-ws7-003", name: "Uzyskanie pozwoleń budowlanych", order: 2, colorRgb: "#D69E2E", isClosed: false,
+            periods: [
+              { id: "p-ws7-003", startDate: "2026-03-01", endDate: "2026-05-31", isClosed: false },
+            ],
+            assignees: assignee({ userId: uid, userName: "Michał Kowalski" }),
+            comments: [comment("c-ws7-002", "Wniosek złożony — oczekiwanie na decyzję.", 60, uid, "Michał Kowalski")],
+          },
+        ],
+      },
+      {
+        id: "stg-ws7-2", name: "2. Roboty budowlane (planowane)", order: 1, parentStageId: null,
+        works: [
+          { id: "w-ws7-004", name: "Przygotowanie placu budowy", order: 0, colorRgb: "#38A169", isClosed: false,
+            periods: [
+              { id: "p-ws7-004", startDate: "2026-07-01", endDate: "2026-08-31", isClosed: false },
+            ],
+            assignees: assignee({ userId: "u-002", userName: "Tomasz Wójcik" }),
+            comments: [],
+          },
+          { id: "w-ws7-005", name: "Fundamenty — etap I", order: 1, colorRgb: "#E07B39", isClosed: false,
+            periods: [
+              { id: "p-ws7-005", startDate: "2026-09-01", endDate: "2026-11-30", isClosed: false },
+            ],
+            assignees: assignee({ userId: "u-002", userName: "Tomasz Wójcik" }),
+            comments: [],
+          },
+        ],
+      },
+    ],
+    dependencies: [
+      { id: "dep-ws7-01", predecessorWorkId: "w-ws7-001", successorWorkId: "w-ws7-002", dependencyType: 0, lagDays: 0 },
+      { id: "dep-ws7-02", predecessorWorkId: "w-ws7-002", successorWorkId: "w-ws7-003", dependencyType: 0, lagDays: 0 },
+      { id: "dep-ws7-03", predecessorWorkId: "w-ws7-003", successorWorkId: "w-ws7-004", dependencyType: 0, lagDays: 14 },
+      { id: "dep-ws7-04", predecessorWorkId: "w-ws7-004", successorWorkId: "w-ws7-005", dependencyType: 0, lagDays: 0 },
+    ],
+  };
+}
+
 /** Mapa wsId → builder funkcji */
 const scheduleDetailsMap: Record<string, () => object> = {
   "ws-001": buildWs001Details,
@@ -1120,6 +1263,8 @@ const scheduleDetailsMap: Record<string, () => object> = {
   "ws-003": buildWs003Details,
   "ws-004": buildWs004Details,
   "ws-005": buildWs005Details,
+  "ws-006": buildWs006Details,
+  "ws-007": buildWs007Details,
 };
 
 /** @deprecated Używaj getWorkSchedules(projectId, scope) */
@@ -1221,41 +1366,113 @@ export function getProjectCosts(projectId: string, scope?: string): any[] {
 export const mockProjectCosts = getProjectCosts("p-001");
 
 // ---- TRACKED COSTS (dla dashboard — TrackedCostWeb) ----
-// workScheduleStageWorkId używa nowych ID z harmonogramów (w-ws1-xxx)
-// costEstimateItemId używa rzeczywistych ID pozycji kosztorysowych (i-bxxx)
+// workScheduleStageWorkId używa ID z harmonogramów (w-wsX-xxx)
+// costEstimateItemId używa pełnych ID pozycji kosztorysowych (ce-XXX-i-bXXX)
+
+const mockProjectCostCategories: Record<string, Array<{ id: string; name: string; color: string; order: number }>> = {
+  [P1]: [
+    { id: "cat-p1-001", name: "Materiały", color: "#3182CE", order: 0 },
+    { id: "cat-p1-002", name: "Robocizna", color: "#38A169", order: 1 },
+    { id: "cat-p1-003", name: "Sprzęt", color: "#DD6B20", order: 2 },
+    { id: "cat-p1-004", name: "Usługi", color: "#805AD5", order: 3 },
+    { id: "cat-p1-005", name: "Inne", color: "#718096", order: 4 },
+  ],
+  [P2]: [
+    { id: "cat-p2-001", name: "Materiały", color: "#3182CE", order: 0 },
+    { id: "cat-p2-002", name: "Robocizna", color: "#38A169", order: 1 },
+    { id: "cat-p2-003", name: "Sprzęt", color: "#DD6B20", order: 2 },
+    { id: "cat-p2-004", name: "Usługi", color: "#805AD5", order: 3 },
+    { id: "cat-p2-005", name: "Inne", color: "#718096", order: 4 },
+  ],
+  [P3]: [
+    { id: "cat-p3-001", name: "Materiały", color: "#3182CE", order: 0 },
+    { id: "cat-p3-002", name: "Robocizna", color: "#38A169", order: 1 },
+    { id: "cat-p3-003", name: "Sprzęt", color: "#DD6B20", order: 2 },
+    { id: "cat-p3-004", name: "Usługi", color: "#805AD5", order: 3 },
+    { id: "cat-p3-005", name: "Inne", color: "#718096", order: 4 },
+  ],
+  [P4]: [
+    { id: "cat-p4-001", name: "Materiały", color: "#3182CE", order: 0 },
+    { id: "cat-p4-002", name: "Robocizna", color: "#38A169", order: 1 },
+    { id: "cat-p4-003", name: "Sprzęt", color: "#DD6B20", order: 2 },
+    { id: "cat-p4-004", name: "Usługi", color: "#805AD5", order: 3 },
+    { id: "cat-p4-005", name: "Inne", color: "#718096", order: 4 },
+  ],
+  [P5]: [
+    { id: "cat-p5-001", name: "Materiały", color: "#3182CE", order: 0 },
+    { id: "cat-p5-002", name: "Robocizna", color: "#38A169", order: 1 },
+    { id: "cat-p5-003", name: "Sprzęt", color: "#DD6B20", order: 2 },
+    { id: "cat-p5-004", name: "Usługi", color: "#805AD5", order: 3 },
+    { id: "cat-p5-005", name: "Inne", color: "#718096", order: 4 },
+  ],
+};
+
+function cat(projectId: string, categoryId: string): { categoryId: string; categoryName: string; categoryColor: string } {
+  const categories = mockProjectCostCategories[projectId] ?? mockProjectCostCategories[P1];
+  const found = categories.find(c => c.id === categoryId);
+  return {
+    categoryId,
+    categoryName: found?.name ?? "Inne",
+    categoryColor: found?.color ?? "#718096",
+  };
+}
+
 const trackedCostsP1 = [
-  { id: "tc-001", costEstimateItemId: "i-b001", workScheduleStageWorkId: "w-ws1-001", isAdditional: false, name: "Wykopy fundamentowe — realizacja", description: null, net: 187500, gross: 230625, vatRate: 23, contractorId: "ctr-003", contractorName: "Dębickie Przedsiębiorstwo Budowlane", date: date("2025-08-15"), number: "FV/2025/08/1245", attachments: [], createdAt: date("2025-08-16"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "1. Roboty ziemne i fundamentowe", estimateItemName: "Wykopy pod fundamenty", costEstimateItemPath: "Kosztorys budowlany — Etap I > 1. Roboty ziemne i fundamentowe > Wykopy pod fundamenty", workScheduleWorkPath: null },
-  { id: "tc-002", costEstimateItemId: "i-b002", workScheduleStageWorkId: "w-ws1-002", isAdditional: false, name: "Fundamenty — szalunki i beton", description: null, net: 324000, gross: 398520, vatRate: 23, contractorId: "ctr-005", contractorName: "Cemex Polska Sp. z o.o.", date: date("2025-10-05"), number: "FA/10/2025/089", attachments: [], createdAt: date("2025-10-06"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "1. Roboty ziemne i fundamentowe", estimateItemName: "Ławy fundamentowe żelbetowe", costEstimateItemPath: "Kosztorys budowlany — Etap I > 1. Roboty ziemne i fundamentowe > Ławy fundamentowe żelbetowe", workScheduleWorkPath: null },
-  { id: "tc-003", costEstimateItemId: "i-b005", workScheduleStageWorkId: "w-ws1-004", isAdditional: false, name: "Zbrojenie słupów i stropów", description: "Prace zbrojarskie — słupy i stropy", net: 215000, gross: 264450, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", date: date("2025-11-20"), number: "FV/11/2025/567", attachments: [], createdAt: date("2025-11-21"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "2. Konstrukcja żelbetowa", estimateItemName: "Słupy żelbetowe 40×40 cm", costEstimateItemPath: "Kosztorys budowlany — Etap I > 2. Konstrukcja żelbetowa > Słupy żelbetowe 40×40 cm", workScheduleWorkPath: null },
-  { id: "tc-004", costEstimateItemId: "i-b008", workScheduleStageWorkId: "w-ws1-005", isAdditional: false, name: "Bloczki silikatowe — dostawa i murowanie", description: null, net: 178900, gross: 220047, vatRate: 23, contractorId: "ctr-008", contractorName: "Wienerberger Ceramika Budowlana", date: date("2025-12-05"), number: "FV 0012/25", attachments: [], createdAt: date("2025-12-06"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "3. Ściany i elewacja", estimateItemName: "Ściany nośne z bloczków silikatowych", costEstimateItemPath: "Kosztorys budowlany — Etap I > 3. Ściany i elewacja > Ściany nośne z bloczków silikatowych", workScheduleWorkPath: null },
-  { id: "tc-005", costEstimateItemId: "i-b010", workScheduleStageWorkId: null, isAdditional: false, name: "Stolarka okienna PCV — zamówienie", description: "Zamówienie na produkcję okien", net: 412000, gross: 506760, vatRate: 23, contractorId: "ctr-006", contractorName: "Saint-Gobain Construction Products", date: date("2026-01-15"), number: "45/01/2026", attachments: [], createdAt: date("2026-01-16"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "3. Ściany i elewacja", estimateItemName: "Stolarka okienna PCV 3-szybowa", costEstimateItemPath: "Kosztorys budowlany — Etap I > 3. Ściany i elewacja > Stolarka okienna PCV 3-szybowa", workScheduleWorkPath: null },
-  { id: "tc-006", costEstimateItemId: null, workScheduleStageWorkId: "w-ws1-007", isAdditional: false, name: "Kable i osprzęt elektryczny", description: null, net: 156300, gross: 192249, vatRate: 23, contractorId: "ctr-007", contractorName: "Elektromontaż Rzeszów S.A.", date: date("2026-02-10"), number: "R/02/2026/01", attachments: [], createdAt: date("2026-02-11"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap I", stageName: "2. Instalacje wewnętrzne", workItemName: "Instalacja elektryczna", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap I > 2. Instalacje wewnętrzne > Instalacja elektryczna" },
-  { id: "tc-007", costEstimateItemId: null, workScheduleStageWorkId: "w-ws1-003", isAdditional: false, name: "Transport i wynajem dźwigu", description: null, net: 67800, gross: 83394, vatRate: 23, contractorId: "ctr-002", contractorName: "Strabag Sp. z o.o.", date: date("2026-03-01"), number: "FV/03/2026/045", attachments: [], createdAt: date("2026-03-02"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap I", stageName: "1. Stan surowy otwarty", workItemName: "Ściany nośne parteru", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap I > 1. Stan surowy otwarty > Ściany nośne parteru" },
-  { id: "tc-008", costEstimateItemId: null, workScheduleStageWorkId: "w-ws1-009", isAdditional: false, name: "Izolacje termiczne — wełna i styropian", description: null, net: 98400, gross: 121032, vatRate: 23, contractorId: "ctr-012", contractorName: "InsBud — Izolacje Budowlane", date: date("2026-03-20"), number: "67/03/2026", attachments: [], createdAt: date("2026-03-21"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap I", stageName: "2. Instalacje wewnętrzne", workItemName: "Instalacja grzewcza", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap I > 2. Instalacje wewnętrzne > Instalacja grzewcza" },
-  { id: "tc-009", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Projekt wentylacji — honorarium", description: "Koszty projektowe dodatkowe", net: 134500, gross: 165435, vatRate: 23, contractorId: "ctr-011", contractorName: "WentSystemy Sp. z o.o.", date: date("2026-04-05"), number: "FV/04/2026/112", attachments: [], createdAt: date("2026-04-06"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
-  { id: "tc-010", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Szalunki — wynajem", description: "Wynajem szalunków systemowych", net: 45600, gross: 56088, vatRate: 23, contractorId: "ctr-004", contractorName: "Erbet Sp. z o.o.", date: date("2025-09-10"), number: "321/09/2025", attachments: [], createdAt: date("2025-09-11"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
+  { id: "tc-001", costEstimateItemId: "ce-001-i-b001", workScheduleStageWorkId: "w-ws1-001", isAdditional: false, name: "Wykopy fundamentowe — realizacja", description: null, net: 187500, gross: 230625, vatRate: 23, contractorId: "ctr-003", contractorName: "Dębickie Przedsiębiorstwo Budowlane", ...cat(P1, "cat-p1-002"), date: date("2025-08-15"), number: "FV/2025/08/1245", attachments: [], createdAt: date("2025-08-16"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "1. Roboty ziemne i fundamentowe", estimateItemName: "Wykopy pod fundamenty", costEstimateItemPath: "Kosztorys budowlany — Etap I > 1. Roboty ziemne i fundamentowe > Wykopy pod fundamenty", workScheduleWorkPath: null },
+  { id: "tc-002", costEstimateItemId: "ce-001-i-b002", workScheduleStageWorkId: "w-ws1-002", isAdditional: false, name: "Fundamenty — szalunki i beton", description: null, net: 324000, gross: 398520, vatRate: 23, contractorId: "ctr-005", contractorName: "Cemex Polska Sp. z o.o.", ...cat(P1, "cat-p1-001"), date: date("2025-10-05"), number: "FA/10/2025/089", attachments: [], createdAt: date("2025-10-06"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "1. Roboty ziemne i fundamentowe", estimateItemName: "Ławy fundamentowe żelbetowe", costEstimateItemPath: "Kosztorys budowlany — Etap I > 1. Roboty ziemne i fundamentowe > Ławy fundamentowe żelbetowe", workScheduleWorkPath: null },
+  { id: "tc-003", costEstimateItemId: "ce-001-i-b005", workScheduleStageWorkId: "w-ws1-004", isAdditional: false, name: "Zbrojenie słupów i stropów", description: "Prace zbrojarskie — słupy i stropy", net: 215000, gross: 264450, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", ...cat(P1, "cat-p1-002"), date: date("2025-11-20"), number: "FV/11/2025/567", attachments: [], createdAt: date("2025-11-21"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "2. Konstrukcja żelbetowa", estimateItemName: "Słupy żelbetowe 40×40 cm", costEstimateItemPath: "Kosztorys budowlany — Etap I > 2. Konstrukcja żelbetowa > Słupy żelbetowe 40×40 cm", workScheduleWorkPath: null },
+  { id: "tc-004", costEstimateItemId: "ce-001-i-b008", workScheduleStageWorkId: "w-ws1-005", isAdditional: false, name: "Bloczki silikatowe — dostawa i murowanie", description: null, net: 178900, gross: 220047, vatRate: 23, contractorId: "ctr-008", contractorName: "Wienerberger Ceramika Budowlana", ...cat(P1, "cat-p1-001"), date: date("2025-12-05"), number: "FV 0012/25", attachments: [], createdAt: date("2025-12-06"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "3. Ściany i elewacja", estimateItemName: "Ściany nośne z bloczków silikatowych", costEstimateItemPath: "Kosztorys budowlany — Etap I > 3. Ściany i elewacja > Ściany nośne z bloczków silikatowych", workScheduleWorkPath: null },
+  { id: "tc-005", costEstimateItemId: "ce-001-i-b010", workScheduleStageWorkId: null, isAdditional: false, name: "Stolarka okienna PCV — zamówienie", description: "Zamówienie na produkcję okien", net: 412000, gross: 506760, vatRate: 23, contractorId: "ctr-006", contractorName: "Saint-Gobain Construction Products", ...cat(P1, "cat-p1-001"), date: date("2026-01-15"), number: "45/01/2026", attachments: [], createdAt: date("2026-01-16"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap I", estimateGroupName: "3. Ściany i elewacja", estimateItemName: "Stolarka okienna PCV 3-szybowa", costEstimateItemPath: "Kosztorys budowlany — Etap I > 3. Ściany i elewacja > Stolarka okienna PCV 3-szybowa", workScheduleWorkPath: null },
+  { id: "tc-006", costEstimateItemId: null, workScheduleStageWorkId: "w-ws1-007", isAdditional: false, name: "Kable i osprzęt elektryczny", description: null, net: 156300, gross: 192249, vatRate: 23, contractorId: "ctr-007", contractorName: "Elektromontaż Rzeszów S.A.", ...cat(P1, "cat-p1-001"), date: date("2026-02-10"), number: "R/02/2026/01", attachments: [], createdAt: date("2026-02-11"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap I", stageName: "2. Instalacje wewnętrzne", workItemName: "Instalacja elektryczna", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap I > 2. Instalacje wewnętrzne > Instalacja elektryczna" },
+  { id: "tc-007", costEstimateItemId: null, workScheduleStageWorkId: "w-ws1-003", isAdditional: false, name: "Transport i wynajem dźwigu", description: null, net: 67800, gross: 83394, vatRate: 23, contractorId: "ctr-002", contractorName: "Strabag Sp. z o.o.", ...cat(P1, "cat-p1-003"), date: date("2026-03-01"), number: "FV/03/2026/045", attachments: [], createdAt: date("2026-03-02"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap I", stageName: "1. Stan surowy otwarty", workItemName: "Ściany nośne parteru", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap I > 1. Stan surowy otwarty > Ściany nośne parteru" },
+  { id: "tc-008", costEstimateItemId: null, workScheduleStageWorkId: "w-ws1-009", isAdditional: false, name: "Izolacje termiczne — wełna i styropian", description: null, net: 98400, gross: 121032, vatRate: 23, contractorId: "ctr-012", contractorName: "InsBud — Izolacje Budowlane", ...cat(P1, "cat-p1-001"), date: date("2026-03-20"), number: "67/03/2026", attachments: [], createdAt: date("2026-03-21"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap I", stageName: "2. Instalacje wewnętrzne", workItemName: "Instalacja grzewcza", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap I > 2. Instalacje wewnętrzne > Instalacja grzewcza" },
+  { id: "tc-009", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Projekt wentylacji — honorarium", description: "Koszty projektowe dodatkowe", net: 134500, gross: 165435, vatRate: 23, contractorId: "ctr-011", contractorName: "WentSystemy Sp. z o.o.", ...cat(P1, "cat-p1-004"), date: date("2026-04-05"), number: "FV/04/2026/112", attachments: [], createdAt: date("2026-04-06"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
+  { id: "tc-010", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Szalunki — wynajem", description: "Wynajem szalunków systemowych", net: 45600, gross: 56088, vatRate: 23, contractorId: "ctr-004", contractorName: "Erbet Sp. z o.o.", ...cat(P1, "cat-p1-003"), date: date("2025-09-10"), number: "321/09/2025", attachments: [], createdAt: date("2025-09-11"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
+  { id: "tc-011", costEstimateItemId: "ce-002-i-s001", workScheduleStageWorkId: "w-ws2-002", isAdditional: false, name: "Rurociągi wodociągowe PP-R — montaż", description: null, net: 245000, gross: 301350, vatRate: 23, contractorId: "ctr-009", contractorName: "Wodoinstal Kraków Sp. z o.o.", ...cat(P1, "cat-p1-001"), date: date("2025-11-01"), number: "FV/11/2025/301", attachments: [], createdAt: date("2025-11-02"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys instalacji sanitarnych", estimateGroupName: "1. Instalacje wodociągowe", estimateItemName: "Rurociągi wodociągowe PP-R", costEstimateItemPath: "Kosztorys instalacji sanitarnych > 1. Instalacje wodociągowe > Rurociągi wodociągowe PP-R", workScheduleWorkPath: null },
+  { id: "tc-012", costEstimateItemId: "ce-002-i-s004", workScheduleStageWorkId: "w-ws2-004", isAdditional: false, name: "Kotłownia gazowa — dostawa i montaż", description: null, net: 520000, gross: 639600, vatRate: 23, contractorId: "ctr-015", contractorName: "Technika Grzewcza Rzeszów", ...cat(P1, "cat-p1-002"), date: date("2026-01-20"), number: "FV/01/2026/445", attachments: [], createdAt: date("2026-01-21"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys instalacji sanitarnych", estimateGroupName: "2. Instalacje grzewcze i wentylacja", estimateItemName: "Kotłownia gazowa z instalacją CO", costEstimateItemPath: "Kosztorys instalacji sanitarnych > 2. Instalacje grzewcze i wentylacja > Kotłownia gazowa z instalacją CO", workScheduleWorkPath: null },
+  { id: "tc-013", costEstimateItemId: "ce-003-i-s001", workScheduleStageWorkId: null, isAdditional: false, name: "Kable i przewody elektryczne YKY 5×10", description: null, net: 385000, gross: 473550, vatRate: 23, contractorId: "ctr-007", contractorName: "Elektromontaż Rzeszów S.A.", ...cat(P1, "cat-p1-001"), date: date("2026-02-28"), number: "FV/02/2026/178", attachments: [], createdAt: date("2026-03-01"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys elektryki i teletechniki", estimateGroupName: "1. Instalacje elektryczne wewnętrzne", estimateItemName: "Kable i przewody elektryczne YKY 5×10", costEstimateItemPath: "Kosztorys elektryki i teletechniki > 1. Instalacje elektryczne wewnętrzne > Kable i przewody elektryczne YKY 5×10", workScheduleWorkPath: null },
+  { id: "tc-014", costEstimateItemId: "ce-003-i-s003", workScheduleStageWorkId: null, isAdditional: false, name: "Oprawy oświetleniowe LED", description: null, net: 198000, gross: 243540, vatRate: 23, contractorId: "ctr-007", contractorName: "Elektromontaż Rzeszów S.A.", ...cat(P1, "cat-p1-001"), date: date("2026-03-15"), number: "FV/03/2026/289", attachments: [], createdAt: date("2026-03-16"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys elektryki i teletechniki", estimateGroupName: "1. Instalacje elektryczne wewnętrzne", estimateItemName: "Oprawy oświetleniowe LED", costEstimateItemPath: "Kosztorys elektryki i teletechniki > 1. Instalacje elektryczne wewnętrzne > Oprawy oświetleniowe LED", workScheduleWorkPath: null },
 ];
 
 // ---- PER-PROJECT TRACKED COSTS ----
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const trackedCostsP2: any[] = [
-  { id: "tc-p2-001", costEstimateItemId: null, workScheduleStageWorkId: "w-ws3-001", isAdditional: false, name: "Roboty ziemne Etap II", description: null, net: 245000, gross: 301350, vatRate: 23, contractorId: "ctr-002", contractorName: "Strabag Sp. z o.o.", date: date("2025-06-20"), number: "15/06/2025", attachments: [], createdAt: date("2025-06-21"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap II", stageName: "1. Fundamenty", workItemName: "Wykopy Etap II", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap II > 1. Fundamenty > Wykopy Etap II" },
-  { id: "tc-p2-002", costEstimateItemId: null, workScheduleStageWorkId: "w-ws3-003", isAdditional: false, name: "Beton B20 fundamenty Etap II", description: null, net: 186000, gross: 228780, vatRate: 23, contractorId: "ctr-005", contractorName: "Cemex Polska Sp. z o.o.", date: date("2025-08-10"), number: "FA/08/2025/234", attachments: [], createdAt: date("2025-08-11"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap II", stageName: "1. Fundamenty", workItemName: "Ławy żelbetowe Etap II", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap II > 1. Fundamenty > Ławy żelbetowe Etap II" },
-  { id: "tc-p2-003", costEstimateItemId: null, workScheduleStageWorkId: "w-ws3-005", isAdditional: false, name: "Stal zbrojeniowa — konstrukcja", description: null, net: 312000, gross: 383760, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", date: date("2025-09-05"), number: "FV/09/2025/89", attachments: [], createdAt: date("2025-09-06"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap II", stageName: "2. Konstrukcja", workItemName: "Stropy Etap II", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap II > 2. Konstrukcja > Stropy Etap II" },
-  { id: "tc-p2-004", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Wynajem koparki — Etap II", description: null, net: 42500, gross: 52275, vatRate: 23, contractorId: "ctr-004", contractorName: "Erbet Sp. z o.o.", date: date("2025-11-15"), number: "R/11/2025/03", attachments: [], createdAt: date("2025-11-16"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
-  { id: "tc-p2-005", costEstimateItemId: null, workScheduleStageWorkId: "w-ws3-007", isAdditional: false, name: "Prace murarskie — ściany", description: null, net: 154000, gross: 189420, vatRate: 23, contractorId: "ctr-008", contractorName: "Wienerberger Ceramika Budowlana", date: date("2026-01-10"), number: "FV/01/2026/007", attachments: [], createdAt: date("2026-01-11"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Etap II", stageName: "3. Stan surowy zamknięty", workItemName: "Ściany działowe Etap II", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Etap II > 3. Stan surowy zamknięty > Ściany działowe Etap II" },
-  { id: "tc-p2-006", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: false, name: "Izolacje dachu Etap II", description: null, net: 87200, gross: 107256, vatRate: 23, contractorId: "ctr-012", contractorName: "InsBud — Izolacje Budowlane", date: date("2026-03-15"), number: "FV/03/2026/118", attachments: [], createdAt: date("2026-03-16"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
+  { id: "tc-p2-001", costEstimateItemId: "ce-004-i-b001", workScheduleStageWorkId: "w-ws3-001", isAdditional: false, name: "Roboty ziemne Etap II", description: null, net: 245000, gross: 301350, vatRate: 23, contractorId: "ctr-002", contractorName: "Strabag Sp. z o.o.", ...cat(P2, "cat-p2-002"), date: date("2025-06-20"), number: "15/06/2025", attachments: [], createdAt: date("2025-06-21"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap II", estimateGroupName: "1. Roboty ziemne i konstrukcja", estimateItemName: "Wykopy pod ławy i stopy fundamentowe", costEstimateItemPath: "Kosztorys budowlany — Etap II > 1. Roboty ziemne i konstrukcja > Wykopy pod ławy i stopy fundamentowe", workScheduleWorkPath: null },
+  { id: "tc-p2-002", costEstimateItemId: "ce-004-i-b002", workScheduleStageWorkId: "w-ws3-003", isAdditional: false, name: "Beton B20 fundamenty Etap II", description: null, net: 186000, gross: 228780, vatRate: 23, contractorId: "ctr-005", contractorName: "Cemex Polska Sp. z o.o.", ...cat(P2, "cat-p2-001"), date: date("2025-08-10"), number: "FA/08/2025/234", attachments: [], createdAt: date("2025-08-11"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap II", estimateGroupName: "1. Roboty ziemne i konstrukcja", estimateItemName: "Ściany fundamentowe żelbetowe", costEstimateItemPath: "Kosztorys budowlany — Etap II > 1. Roboty ziemne i konstrukcja > Ściany fundamentowe żelbetowe", workScheduleWorkPath: null },
+  { id: "tc-p2-003", costEstimateItemId: "ce-004-i-b005", workScheduleStageWorkId: "w-ws3-005", isAdditional: false, name: "Stal zbrojeniowa — konstrukcja", description: null, net: 312000, gross: 383760, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", ...cat(P2, "cat-p2-001"), date: date("2025-09-05"), number: "FV/09/2025/89", attachments: [], createdAt: date("2025-09-06"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap II", estimateGroupName: "2. Ściany konstrukcyjne i stropy", estimateItemName: "Słupy żelbetowe 30×50 cm", costEstimateItemPath: "Kosztorys budowlany — Etap II > 2. Ściany konstrukcyjne i stropy > Słupy żelbetowe 30×50 cm", workScheduleWorkPath: null },
+  { id: "tc-p2-004", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Wynajem koparki — Etap II", description: null, net: 42500, gross: 52275, vatRate: 23, contractorId: "ctr-004", contractorName: "Erbet Sp. z o.o.", ...cat(P2, "cat-p2-003"), date: date("2025-11-15"), number: "R/11/2025/03", attachments: [], createdAt: date("2025-11-16"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
+  { id: "tc-p2-005", costEstimateItemId: "ce-004-i-b008", workScheduleStageWorkId: "w-ws3-007", isAdditional: false, name: "Prace murarskie — ściany", description: null, net: 154000, gross: 189420, vatRate: 23, contractorId: "ctr-008", contractorName: "Wienerberger Ceramika Budowlana", ...cat(P2, "cat-p2-002"), date: date("2026-01-10"), number: "FV/01/2026/007", attachments: [], createdAt: date("2026-01-11"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Etap II", estimateGroupName: "3. Izolacje i elewacja", estimateItemName: "Elewacja — tynk mineralny", costEstimateItemPath: "Kosztorys budowlany — Etap II > 3. Izolacje i elewacja > Elewacja — tynk mineralny", workScheduleWorkPath: null },
+  { id: "tc-p2-006", costEstimateItemId: "ce-005-i-l001", workScheduleStageWorkId: null, isAdditional: false, name: "Nawierzchnia z kostki brukowej", description: null, net: 87200, gross: 107256, vatRate: 23, contractorId: "ctr-010", contractorName: "GreenScape Architektura Krajobrazu", ...cat(P2, "cat-p2-001"), date: date("2026-03-15"), number: "FV/03/2026/118", attachments: [], createdAt: date("2026-03-16"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys zagospodarowania terenu", estimateGroupName: "1. Nawierzchnie i drogi", estimateItemName: "Nawierzchnia z kostki brukowej", costEstimateItemPath: "Kosztorys zagospodarowania terenu > 1. Nawierzchnie i drogi > Nawierzchnia z kostki brukowej", workScheduleWorkPath: null },
+  { id: "tc-p2-007", costEstimateItemId: "ce-005-i-l003", workScheduleStageWorkId: null, isAdditional: false, name: "Nasadzenia drzew i krzewów", description: null, net: 64500, gross: 79335, vatRate: 23, contractorId: "ctr-010", contractorName: "GreenScape Architektura Krajobrazu", ...cat(P2, "cat-p2-002"), date: date("2026-04-02"), number: "FV/04/2026/201", attachments: [], createdAt: date("2026-04-03"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys zagospodarowania terenu", estimateGroupName: "2. Zieleń i mała architektura", estimateItemName: "Nasadzenia drzew i krzewów", costEstimateItemPath: "Kosztorys zagospodarowania terenu > 2. Zieleń i mała architektura > Nasadzenia drzew i krzewów", workScheduleWorkPath: null },
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const trackedCostsP3: any[] = [
+  { id: "tc-p3-001", costEstimateItemId: "ce-006-i-b001", workScheduleStageWorkId: "w-ws6-001", isAdditional: false, name: "Fundamenty Bud. A — wykopy", description: null, net: 195000, gross: 239850, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", ...cat(P3, "cat-p3-002"), date: date("2025-06-25"), number: "10/06/2025", attachments: [], createdAt: date("2025-06-26"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Bud. A", estimateGroupName: "1. Fundamenty i izolacje", estimateItemName: "Wykopy wąskoprzestrzenne pod ławy", costEstimateItemPath: "Kosztorys budowlany — Bud. A > 1. Fundamenty i izolacje > Wykopy wąskoprzestrzenne pod ławy", workScheduleWorkPath: null },
+  { id: "tc-p3-002", costEstimateItemId: "ce-006-i-b002", workScheduleStageWorkId: "w-ws6-002", isAdditional: false, name: "Beton B25 — ławy fundamentowe", description: null, net: 142000, gross: 174660, vatRate: 23, contractorId: "ctr-005", contractorName: "Cemex Polska Sp. z o.o.", ...cat(P3, "cat-p3-001"), date: date("2025-09-20"), number: "FA/09/2025/56", attachments: [], createdAt: date("2025-09-21"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Bud. A", estimateGroupName: "1. Fundamenty i izolacje", estimateItemName: "Ławy fundamentowe zbrojone ciągłe", costEstimateItemPath: "Kosztorys budowlany — Bud. A > 1. Fundamenty i izolacje > Ławy fundamentowe zbrojone ciągłe", workScheduleWorkPath: null },
+  { id: "tc-p3-003", costEstimateItemId: "ce-006-i-b005", workScheduleStageWorkId: "w-ws6-003", isAdditional: false, name: "Stropy gęstożebrowe — dostawa", description: null, net: 278000, gross: 341940, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", ...cat(P3, "cat-p3-001"), date: date("2025-12-10"), number: "FV/12/2025/34", attachments: [], createdAt: date("2025-12-11"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys budowlany — Bud. A", estimateGroupName: "2. Konstrukcja nośna", estimateItemName: "Słupy żelbetowe prefabrykowane", costEstimateItemPath: "Kosztorys budowlany — Bud. A > 2. Konstrukcja nośna > Słupy żelbetowe prefabrykowane", workScheduleWorkPath: null },
+  { id: "tc-p3-004", costEstimateItemId: null, workScheduleStageWorkId: "w-ws6-005", isAdditional: false, name: "Prace wykończeniowe — tynki", description: null, net: 63500, gross: 78105, vatRate: 23, contractorId: "ctr-006", contractorName: "Saint-Gobain Construction Products", ...cat(P3, "cat-p3-002"), date: date("2026-02-20"), number: "R/02/2026/07", attachments: [], createdAt: date("2026-02-21"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Bud. A", stageName: "2. Ściany i wykończenia", workItemName: "Ściany osłonowe z płyt warstwowych", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Bud. A > 2. Ściany i wykończenia > Ściany osłonowe z płyt warstwowych" },
+  { id: "tc-p3-005", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Drzwi wewnętrzne — zamówienie", description: null, net: 89100, gross: 109593, vatRate: 23, contractorId: "ctr-006", contractorName: "Saint-Gobain Construction Products", ...cat(P3, "cat-p3-001"), date: date("2026-04-10"), number: "FV/04/2026/55", attachments: [], createdAt: date("2026-04-11"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const trackedCostsP4: any[] = [
-  { id: "tc-p4-001", costEstimateItemId: null, workScheduleStageWorkId: "w-ws4-001", isAdditional: false, name: "Przygotowanie terenu — Bud. A", description: null, net: 312000, gross: 383760, vatRate: 23, contractorId: "ctr-002", contractorName: "Strabag Sp. z o.o.", date: date("2026-02-01"), number: "FV/02/2026/201", attachments: [], createdAt: date("2026-02-02"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Bud. A", stageName: "1. Roboty przygotowawcze", workItemName: "Wykopy Bud. A", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Bud. A > 1. Roboty przygotowawcze > Wykopy Bud. A" },
-  { id: "tc-p4-002", costEstimateItemId: null, workScheduleStageWorkId: "w-ws4-003", isAdditional: false, name: "Pale fundamentowe — Bud. A", description: null, net: 198000, gross: 243540, vatRate: 23, contractorId: "ctr-003", contractorName: "Dębickie Przedsiębiorstwo Budowlane", date: date("2026-03-10"), number: "FV/03/2026/089", attachments: [], createdAt: date("2026-03-11"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Bud. A", stageName: "1. Roboty przygotowawcze", workItemName: "Fundamenty palowe", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Bud. A > 1. Roboty przygotowawcze > Fundamenty palowe" },
-  { id: "tc-p4-003", costEstimateItemId: null, workScheduleStageWorkId: "w-ws4-006", isAdditional: false, name: "Konstrukcja żelbetowa — apartamenty", description: null, net: 567000, gross: 697410, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", date: date("2026-05-15"), number: "FV/05/2026/456", attachments: [], createdAt: date("2026-05-16"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Bud. A", stageName: "2. Konstrukcja", workItemName: "Stropy i słupy apartamenty", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Bud. A > 2. Konstrukcja > Stropy i słupy apartamenty" },
-  { id: "tc-p4-004", costEstimateItemId: null, workScheduleStageWorkId: "w-ws5-002", isAdditional: false, name: "Ściany osłonowe — elewacja", description: null, net: 445000, gross: 547350, vatRate: 23, contractorId: "ctr-006", contractorName: "Saint-Gobain Construction Products", date: date("2025-09-20"), number: "FV/09/2025/789", attachments: [], createdAt: date("2025-09-21"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Apartamenty Centrum", stageName: "1. Stan surowy", workItemName: "Ściany osłonowe", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Apartamenty Centrum > 1. Stan surowy > Ściany osłonowe" },
-  { id: "tc-p4-005", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Projekt konstrukcji apartamentów", description: null, net: 98500, gross: 121155, vatRate: 23, contractorId: "ctr-011", contractorName: "WentSystemy Sp. z o.o.", date: date("2025-08-01"), number: "FV/08/2025/001", attachments: [], createdAt: date("2025-08-02"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
-  { id: "tc-p4-006", costEstimateItemId: null, workScheduleStageWorkId: "w-ws5-005", isAdditional: false, name: "Instalacje sanitarne — apartamenty", description: null, net: 278000, gross: 341940, vatRate: 23, contractorId: "ctr-009", contractorName: "Wodoinstal Kraków Sp. z o.o.", date: date("2026-04-05"), number: "FV/04/2026/312", attachments: [], createdAt: date("2026-04-06"), updatedAt: null, sourceType: "ScheduleWorkItem" as const, scheduleName: "Harmonogram — Apartamenty Centrum", stageName: "2. Wykończenie", workItemName: "Instalacje wod-kan", estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: "Harmonogram — Apartamenty Centrum > 2. Wykończenie > Instalacje wod-kan" },
+  { id: "tc-p4-001", costEstimateItemId: "ce-007-i-b001", workScheduleStageWorkId: "w-ws4-001", isAdditional: false, name: "Przygotowanie terenu — Bud. A", description: null, net: 312000, gross: 383760, vatRate: 23, contractorId: "ctr-002", contractorName: "Strabag Sp. z o.o.", ...cat(P4, "cat-p4-002"), date: date("2026-02-01"), number: "FV/02/2026/201", attachments: [], createdAt: date("2026-02-02"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys główny — Faza I", estimateGroupName: "1. Roboty rozbiórkowe i przygotowawcze", estimateItemName: "Wykopy głębokie pod budynek", costEstimateItemPath: "Kosztorys główny — Faza I > 1. Roboty rozbiórkowe i przygotowawcze > Wykopy głębokie pod budynek", workScheduleWorkPath: null },
+  { id: "tc-p4-002", costEstimateItemId: "ce-007-i-b002", workScheduleStageWorkId: "w-ws4-003", isAdditional: false, name: "Pale fundamentowe — Bud. A", description: null, net: 198000, gross: 243540, vatRate: 23, contractorId: "ctr-003", contractorName: "Dębickie Przedsiębiorstwo Budowlane", ...cat(P4, "cat-p4-001"), date: date("2026-03-10"), number: "FV/03/2026/089", attachments: [], createdAt: date("2026-03-11"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys główny — Faza I", estimateGroupName: "1. Roboty rozbiórkowe i przygotowawcze", estimateItemName: "Płyta fundamentowa żelbetowa", costEstimateItemPath: "Kosztorys główny — Faza I > 1. Roboty rozbiórkowe i przygotowawcze > Płyta fundamentowa żelbetowa", workScheduleWorkPath: null },
+  { id: "tc-p4-003", costEstimateItemId: "ce-007-i-b005", workScheduleStageWorkId: "w-ws4-006", isAdditional: false, name: "Konstrukcja żelbetowa — apartamenty", description: null, net: 567000, gross: 697410, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", ...cat(P4, "cat-p4-002"), date: date("2026-05-15"), number: "FV/05/2026/456", attachments: [], createdAt: date("2026-05-16"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys główny — Faza I", estimateGroupName: "2. Konstrukcja żelbetowa apartamentowca", estimateItemName: "Słupy żelbetowe 60×60 cm zbrojone", costEstimateItemPath: "Kosztorys główny — Faza I > 2. Konstrukcja żelbetowa apartamentowca > Słupy żelbetowe 60×60 cm zbrojone", workScheduleWorkPath: null },
+  { id: "tc-p4-004", costEstimateItemId: "ce-007-i-b008", workScheduleStageWorkId: "w-ws5-002", isAdditional: false, name: "Ściany osłonowe — elewacja", description: null, net: 445000, gross: 547350, vatRate: 23, contractorId: "ctr-006", contractorName: "Saint-Gobain Construction Products", ...cat(P4, "cat-p4-001"), date: date("2025-09-20"), number: "FV/09/2025/789", attachments: [], createdAt: date("2025-09-21"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys główny — Faza I", estimateGroupName: "3. Elewacja i stolarka", estimateItemName: "Elewacja szklana z panelami aluminiowymi", costEstimateItemPath: "Kosztorys główny — Faza I > 3. Elewacja i stolarka > Elewacja szklana z panelami aluminiowymi", workScheduleWorkPath: null },
+  { id: "tc-p4-005", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Projekt konstrukcji apartamentów", description: null, net: 98500, gross: 121155, vatRate: 23, contractorId: "ctr-011", contractorName: "WentSystemy Sp. z o.o.", ...cat(P4, "cat-p4-004"), date: date("2025-08-01"), number: "FV/08/2025/001", attachments: [], createdAt: date("2025-08-02"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
+  { id: "tc-p4-006", costEstimateItemId: "ce-007-i-b012", workScheduleStageWorkId: "w-ws5-005", isAdditional: false, name: "Instalacje sanitarne — apartamenty", description: null, net: 278000, gross: 341940, vatRate: 23, contractorId: "ctr-009", contractorName: "Wodoinstal Kraków Sp. z o.o.", ...cat(P4, "cat-p4-002"), date: date("2026-04-05"), number: "FV/04/2026/312", attachments: [], createdAt: date("2026-04-06"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys główny — Faza I", estimateGroupName: "4. Instalacje i wykończenie", estimateItemName: "Instalacje sanitarne apartamentów", costEstimateItemPath: "Kosztorys główny — Faza I > 4. Instalacje i wykończenie > Instalacje sanitarne apartamentów", workScheduleWorkPath: null },
+  { id: "tc-p4-007", costEstimateItemId: "ce-008-i-r001", workScheduleStageWorkId: null, isAdditional: false, name: "Płyta denna garażu podziemnego", description: null, net: 425000, gross: 522750, vatRate: 23, contractorId: "ctr-001", contractorName: "Budimex S.A.", ...cat(P4, "cat-p4-001"), date: date("2025-11-15"), number: "FV/11/2025/890", attachments: [], createdAt: date("2025-11-16"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys garażu podziemnego", estimateGroupName: "1. Konstrukcja garażu", estimateItemName: "Płyta denna żelbetowa 30 cm", costEstimateItemPath: "Kosztorys garażu podziemnego > 1. Konstrukcja garażu > Płyta denna żelbetowa 30 cm", workScheduleWorkPath: null },
+  { id: "tc-p4-008", costEstimateItemId: "ce-008-i-r004", workScheduleStageWorkId: null, isAdditional: false, name: "Posadzka epoksydowa garażu", description: null, net: 156000, gross: 191880, vatRate: 23, contractorId: "ctr-004", contractorName: "Erbet Sp. z o.o.", ...cat(P4, "cat-p4-001"), date: date("2026-01-22"), number: "FV/01/2026/567", attachments: [], createdAt: date("2026-01-23"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys garażu podziemnego", estimateGroupName: "2. Wykończenie garażu", estimateItemName: "Posadzka epoksydowa garażu", costEstimateItemPath: "Kosztorys garażu podziemnego > 2. Wykończenie garażu > Posadzka epoksydowa garażu", workScheduleWorkPath: null },
+];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const trackedCostsP5: any[] = [
+  { id: "tc-p5-001", costEstimateItemId: "ce-009-i-p001", workScheduleStageWorkId: "w-ws7-001", isAdditional: false, name: "Projekt koncepcyjny — Rezydencja", description: null, net: 45000, gross: 55350, vatRate: 23, contractorId: "ctr-003", contractorName: "Dębickie Przedsiębiorstwo Budowlane", ...cat(P5, "cat-p5-004"), date: date("2025-08-10"), number: "08/2025/PROJ", attachments: [], createdAt: date("2025-08-11"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys wstępny — Rezydencja", estimateGroupName: "1. Prace projektowe", estimateItemName: "Projekt koncepcyjny i wstępne koszty", costEstimateItemPath: "Kosztorys wstępny — Rezydencja > 1. Prace projektowe > Projekt koncepcyjny i wstępne koszty", workScheduleWorkPath: null },
+  { id: "tc-p5-002", costEstimateItemId: null, workScheduleStageWorkId: null, isAdditional: true, name: "Wizualizacje 3D", description: null, net: 18500, gross: 22755, vatRate: 23, contractorId: null, contractorName: null, ...cat(P5, "cat-p5-004"), date: date("2026-01-20"), number: "FV/01/2026/03", attachments: [], createdAt: date("2026-01-21"), updatedAt: null, sourceType: "ProjectAdditional" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: null, estimateGroupName: null, estimateItemName: null, costEstimateItemPath: null, workScheduleWorkPath: null },
+  { id: "tc-p5-003", costEstimateItemId: "ce-009-i-p002", workScheduleStageWorkId: "w-ws7-002", isAdditional: false, name: "Badania geotechniczne", description: null, net: 22000, gross: 27060, vatRate: 23, contractorId: "ctr-003", contractorName: "Dębickie Przedsiębiorstwo Budowlane", ...cat(P5, "cat-p5-004"), date: date("2026-03-05"), number: "R/03/2026/01", attachments: [], createdAt: date("2026-03-06"), updatedAt: null, sourceType: "EstimateItem" as const, scheduleName: null, stageName: null, workItemName: null, estimateName: "Kosztorys wstępny — Rezydencja", estimateGroupName: "1. Prace projektowe", estimateItemName: "Badania geotechniczne i pomiary", costEstimateItemPath: "Kosztorys wstępny — Rezydencja > 1. Prace projektowe > Badania geotechniczne i pomiary", workScheduleWorkPath: null },
 ];
 
 /** Mapa kosztów śledzonych per projekt */
@@ -1263,23 +1480,233 @@ const trackedCostsP4: any[] = [
 const trackedCostsByProject: Record<string, any[]> = {
   [P1]: trackedCostsP1,
   [P2]: trackedCostsP2,
+  [P3]: trackedCostsP3,
   [P4]: trackedCostsP4,
+  [P5]: trackedCostsP5,
 };
 
 // ---- DASHBOARD — computed from source data ----
 
+const DASHBOARD_TODAY = new Date();
+
+function sumNet(items: any[]): number {
+  return items.reduce((s: number, c: any) => s + (c.net ?? 0), 0);
+}
+
+function sumGross(items: any[]): number {
+  return items.reduce((s: number, c: any) => s + (c.gross ?? 0), 0);
+}
+
+function getWorkLatestEnd(work: { periods?: Array<{ endDate: string }> }): string | null {
+  const periods = work.periods ?? [];
+  if (periods.length === 0) {
+    return null;
+  }
+  return periods.reduce((max: string, p) => (!max || p.endDate > max ? p.endDate : max), "");
+}
+
+function isWorkDelayed(work: { isClosed: boolean; periods?: Array<{ endDate: string }> }): boolean {
+  if (work.isClosed) {
+    return false;
+  }
+  const latestEnd = getWorkLatestEnd(work);
+  if (!latestEnd) {
+    return false;
+  }
+  return new Date(latestEnd) < DASHBOARD_TODAY;
+}
+
+function isWorkInProgress(work: { isClosed: boolean; periods?: Array<{ startDate: string }> }): boolean {
+  if (work.isClosed) {
+    return false;
+  }
+  return (work.periods ?? []).some((p) => new Date(p.startDate) <= DASHBOARD_TODAY);
+}
+
+function computeWorkStats(allWorks: any[]) {
+  let earliestStart: string | null = null;
+  let latestEnd: string | null = null;
+  let completedCount = 0;
+  let inProgressCount = 0;
+  let notStartedCount = 0;
+  let delayedCount = 0;
+
+  for (const w of allWorks) {
+    for (const p of (w.periods ?? [])) {
+      if (!earliestStart || p.startDate < earliestStart) {
+        earliestStart = p.startDate;
+      }
+      if (!latestEnd || p.endDate > latestEnd) {
+        latestEnd = p.endDate;
+      }
+    }
+    if (w.isClosed) {
+      completedCount++;
+    } else if (isWorkDelayed(w)) {
+      delayedCount++;
+    } else if (isWorkInProgress(w)) {
+      inProgressCount++;
+    } else {
+      notStartedCount++;
+    }
+  }
+
+  const totalPlannedDays = earliestStart && latestEnd
+    ? Math.round((new Date(latestEnd).getTime() - new Date(earliestStart).getTime()) / (1000 * 86400))
+    : 0;
+  const progressPercent = allWorks.length > 0 ? Math.round((completedCount / allWorks.length) * 100) : 0;
+  const isDelayed = delayedCount > 0;
+  const isCompleted = allWorks.length > 0 && completedCount === allWorks.length;
+  let overallStatus = 1;
+  if (allWorks.length === 0) {
+    overallStatus = 6;
+  } else if (isCompleted) {
+    overallStatus = 4;
+  } else if (isDelayed) {
+    overallStatus = 3;
+  } else if (inProgressCount > 0) {
+    overallStatus = 2;
+  }
+
+  return {
+    earliestStart,
+    latestEnd,
+    totalPlannedDays,
+    completedCount,
+    inProgressCount,
+    notStartedCount,
+    delayedCount,
+    progressPercent,
+    overallStatus,
+    isDelayed,
+    isCompleted,
+  };
+}
+
+function buildTimelineStats(allWorks: any[]) {
+  const stats = computeWorkStats(allWorks);
+  if (!stats.earliestStart) {
+    return null;
+  }
+  return {
+    plannedStart: stats.earliestStart,
+    plannedEnd: stats.latestEnd,
+    totalPlannedDays: stats.totalPlannedDays,
+    totalWorkCount: allWorks.length,
+    completedCount: stats.completedCount,
+    completedLateCount: 0,
+    inProgressCount: stats.inProgressCount,
+    notStartedCount: stats.notStartedCount,
+    delayedCount: stats.delayedCount,
+    progressPercent: stats.progressPercent,
+    delayDays: null,
+    overallStatus: stats.overallStatus,
+    isDelayed: stats.isDelayed,
+    isCompleted: stats.isCompleted,
+  };
+}
+
+function computeFinancialStatus(budgetNet: number, costsNet: number, costCount: number): number {
+  if (costCount === 0) {
+    return 1;
+  }
+  if (budgetNet <= 0) {
+    return 2;
+  }
+  const ratio = costsNet / budgetNet;
+  if (ratio > 1) {
+    return 4;
+  }
+  if (ratio >= 0.8) {
+    return 3;
+  }
+  return 2;
+}
+
+function buildEstimateItemToEstimateMap(): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const ceId of Object.keys(estimateMetaMap)) {
+    const details = getCostEstimateDetailsById(ceId) as { rootGroups?: Array<{ items?: Array<{ id: string }> }> };
+    for (const group of details.rootGroups ?? []) {
+      for (const item of group.items ?? []) {
+        map.set(item.id, ceId);
+      }
+    }
+  }
+  return map;
+}
+
+function getCostsForEstimate(
+  estimateId: string,
+  linkedCosts: any[],
+  itemToEstimate: Map<string, string>,
+): any[] {
+  return linkedCosts.filter((c) => {
+    if (!c.costEstimateItemId) {
+      return false;
+    }
+    const itemId: string = c.costEstimateItemId;
+    if (itemToEstimate.get(itemId) === estimateId) {
+      return true;
+    }
+    return itemId.startsWith(`${estimateId}-`);
+  });
+}
+
+function countEstimateItems(estimateId: string): number {
+  const details = getCostEstimateDetailsById(estimateId) as { rootGroups?: Array<{ items?: Array<unknown> }> };
+  return (details.rootGroups ?? []).reduce((sum, g) => sum + (g.items?.length ?? 0), 0);
+}
+
+function computeCostByCategory(costs: any[]) {
+  const grouped = new Map<string | null, { categoryName: string; color: string | null; net: number; gross: number; costsCount: number }>();
+
+  for (const c of costs) {
+    const key = c.categoryId ?? null;
+    const existing = grouped.get(key) ?? {
+      categoryName: c.categoryName ?? "Bez kategorii",
+      color: c.categoryColor ?? null,
+      net: 0,
+      gross: 0,
+      costsCount: 0,
+    };
+    existing.net += c.net ?? 0;
+    existing.gross += c.gross ?? 0;
+    existing.costsCount += 1;
+    grouped.set(key, existing);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([categoryId, data]) => ({
+      categoryId,
+      categoryName: data.categoryName,
+      color: data.color,
+      net: data.net,
+      gross: data.gross > 0 ? data.gross : null,
+      costsCount: data.costsCount,
+    }))
+    .sort((a, b) => b.net - a.net);
+}
+
+function getProjectReserveBudget(projectId: string): { net: number | null; gross: number | null } {
+  if (projectId === P1) {
+    return { net: 500000, gross: 615000 };
+  }
+  if (projectId === P4) {
+    return { net: 750000, gross: 922500 };
+  }
+  return { net: null, gross: null };
+}
+
 /** Wylicza dashboard dla projektu na podstawie kosztów, kosztorysów i harmonogramów */
 export function getDashboard(projectId: string): object {
-  // Pobierz koszty dla projektu
   const allCosts = trackedCostsByProject[projectId] || [];
+  const project = allProjects.find((p) => p.id === projectId);
+  const currencyCode = project?.currency?.code ?? "PLN";
+  const currencySymbol = project?.currency?.symbol ?? "zł";
 
-  // Podziel koszty na kategorie
-  const additionalCosts = allCosts.filter(c => c.isAdditional === true);
-  const linkedCosts = allCosts.filter(c => c.isAdditional !== true);
-
-  // Sumy
-  const sumNet = (items: any[]) => items.reduce((s: number, c: any) => s + (c.net ?? 0), 0);
-  const sumGross = (items: any[]) => items.reduce((s: number, c: any) => s + (c.gross ?? 0), 0);
+  const additionalCosts = allCosts.filter((c) => c.isAdditional === true);
+  const linkedCosts = allCosts.filter((c) => c.isAdditional !== true);
 
   const totalCostsNet = sumNet(allCosts);
   const totalCostsGross = sumGross(allCosts);
@@ -1288,33 +1715,38 @@ export function getDashboard(projectId: string): object {
   const additionalCostsNet = sumNet(additionalCosts);
   const additionalCostsGross = sumGross(additionalCosts);
 
-  // Kosztorysy dla projektu — uwaga: mockCostEstimates ma totalNet/totalGross (nie net/gross)
-  const projectEstimates = mockCostEstimates.filter(e => e.projectId === projectId);
+  const projectEstimates = mockCostEstimates.filter((e) => e.projectId === projectId);
   const totalBudgetNet = projectEstimates.reduce((s: number, ce: any) => s + (ce.totalNet ?? 0), 0);
   const totalBudgetGross = projectEstimates.reduce((s: number, ce: any) => s + (ce.totalGross ?? 0), 0);
+  const reserve = getProjectReserveBudget(projectId);
 
-  // Deviation = totalBudget − totalCosts (zgodnie z kontraktem DEVIATION_COLOR: >0 = w budżecie)
   const deviationNet = totalBudgetNet - totalCostsNet;
   const deviationGross = totalBudgetGross - totalCostsGross;
   const coveredPercent = totalBudgetNet > 0 ? Math.round((linkedCostsNet / totalBudgetNet) * 10000) / 100 : 0;
 
-  // Cost estimate summaries
-  const costEstimateSummaries = projectEstimates.map(ce => {
-    const ceCosts = linkedCosts.filter(c => {
-      if (c.costEstimateItemId) {
-        // Sprawdź czy item należy do tego kosztorysu — szukaj w strukturze
-        return ce.id === "ce-001" && c.costEstimateItemId.startsWith("i-b");
-      }
-      return false;
-    });
+  const itemToEstimate = buildEstimateItemToEstimateMap();
+  const projectSchedules = scheduleListData.filter((s) => s.projectId === projectId);
+
+  const costEstimateSummaries = projectEstimates.map((ce, index) => {
+    const ceCosts = getCostsForEstimate(ce.id, linkedCosts, itemToEstimate);
     const ceCostsNet = sumNet(ceCosts);
     const ceCostsGross = sumGross(ceCosts);
-    // Uproszczone: policz itemy z kosztorysu
-    const totalItemsCount = ce.id === "ce-001" ? 14 : (ce.id === "ce-002" ? 8 : 6);
+    const totalItemsCount = countEstimateItems(ce.id);
     const itemsWithCostsCount = ceCosts.length;
+    const meta = estimateMetaMap[ce.id];
+    const linkedWorkScheduleId = meta?.workScheduleId ?? null;
+    let scheduleWorks: any[] = [];
+    if (linkedWorkScheduleId) {
+      const wsDetail: any = getWorkScheduleDetails(linkedWorkScheduleId);
+      scheduleWorks = (wsDetail?.stages ?? []).flatMap((s: any) => s.works ?? []);
+    }
+    const scheduleStats = scheduleWorks.length > 0 ? computeWorkStats(scheduleWorks) : null;
+    const financialStatus = computeFinancialStatus(ce.totalNet ?? 0, ceCostsNet, ceCosts.length);
+
     return {
       costEstimateId: ce.id,
       costEstimateName: ce.name,
+      order: index,
       budgetNet: ce.totalNet ?? 0,
       budgetGross: ce.totalGross ?? 0,
       costsNet: ceCostsNet,
@@ -1323,81 +1755,63 @@ export function getDashboard(projectId: string): object {
       deviationGross: (ce.totalGross ?? 0) - ceCostsGross,
       deviationPercent: (ce.totalNet ?? 0) > 0 ? Math.round((ceCostsNet / (ce.totalNet ?? 0)) * 10000) / 100 : 0,
       isBudgetExceeded: ceCostsNet > (ce.totalNet ?? 0),
-      additionalCostsNet: null,
-      additionalCostsGross: null,
-      additionalCostsCount: 0,
       costCount: ceCosts.length,
       coveredPercent: (ce.totalNet ?? 0) > 0 ? Math.round((ceCostsNet / (ce.totalNet ?? 0)) * 10000) / 100 : 0,
       totalItemsCount,
       itemsWithCostsCount,
       itemsWithoutCostsCount: totalItemsCount - itemsWithCostsCount,
       itemsOverBudgetCount: 0,
-      itemsNearLimitCount: itemsWithCostsCount > 0 ? 1 : 0,
+      itemsNearLimitCount: (ce.totalNet ?? 0) > 0 && ceCostsNet / (ce.totalNet ?? 0) >= 0.8 ? 1 : 0,
+      financialStatus,
+      timelineStatus: scheduleStats?.overallStatus ?? (linkedWorkScheduleId ? 1 : 0),
+      hasLinkedSchedule: linkedWorkScheduleId !== null,
+      linkedWorkScheduleId,
+      timelinePlannedStart: scheduleStats?.earliestStart ?? null,
+      timelinePlannedEnd: scheduleStats?.latestEnd ?? null,
+      timelineTotalDays: scheduleStats?.totalPlannedDays ?? null,
+      timeline: scheduleStats ? buildTimelineStats(scheduleWorks) : null,
       groups: [],
-      additionalCosts: { costsNet: null, costsGross: null, costCount: 0, items: [] },
+      additionalCosts: {
+        totalNet: null,
+        totalGross: null,
+        costsCount: 0,
+        costs: [],
+      },
     };
   });
 
-  // Schedule summaries — użyj szczegółów harmonogramu
-  const projectSchedules = scheduleListData.filter(s => s.projectId === projectId);
-  const scheduleSummaries = projectSchedules.map(ws => {
+  const scheduleSummaries = projectSchedules.map((ws) => {
     const wsDetail: any = getWorkScheduleDetails(ws.id);
     const stages = wsDetail?.stages ?? [];
     const allWorks = stages.flatMap((s: any) => s.works ?? []);
-    const wsCosts = linkedCosts.filter(c =>
-      c.workScheduleStageWorkId && allWorks.some((w: any) => w.id === c.workScheduleStageWorkId)
+    const wsCosts = linkedCosts.filter((c) =>
+      c.workScheduleStageWorkId && allWorks.some((w: any) => w.id === c.workScheduleStageWorkId),
     );
     const wsCostsNet = sumNet(wsCosts);
     const wsCostsGross = sumGross(wsCosts);
+    const wsStats = computeWorkStats(allWorks);
+    const linkedEstimate = ws.costEstimateId ? projectEstimates.find((e) => e.id === ws.costEstimateId) : null;
+    const budgetNet = linkedEstimate?.totalNet ?? null;
+    const budgetGross = linkedEstimate?.totalGross ?? null;
+    const delayedWorksCount = allWorks.filter((w: any) => isWorkDelayed(w)).length;
 
-    // Timeline data z harmonogramu
-    let earliestStart: string | null = null;
-    let latestEnd: string | null = null;
-    let completedCount = 0;
-    let inProgressCount = 0;
-    let notStartedCount = 0;
-    for (const w of allWorks) {
-      for (const p of (w.periods ?? [])) {
-        if (!earliestStart || p.startDate < earliestStart) earliestStart = p.startDate;
-        if (!latestEnd || p.endDate > latestEnd) latestEnd = p.endDate;
-      }
-      if (w.isClosed) completedCount++;
-      else if (w.periods?.some((p: any) => new Date(p.startDate) <= new Date())) inProgressCount++;
-      else notStartedCount++;
-    }
-    const totalPlannedDays = earliestStart && latestEnd
-      ? Math.round((new Date(latestEnd).getTime() - new Date(earliestStart).getTime()) / (1000 * 86400))
-      : 0;
-    const progressPercent = allWorks.length > 0 ? Math.round((completedCount / allWorks.length) * 100) : 0;
-
-    // Stage summaries
     const stageSummaries = stages.map((stg: any) => {
       const stgCosts = linkedCosts.filter((c: any) =>
-        c.workScheduleStageWorkId && (stg.works ?? []).some((w: any) => w.id === c.workScheduleStageWorkId)
+        c.workScheduleStageWorkId && (stg.works ?? []).some((w: any) => w.id === c.workScheduleStageWorkId),
       );
       const stgCostsNet = sumNet(stgCosts);
       const stgCostsGross = sumGross(stgCosts);
       const stgWorks = stg.works ?? [];
-      const stgCompleted = stgWorks.filter((w: any) => w.isClosed).length;
-      const stgInProgress = stgWorks.filter((w: any) => !w.isClosed && w.periods?.some((p: any) => new Date(p.startDate) <= new Date())).length;
-      const stgAllPeriods = stgWorks.flatMap((w: any) => w.periods ?? []);
-      let stgEarliest: string | null = null;
-      let stgLatest: string | null = null;
-      for (const p of stgAllPeriods) {
-        if (!stgEarliest || p.startDate < stgEarliest) stgEarliest = p.startDate;
-        if (!stgLatest || p.endDate > stgLatest) stgLatest = p.endDate;
-      }
-      const stgPlannedDays = stgEarliest && stgLatest
-        ? Math.round((new Date(stgLatest).getTime() - new Date(stgEarliest).getTime()) / (1000 * 86400))
-        : 0;
-      const stgProgress = stgWorks.length > 0 ? Math.round((stgCompleted / stgWorks.length) * 100) : 0;
+      const stgStats = computeWorkStats(stgWorks);
+      const stgDelayed = stgWorks.filter((w: any) => isWorkDelayed(w)).length;
+
       return {
         stageId: stg.id,
         stageName: stg.name,
         order: stg.order,
         totalWorkItemsCount: stgWorks.length,
-        completedWorkItemsCount: stgCompleted,
-        delayedWorkItemsCount: 0,
+        completedWorkItemsCount: stgStats.completedCount,
+        delayedWorkItemsCount: stgDelayed,
         totalCostsNet: stgCostsNet > 0 ? stgCostsNet : null,
         totalCostsGross: stgCostsGross > 0 ? stgCostsGross : null,
         budgetNet: null,
@@ -1410,25 +1824,10 @@ export function getDashboard(projectId: string): object {
         coveredPercent: null,
         isBudgetExceeded: false,
         costCount: stgCosts.length,
-        financialStatus: stgCosts.length > 0 ? 2 : 1,
-        timelineStatus: stgCompleted === stgWorks.length ? 4 : (stgInProgress > 0 ? 2 : 1),
-        hasLinkedSchedule: false,
-        timeline: stgEarliest ? {
-          plannedStart: stgEarliest,
-          plannedEnd: stgLatest,
-          totalPlannedDays: stgPlannedDays,
-          totalWorkCount: stgWorks.length,
-          completedCount: stgCompleted,
-          completedLateCount: 0,
-          inProgressCount: stgInProgress,
-          notStartedCount: stgWorks.length - stgCompleted - stgInProgress,
-          delayedCount: 0,
-          progressPercent: stgProgress,
-          delayDays: null,
-          overallStatus: stgCompleted === stgWorks.length ? 4 : (stgInProgress > 0 ? 2 : 1),
-          isDelayed: false,
-          isCompleted: stgCompleted === stgWorks.length,
-        } : null,
+        financialStatus: computeFinancialStatus(0, stgCostsNet, stgCosts.length),
+        timelineStatus: stgStats.overallStatus,
+        hasLinkedSchedule: true,
+        timeline: buildTimelineStats(stgWorks),
         workItems: [],
         childStages: [],
       };
@@ -1437,95 +1836,64 @@ export function getDashboard(projectId: string): object {
     return {
       workScheduleId: ws.id,
       workScheduleName: ws.name,
+      order: projectSchedules.indexOf(ws),
       hasLinkedEstimate: !!ws.costEstimateId,
       linkedCostEstimateId: ws.costEstimateId ?? null,
       totalWorkItemsCount: allWorks.length,
       workItemsWithCostsCount: wsCosts.length,
       workItemsOverBudgetCount: 0,
       workItemsNearLimitCount: 0,
-      workItemsDelayedCount: 0,
+      workItemsDelayedCount: delayedWorksCount,
       totalCostsNet: wsCostsNet > 0 ? wsCostsNet : null,
       totalCostsGross: wsCostsGross > 0 ? wsCostsGross : null,
-      budgetNet: ws.costEstimateId ? (projectEstimates.find(e => e.id === ws.costEstimateId)?.totalNet ?? null) : null,
-      budgetGross: ws.costEstimateId ? (projectEstimates.find(e => e.id === ws.costEstimateId)?.totalGross ?? null) : null,
+      budgetNet,
+      budgetGross,
       costsNet: wsCostsNet > 0 ? wsCostsNet : null,
       costsGross: wsCostsGross > 0 ? wsCostsGross : null,
-      deviationNet: wsCostsNet > 0 ? ((ws.costEstimateId ? (projectEstimates.find(e => e.id === ws.costEstimateId)?.totalNet ?? 0) : 0) - wsCostsNet) : null,
-      deviationGross: wsCostsGross > 0 ? ((ws.costEstimateId ? (projectEstimates.find(e => e.id === ws.costEstimateId)?.totalGross ?? 0) : 0) - wsCostsGross) : null,
-      deviationPercent: ws.costEstimateId && (projectEstimates.find(e => e.id === ws.costEstimateId)?.totalNet ?? 0) > 0
-        ? Math.round((wsCostsNet / (projectEstimates.find(e => e.id === ws.costEstimateId)?.totalNet ?? 1)) * 10000) / 100 : null,
-      coveredPercent: ws.costEstimateId && (projectEstimates.find(e => e.id === ws.costEstimateId)?.totalNet ?? 0) > 0
-        ? Math.round((wsCostsNet / (projectEstimates.find(e => e.id === ws.costEstimateId)?.totalNet ?? 1)) * 10000) / 100 : null,
-      isBudgetExceeded: false,
+      deviationNet: wsCostsNet > 0 && budgetNet !== null ? budgetNet - wsCostsNet : null,
+      deviationGross: wsCostsGross > 0 && budgetGross !== null ? budgetGross - wsCostsGross : null,
+      deviationPercent: budgetNet && budgetNet > 0
+        ? Math.round((wsCostsNet / budgetNet) * 10000) / 100
+        : null,
+      coveredPercent: budgetNet && budgetNet > 0
+        ? Math.round((wsCostsNet / budgetNet) * 10000) / 100
+        : null,
+      isBudgetExceeded: budgetNet !== null && wsCostsNet > budgetNet,
       costCount: wsCosts.length,
-      financialStatus: wsCosts.length > 0 ? 2 : 1,
-      timelineStatus: completedCount === allWorks.length ? 4 : (inProgressCount > 0 ? 2 : 1),
+      financialStatus: computeFinancialStatus(budgetNet ?? 0, wsCostsNet, wsCosts.length),
+      timelineStatus: wsStats.overallStatus,
       hasLinkedSchedule: !!ws.costEstimateId,
-      timeline: earliestStart ? {
-        plannedStart: earliestStart,
-        plannedEnd: latestEnd,
-        totalPlannedDays,
-        totalWorkCount: allWorks.length,
-        completedCount,
-        completedLateCount: 0,
-        inProgressCount,
-        notStartedCount,
-        delayedCount: 0,
-        progressPercent,
-        delayDays: null,
-        overallStatus: completedCount === allWorks.length ? 4 : (inProgressCount > 0 ? 2 : 1),
-        isDelayed: false,
-        isCompleted: completedCount === allWorks.length,
-      } : null,
+      timeline: buildTimelineStats(allWorks),
       stages: stageSummaries,
     };
   });
 
-  // Timeline summary — łączny dla projektu
-  let globalEarliest: string | null = null;
-  let globalLatest: string | null = null;
-  let globalTotalWorks = 0;
-  let globalCompleted = 0;
-  let globalInProgress = 0;
-  let globalNotStarted = 0;
+  const allProjectWorks: any[] = [];
   for (const ws of projectSchedules) {
     const detail: any = getWorkScheduleDetails(ws.id);
-    const allWorks = (detail?.stages ?? []).flatMap((s: any) => s.works ?? []);
-    globalTotalWorks += allWorks.length;
-    for (const w of allWorks) {
-      for (const p of (w.periods ?? [])) {
-        if (!globalEarliest || p.startDate < globalEarliest) globalEarliest = p.startDate;
-        if (!globalLatest || p.endDate > globalLatest) globalLatest = p.endDate;
-      }
-      if (w.isClosed) globalCompleted++;
-      else if (w.periods?.some((p: any) => new Date(p.startDate) <= new Date())) globalInProgress++;
-      else globalNotStarted++;
-    }
+    allProjectWorks.push(...(detail?.stages ?? []).flatMap((s: any) => s.works ?? []));
   }
-  const globalPlannedDays = globalEarliest && globalLatest
-    ? Math.round((new Date(globalLatest).getTime() - new Date(globalEarliest).getTime()) / (1000 * 86400))
-    : 0;
-  const globalProgressPercent = globalTotalWorks > 0 ? Math.round((globalCompleted / globalTotalWorks) * 100) : 0;
+  const globalStats = computeWorkStats(allProjectWorks);
 
-  // Schedule cost summary
-  const schedulesWithCosts = scheduleSummaries.filter(s => (s.costCount ?? 0) > 0);
-  const schedulesWithoutCosts = scheduleSummaries.filter(s => (s.costCount ?? 0) === 0);
-  const totalSchedulesCostsNet = sumNet(scheduleSummaries.map(s => ({ net: s.totalCostsNet ?? 0 })));
-  const totalSchedulesCostsGross = sumGross(scheduleSummaries.map(s => ({ gross: s.totalCostsGross ?? 0 })));
+  const schedulesWithCosts = scheduleSummaries.filter((s) => (s.costCount ?? 0) > 0);
+  const schedulesWithoutCosts = scheduleSummaries.filter((s) => (s.costCount ?? 0) === 0);
+  const totalSchedulesCostsNet = sumNet(scheduleSummaries.map((s) => ({ net: s.totalCostsNet ?? 0 })));
+  const totalSchedulesCostsGross = sumGross(scheduleSummaries.map((s) => ({ gross: s.totalCostsGross ?? 0 })));
+  const costByCategory = computeCostByCategory(allCosts);
 
   return {
     projectId,
-    selectedCurrencyCode: "PLN",
-    selectedCurrencySymbol: "zł",
+    selectedCurrencyCode: currencyCode,
+    selectedCurrencySymbol: currencySymbol,
     referenceDate: now,
     generatedAt: now,
     financialSummary: {
-      totalBudgetNet,
-      totalBudgetGross,
+      totalBudgetNet: totalBudgetNet + (reserve.net ?? 0),
+      totalBudgetGross: totalBudgetGross + (reserve.gross ?? 0),
       estimateBudgetNet: totalBudgetNet,
       estimateBudgetGross: totalBudgetGross,
-      projectReserveBudgetNet: null,
-      projectReserveBudgetGross: null,
+      projectReserveBudgetNet: reserve.net,
+      projectReserveBudgetGross: reserve.gross,
       totalCostsNet,
       totalCostsGross,
       linkedCostsNet,
@@ -1537,13 +1905,13 @@ export function getDashboard(projectId: string): object {
       deviationPercent: Math.abs(coveredPercent),
       coveredPercent,
       isBudgetExceeded: totalCostsNet > totalBudgetNet,
-      financialStatus: totalCostsNet > 0 ? 2 : 1,
+      financialStatus: computeFinancialStatus(totalBudgetNet, totalCostsNet, allCosts.length),
       totalCostCount: allCosts.length,
       linkedCostCount: linkedCosts.length,
       additionalCostCount: additionalCosts.length,
       costEstimatesCount: projectEstimates.length,
-      costEstimatesWithCostsCount: costEstimateSummaries.filter(s => s.costCount > 0).length,
-      costEstimatesOverBudgetCount: 0,
+      costEstimatesWithCostsCount: costEstimateSummaries.filter((s) => s.costCount > 0).length,
+      costEstimatesOverBudgetCount: costEstimateSummaries.filter((s) => s.isBudgetExceeded).length,
       workSchedulesCount: projectSchedules.length,
       scheduleCostSummary: {
         totalSchedulesCostsNet,
@@ -1553,20 +1921,20 @@ export function getDashboard(projectId: string): object {
       },
     },
     timelineSummary: {
-      earliestStart: globalEarliest,
-      latestEnd: globalLatest,
-      totalPlannedDays: globalPlannedDays,
-      totalWorkCount: globalTotalWorks,
-      completedCount: globalCompleted,
+      earliestStart: globalStats.earliestStart,
+      latestEnd: globalStats.latestEnd,
+      totalPlannedDays: globalStats.totalPlannedDays,
+      totalWorkCount: allProjectWorks.length,
+      completedCount: globalStats.completedCount,
       completedLateCount: 0,
-      inProgressCount: globalInProgress,
-      notStartedCount: globalNotStarted,
-      delayedCount: 0,
-      progressPercent: globalProgressPercent,
+      inProgressCount: globalStats.inProgressCount,
+      notStartedCount: globalStats.notStartedCount,
+      delayedCount: globalStats.delayedCount,
+      progressPercent: globalStats.progressPercent,
       delayDays: null,
-      overallStatus: globalCompleted === globalTotalWorks ? 4 : (globalInProgress > 0 ? 2 : 1),
-      isDelayed: false,
-      isCompleted: globalCompleted === globalTotalWorks,
+      overallStatus: globalStats.overallStatus,
+      isDelayed: globalStats.isDelayed,
+      isCompleted: globalStats.isCompleted,
       workSchedulesCount: projectSchedules.length,
       activeSchedulesCount: projectSchedules.length,
       completedSchedulesCount: 0,
@@ -1574,11 +1942,13 @@ export function getDashboard(projectId: string): object {
     costEstimateSummaries,
     scheduleSummaries,
     projectAdditionalCosts: {
-      totalAdditionalNet: additionalCostsNet,
-      totalAdditionalGross: additionalCostsGross,
-      additionalCostsCount: additionalCosts.length,
+      totalNet: additionalCostsNet,
+      totalGross: additionalCostsGross,
+      costsCount: additionalCosts.length,
+      costs: additionalCosts,
     },
     allCosts,
+    costByCategory,
   };
 }
 
