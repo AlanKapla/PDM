@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Mail, Globe, Phone, Building, Receipt } from 'lucide-react'
+import { Mail, Globe, Phone, Building, Receipt, Facebook, Instagram } from 'lucide-react'
 import { useScrollTo } from '../hooks/useScrollTo'
 import LegalModal from './LegalModal'
 import './Footer.css'
@@ -19,6 +19,19 @@ const FOOTER_LINKS = {
     { label: 'Wiadomości', href: '#modules' },
   ],
 }
+
+const SOCIAL_LINKS = [
+  {
+    label: 'Facebook',
+    href: 'https://www.facebook.com/brickly.pro',
+    icon: Facebook,
+  },
+  {
+    label: 'Instagram',
+    href: 'https://www.instagram.com/brickly.pro',
+    icon: Instagram,
+  },
+]
 
 export default function Footer() {
   const scrollTo = useScrollTo()
@@ -115,6 +128,21 @@ export default function Footer() {
             >
               Regulamin
             </button>
+          </div>
+          <div className="footer__social" aria-label="Media społecznościowe">
+            {SOCIAL_LINKS.map(social => (
+              <a
+                key={social.label}
+                href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer__social-link"
+                aria-label={`Brickly na ${social.label}`}
+              >
+                <social.icon size={18} aria-hidden="true" />
+                <span>{social.label}</span>
+              </a>
+            ))}
           </div>
           <span className="footer__made">Produkt polski 🇵🇱</span>
         </div>
