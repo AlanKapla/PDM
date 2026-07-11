@@ -87,15 +87,13 @@ namespace WebApi.Tests.Controllers
         {
             Guid tenantId = Guid.NewGuid();
             Guid projectId = Guid.NewGuid();
-            UpdateProjectCommand command = new UpdateProjectCommand
+            UpdateProjectWeb body = new UpdateProjectWeb
             {
-                TenantId = Guid.Empty,
-                ProjectId = Guid.Empty,
                 Name = "Updated"
             };
             SetupMediatorReturns<UpdateProjectCommand, ProjectDetailsWeb>(WebModelFactory.Project(projectId));
 
-            IActionResult result = await sut.UpdateProject(tenantId, projectId, command);
+            IActionResult result = await sut.UpdateProject(tenantId, projectId, body);
 
             result.Should().BeOfType<OkObjectResult>();
             VerifyMediatorCalledOnce<UpdateProjectCommand>(c =>

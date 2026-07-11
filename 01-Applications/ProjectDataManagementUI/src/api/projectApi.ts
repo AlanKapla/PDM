@@ -308,7 +308,7 @@ export const projectApi = {
   },
 
   // Aktualizuj projekt (nazwa)
-  updateProject: async (tenantId: string, projectId: string, data: { Name: string }) => {
+  updateProject: async (tenantId: string, projectId: string, data: { name: string }) => {
     return axiosClient.put(`/tenants/${tenantId}/projects/${projectId}`, data);
   },
 

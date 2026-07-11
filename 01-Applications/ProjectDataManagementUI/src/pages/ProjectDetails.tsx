@@ -528,7 +528,7 @@ export default function ProjectDetails() {
 
     setUpdatingName(true);
     try {
-      await projectApi.updateProject(user.activeTenantId, projectId, { Name: editedName });
+      await projectApi.updateProject(user.activeTenantId, projectId, { name: editedName });
 
       showApiSuccess('nameUpdated');
 

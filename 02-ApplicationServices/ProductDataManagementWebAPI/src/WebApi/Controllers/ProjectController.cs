@@ -78,10 +78,15 @@ namespace WebApi.Controllers
         public async Task<IActionResult> UpdateProject(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
-            [FromBody] UpdateProjectCommand command)
+            [FromBody] UpdateProjectWeb body)
         {
-            command = command with { TenantId = tenantId, ProjectId = projectId };
-            var result = await Send(command);
+            UpdateProjectCommand command = new UpdateProjectCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                Name = body.Name
+            };
+            ProjectDetailsWeb result = await Send(command);
             return Ok(result);
         }
 
