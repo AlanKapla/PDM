@@ -5,7 +5,7 @@
 //   aby natychmiast pokazać dane z nowego źródła
 // ============================================
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { isDemoModeActive, setDemoMode as setStorage } from "../api/mock";
 import { useAuth } from "./AuthContext";
@@ -42,17 +42,6 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     // w zależności od trybu (mock vs rzeczywiste), w tym activeTenantId.
     refreshUser();
   }, [isDemoMode, queryClient, refreshUser]);
-
-  // Sync z sessionStorage (na wypadek zmiany w innej karcie)
-  useEffect(() => {
-    const onStorage = () => {
-      const newValue = isDemoModeActive();
-      setIsDemoMode(newValue);
-      queryClient.resetQueries();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [queryClient]);
 
   return (
     <DemoContext.Provider value={{ isDemoMode, toggleDemoMode }}>

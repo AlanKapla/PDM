@@ -9,11 +9,15 @@ export const projectInvitationKeys = {
     ['projectInvitations', tenantId, projectId] as const,
 };
 
-export function useActiveProjectInvitations(options?: { refetchInterval?: number }) {
+export function useActiveProjectInvitations(options?: {
+  refetchInterval?: number;
+  refetchIntervalInBackground?: boolean;
+}) {
   return useQuery<ProjectInvitationWeb[]>({
     queryKey: projectInvitationKeys.active(),
     queryFn: () => projectApi.getActiveProjectInvitations(),
     refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: options?.refetchIntervalInBackground ?? false,
   });
 }
 

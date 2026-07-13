@@ -37,9 +37,11 @@ export function SidebarContent() {
   const { totalUnread } = useContext(ChatUnreadContext);
   const { data: invitations = [] } = useActiveInvitations({
     refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   });
   const { data: projectInvitations = [] } = useActiveProjectInvitations({
     refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   });
   const invitationsCount =
     invitations.filter((inv) => inv.status === InvitationStatus.Pending).length +
