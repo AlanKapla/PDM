@@ -25,11 +25,10 @@ import {
 import { FolderKanban, User, Calendar, Plus, Building2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
-import { handleApiError } from "../utils/handleApiError";
+import { getApiErrorMessage } from "../utils/apiErrorUtils";
 import { projectApi } from "../api/projectApi";
 import type { ProjectDetailsWeb } from "../types/project.types";
 import type { UserTenant } from "../types/auth.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { useTenantPermissions } from "../hooks/useTenantPermissions";
 import { useAuth as useAuthContext } from "../context/AuthContext";
@@ -38,6 +37,7 @@ import { LoadingSpinner, EmptyState, ErrorAlert } from "../components/common";
 import { changeActiveTenant } from "../services/tenantService";
 import { useProjects, useMyTenants, projectKeys } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatDate } from "../utils/formatters";
 
 export default function Projects() {
   const location = useLocation();
@@ -65,16 +65,14 @@ export default function Projects() {
     isLoading: tenantsLoading,
   } = useMyTenants();
 
-  const error = projectsError
-    ? "Nie udało się pobrać projektów"
-    : null;
+  const error = projectsError ? getApiErrorMessage(projectsError) : null;
 
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
   const [switching, setSwitching] = useState(false);
   
   const createModal = useModal();
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const {showSuccess, showError, showApiSuccess, showApiError } = useToastNotification();
   const permissions = useTenantPermissions();
 
   const handleTenantSwitch = async (newTenantId: string) => {
@@ -86,22 +84,17 @@ export default function Projects() {
       await refreshUser();
       showApiSuccess('tenantSwitched');
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
     } finally {
       setSwitching(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pl-PL", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
   const handleCreateProject = async () => {
+    if (!permissions.canCreateProject) {
+      return;
+    }
+
     if (!newProjectName.trim()) {
       showError("Sprawdź formularz", "Nazwa projektu jest wymagana");
       return;
@@ -125,8 +118,7 @@ export default function Projects() {
         queryKey: projectKeys.list(activeTenantId!)
       });
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setCreating(false);
     }
@@ -222,8 +214,8 @@ export default function Projects() {
         ) : projects.length === 0 ? (
           <EmptyState 
             icon={FolderKanban}
-            title={permissions.canCreateProject ? "Nie masz jeszcze żadnych projektów" : "Brak projektów w tej organizacji"}
-            description={permissions.canCreateProject ? "Stwórz swój pierwszy projekt, aby zacząć pracę" : undefined}
+            title={permissions.canCreateProject ? "Nie masz jeszcze żadnych projektów" : "Nie zostałeś dodany do żadnego projektu"}
+            description={permissions.canCreateProject ? "Stwórz swój pierwszy projekt, aby zacząć pracę" : "Poczekaj na zaproszenie od administratora organizacji lub projektu."}
             action={
               permissions.canCreateProject && activeTenantId && (
                 <Button leftIcon={<Icon as={Plus} />} colorScheme="primary" onClick={createModal.onOpen}>
@@ -259,11 +251,8 @@ export default function Projects() {
                           <Text fontWeight="bold" fontSize={{ base: "sm", md: "lg" }} noOfLines={1}>
                             {project.name}
                           </Text>
-                          <Badge colorScheme={project.isActive ? "green" : "gray"} fontSize={{ base: "xs", md: "xs" }}>
-                            {project.isActive ? "Aktywny" : "Nieaktywny"}
-                          </Badge>
-                          <Badge colorScheme={getRoleColor(project.userRoleCode)} fontSize={{ base: "xs", md: "xs" }}>
-                            {getRoleName(project.userRoleCode)}
+                          <Badge colorScheme={project.isAdmin ? "purple" : "blue"} fontSize={{ base: "xs", md: "xs" }}>
+                            {project.isAdmin ? "Admin" : "Cz\u0142onek"}
                           </Badge>
                         </HStack>
                           <HStack spacing={{ base: 2, md: 4 }} fontSize={{ base: "xs", md: "sm" }} color="neutral.600" flexWrap="wrap">
@@ -273,7 +262,7 @@ export default function Projects() {
                           </HStack>
                           <HStack spacing={1}>
                             <Icon as={Calendar} boxSize={3} />
-                            <Text noOfLines={1}>{formatDate(project.createdAt)}</Text>
+                            <Text noOfLines={1}>{formatDate(project.createdAt, false)}</Text>
                           </HStack>
                           <Text noOfLines={1}>
                             Członków: {project.membersCount}
@@ -289,7 +278,8 @@ export default function Projects() {
         )}
       </Box>
 
-      {/* Modal tworzenia projektu */}
+      {/* Modal tworzenia projektu — tylko dla admina tenanta */}
+      {permissions.canCreateProject && (
       <Modal isOpen={createModal.isOpen} onClose={createModal.onClose} size={{ base: "full", md: "md" }}>
         <ModalOverlay />
         <ModalContent mx={{ base: 0, md: "auto" }}>
@@ -326,6 +316,7 @@ export default function Projects() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+      )}
     </MainLayout>
   );
 }

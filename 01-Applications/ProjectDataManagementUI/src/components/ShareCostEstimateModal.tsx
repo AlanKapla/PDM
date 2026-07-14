@@ -56,7 +56,7 @@ export default function ShareCostEstimateModal({
   currentSharedUsers,
   onShareUpdated,
 }: ShareCostEstimateModalProps) {
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const {showSuccess, showError, showWarning, showInfo, toast, showApiError } = useToastNotification();
 
   const [members, setMembers] = useState<ProjectMemberWeb[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -111,8 +111,7 @@ export default function ShareCostEstimateModal({
       onShareUpdated();
       onClose();
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      showError(title, description);
+      showApiError(err);
     } finally {
       setSaving(false);
     }

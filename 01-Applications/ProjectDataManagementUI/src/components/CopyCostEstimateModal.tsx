@@ -42,7 +42,7 @@ export default function CopyCostEstimateModal({
   onSuccess,
 }: CopyCostEstimateModalProps) {
   const { user } = useContext(AuthContext);
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const {showSuccess, showError, showApiSuccess, showApiError } = useToastNotification();
 
   const [projects, setProjects] = useState<Record<string, string>>({});
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -72,8 +72,7 @@ export default function CopyCostEstimateModal({
       
       setProjects(filteredProjects);
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setLoading(false);
     }
@@ -96,8 +95,7 @@ export default function CopyCostEstimateModal({
       onSuccess?.();
       handleClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setCopying(false);
     }

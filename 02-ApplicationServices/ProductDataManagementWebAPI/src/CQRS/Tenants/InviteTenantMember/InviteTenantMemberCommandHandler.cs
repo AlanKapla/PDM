@@ -12,12 +12,15 @@ using Business.Interfaces.Configurations;
 using Business.Interfaces.DTO;
 using DtoNotificationType = Business.Interfaces.DTO.NotificationType;
 using Business.Interfaces.Model;
+using Microsoft.EntityFrameworkCore;
 
 namespace CQRS.Tenants.InviteTenantMember
 {
     public sealed class InviteTenantMemberCommandHandler : IRequestHandler<InviteTenantMemberCommand, Unit>
     {
         private readonly IRepository<TenantInvitation> invitationRepo;
+        private readonly IRepository<TenantInvitationModulePermission> modulePermissionRepo;
+        private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly ICurrentUser currentUser;
@@ -29,6 +32,8 @@ namespace CQRS.Tenants.InviteTenantMember
 
         public InviteTenantMemberCommandHandler(
             IRepository<TenantInvitation> invitationRepo,
+            IRepository<TenantInvitationModulePermission> modulePermissionRepo,
+            IRepository<TenantMember> tenantMemberRepo,
             IReadRepository<User> userRepo,
             IReadRepository<Tenant> tenantRepo,
             ICurrentUser currentUser,
@@ -39,6 +44,8 @@ namespace CQRS.Tenants.InviteTenantMember
             IReadRepository<Notification> notificationRepo)
         {
             this.invitationRepo = invitationRepo;
+            this.modulePermissionRepo = modulePermissionRepo;
+            this.tenantMemberRepo = tenantMemberRepo;
             this.userRepo = userRepo;
             this.tenantRepo = tenantRepo;
             this.currentUser = currentUser;
@@ -56,73 +63,176 @@ namespace CQRS.Tenants.InviteTenantMember
 
             string normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
+            TenantInvitation? existingInvitation = await invitationRepo.GetFirstBySearch(
+                i => i.TenantId == request.TenantId
+                     && i.Email == normalizedEmail
+                     && i.IsActive
+                     && i.Status == InvitationStatus.Pending
+                     && i.ExpiresAt > DateTime.UtcNow,
+                q => q.Include(x => x.ModulePermissions));
+
             User? existingUser = await userRepo.GetFirstBySearch(u => u.Email == normalizedEmail && u.IsActive);
+
+            if (existingUser is not null)
+            {
+                bool alreadyMember = await tenantMemberRepo.AnyAsync(
+                    m => m.TenantId == request.TenantId
+                         && m.UserId == existingUser.Id
+                         && m.IsActive,
+                    cancellationToken);
+
+                if (alreadyMember)
+                {
+                    throw new ConflictApiException(
+                        nameof(TenantMember),
+                        normalizedEmail,
+                        "Użytkownik jest już aktywnym członkiem tej organizacji.");
+                }
+            }
+
+            string tenantName = tenant.Name;
+
+            if (existingInvitation is not null)
+            {
+                await InvitationHelper.ClearProjectScopeAsync(
+                    existingInvitation,
+                    modulePermissionRepo,
+                    cancellationToken);
+
+                await InvitationHelper.ExtendPendingInvitationAsync(
+                    invitationRepo,
+                    existingInvitation,
+                    cancellationToken);
+
+                await SendInvitationEmailAsync(
+                    normalizedEmail,
+                    tenantName,
+                    existingUser is not null,
+                    existingInvitation.Token,
+                    cancellationToken);
+
+                if (existingUser is not null)
+                {
+                    await SendInAppNotificationAsync(
+                        existingUser,
+                        request.TenantId,
+                        tenantName,
+                        existingInvitation.Id,
+                        cancellationToken);
+                }
+
+                return Unit.Value;
+            }
 
             string token = tokenGenerator.GenerateToken();
             TenantInvitation invitation = new TenantInvitation
             {
                 Id = Guid.NewGuid(),
                 TenantId = request.TenantId,
+                ProjectId = null,
                 Email = normalizedEmail,
                 Token = token,
                 CreatedAt = DateTime.UtcNow,
                 InvitedByUserId = currentUser.Id,
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                ExpiresAt = InvitationHelper.NewExpiryUtc(),
                 IsActive = true,
-                Status = InvitationStatus.Pending
+                Status = InvitationStatus.Pending,
+                IsAdmin = false
             };
 
             await invitationRepo.Insert(invitation);
 
-            string tenantName = tenant.Name;
+            await SendInvitationEmailAsync(
+                normalizedEmail,
+                tenantName,
+                existingUser is not null,
+                token,
+                cancellationToken);
 
-            if (existingUser is null)
+            if (existingUser is not null)
             {
-                string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
-                string path = frontendSettings.Value.HomePath.TrimStart('/');
-                string acceptUrl = $"{baseUrl}/{path}";
-
-                string htmlBody = EmailTemplateLoader.Load("tenant-invitation.html", new Dictionary<string, string>
-                {
-                    { "tenantName", tenantName },
-                    { "acceptUrl", acceptUrl }
-                });
-
-                await emailSender.SendEmailAsync(new EmailMessageDto
-                {
-                    To = normalizedEmail,
-                    Subject = $"Zaproszenie do {tenantName}",
-                    TextBody = $"Zostałeś zaproszony do {tenantName}. Aby zaakceptować zaproszenie, utwórz konto klikając w link: {acceptUrl}",
-                    HtmlBody = htmlBody
-                }, cancellationToken);
-            }
-            else
-            {
-                NotificationDto notification = new NotificationDto
-                {
-                    Id = Guid.NewGuid(),
-                    TenantId = request.TenantId,
-                    ProjectId = null,
-                    UserId = existingUser.Id,
-                    AzureAdB2CObjectId = existingUser.AzureAdB2CObjectId,
-                    Type = DtoNotificationType.Info,
-                    Title = "Zaproszenie do organizacji",
-                    Message = $"Zostałeś zaproszony do {tenantName}",
-                    CreatedAt = DateTime.UtcNow,
-                    IsRead = false,
-                    Metadata = new Dictionary<string, object?>
-                    {
-                        { "invitationId", invitation.Id },
-                        { "tenantId", request.TenantId },
-                        { "tenantName", tenantName }
-                    }
-                };
-                
-                NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(notification, notificationRepo, cancellationToken);
-                await notificationSender.EnqueueAsync(payload, cancellationToken);
+                await SendInAppNotificationAsync(
+                    existingUser,
+                    request.TenantId,
+                    tenantName,
+                    invitation.Id,
+                    cancellationToken);
             }
 
             return Unit.Value;
+        }
+
+        private async Task SendInvitationEmailAsync(
+            string email,
+            string tenantName,
+            bool userExistsInSystem,
+            string token,
+            CancellationToken cancellationToken)
+        {
+            string baseUrl = frontendSettings.Value.BaseUrl.TrimEnd('/');
+            string acceptUrl = userExistsInSystem
+                ? $"{baseUrl}/invitations/accept?token={Uri.EscapeDataString(token)}&type=tenant"
+                : $"{baseUrl}/{frontendSettings.Value.HomePath.TrimStart('/')}";
+
+            string bodyText = userExistsInSystem
+                ? $"Zostałeś zaproszony do organizacji <strong style=\"color:#1a1a1a;\">{tenantName}</strong> na platformie Brickly. Zaloguj się i zaakceptuj zaproszenie w aplikacji."
+                : $"Zostałeś zaproszony do organizacji <strong style=\"color:#1a1a1a;\">{tenantName}</strong> na platformie Brickly. Utwórz konto, aby uzyskać dostęp i zacząć współpracę z zespołem.";
+
+            string ctaLabel = userExistsInSystem ? "Zobacz zaproszenie" : "Utwórz konto i dołącz";
+
+            string textBody = userExistsInSystem
+                ? $"Zostałeś zaproszony do {tenantName}. Zaloguj się i zaakceptuj zaproszenie: {acceptUrl}"
+                : $"Zostałeś zaproszony do {tenantName}. Aby zaakceptować zaproszenie, utwórz konto klikając w link: {acceptUrl}";
+
+            string htmlBody = EmailTemplateLoader.Load("tenant-invitation.html", new Dictionary<string, string>
+            {
+                { "tenantName", tenantName },
+                { "acceptUrl", acceptUrl },
+                { "bodyText", bodyText },
+                { "ctaLabel", ctaLabel }
+            });
+
+            await emailSender.SendEmailAsync(new EmailMessageDto
+            {
+                To = email,
+                Subject = $"Zaproszenie do {tenantName}",
+                TextBody = textBody,
+                HtmlBody = htmlBody
+            }, cancellationToken);
+        }
+
+        private async Task SendInAppNotificationAsync(
+            User existingUser,
+            Guid tenantId,
+            string tenantName,
+            Guid invitationId,
+            CancellationToken cancellationToken)
+        {
+            NotificationDto notification = new NotificationDto
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                ProjectId = null,
+                UserId = existingUser.Id,
+                AzureAdB2CObjectId = existingUser.AzureAdB2CObjectId,
+                Type = DtoNotificationType.Info,
+                Title = "Zaproszenie do organizacji",
+                Message = $"Zostałeś zaproszony do {tenantName}",
+                CreatedAt = DateTime.UtcNow,
+                IsRead = false,
+                Metadata = new Dictionary<string, object?>
+                {
+                    { "invitationId", invitationId },
+                    { "tenantId", tenantId },
+                    { "tenantName", tenantName }
+                }
+            };
+
+            NotificationPayloadDto payload = await NotificationPayloadHelper.CreatePayloadAsync(
+                notification,
+                notificationRepo,
+                cancellationToken);
+            await notificationSender.EnqueueAsync(payload, cancellationToken);
         }
     }
 }

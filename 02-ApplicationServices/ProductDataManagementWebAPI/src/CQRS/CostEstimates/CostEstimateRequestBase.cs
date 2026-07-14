@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 
 namespace CQRS.CostEstimates
 {

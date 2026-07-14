@@ -1,7 +1,7 @@
 ﻿using Azure.Identity;
+using Business.AIAgent.Registration;
 using Business.Implementation.Model;
 using Business.Implementation.Services;
-using Business.Implementation.Validators;
 using Business.Interfaces.Configuration;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
@@ -15,13 +15,12 @@ using Entities.Context;
 using Entities.Models;
 using Entities.Models.Base;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using Entities.Models.Costs;
 using Entities.Models.CostTrackers;
+using Entities.Models.AI;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -39,6 +38,7 @@ using Repositories.Repository.Interfaces;
 using Repositories.Repository.Repositories;
 using WebApi.Authorization;
 using WebApi.Services;
+using Business.Implementation.Services.AI;
 
 namespace WebApi.Extensions
 {
@@ -58,7 +58,8 @@ namespace WebApi.Extensions
                 .AddAppServices()
                 .AddConfigurations(config)
                 .AddFrontendCors(config)
-                .AddChat(config);
+                .AddChat(config)
+                .AddAIAgent(config);
 
             return services;
         }
@@ -286,14 +287,18 @@ namespace WebApi.Extensions
                 .AddRepository<PermissionsVersionProfile>()
                 .AddWriteRepository<TenantMember>()
                 .AddRepository<TenantInvitation>()
+                .AddWriteRepository<TenantInvitationModulePermission>()
                 .AddReadOnlyRepository<UserSession>()
                 .AddRepository<Contractor>();
 
             services
                 .AddRepository<Project>()
                 .AddWriteRepository<ProjectMember>()
+                .AddWriteRepository<ProjectMemberModulePermission>()
                 .AddRepository<ProjectParams>()
-                .AddRepository<ProjectCurrency>();
+                .AddRepository<ProjectCurrency>()
+                .AddRepository<ProjectUnit>()
+                .AddRepository<ProjectCostCategory>();
 
             services
                 .AddRepository<Notification>();
@@ -315,35 +320,26 @@ namespace WebApi.Extensions
                 .AddWriteRepository<WorkScheduleStageWorkDependency>();
 
             services
-                .AddRepository<ProjectCost>()
-                .AddRepository<SharedProjectCost>();
-
-            services
-                .AddRepository<CostEstimateTemplate>()
-                .AddWriteRepository<CostEstimateTemplateUnit>()
-                .AddWriteRepository<CostEstimateTemplateCategory>()
-                .AddWriteRepository<CostEstimateTemplateGroupFieldDefinition>()
-                .AddWriteRepository<CostEstimateTemplateItemSystemFieldDefinition>()
-                .AddWriteRepository<CostEstimateTemplateItemCalculatedFieldDefinition>()
-                .AddWriteRepository<CostEstimateTemplateItemGenericFieldDefinition>();
+                .AddRepository<ProjectCost>();
 
             services
                 .AddRepository<CostEstimate>()
                 .AddRepository<SharedCostEstimate>()
                 .AddRepository<CostEstimateGroup>()
-                .AddRepository<CostEstimateGroupFieldValue>()
                 .AddRepository<CostEstimateItem>()
-                .AddRepository<CostEstimateItemFieldValue>()
-                .AddWriteRepository<CostEstimateFieldFile>();
+                .AddRepository<CostEstimateFieldSchema>()
+                .AddRepository<CostEstimateAdditionalFieldValue>()
+                .AddRepository<CostEstimateItemFile>();
 
             services
                 .AddRepository<TrackedCost>()
+                .AddRepository<BaseCost>()
                 .AddRepository<BaseCostAttachment>();
 
             services
-                .AddRepository<Role>()
-                .AddRepository<Permission>()
-                .AddWriteRepository<RolePermission>();
+                .AddRepository<AICostImportBatch>()
+                .AddRepository<AICostImportItem>();
+
 
             return services;
         }
@@ -378,7 +374,7 @@ namespace WebApi.Extensions
 
             services.AddScoped<IMicrosoftGraphService, MicrosoftGraphService>();
             services.AddScoped<ICostEstimateCalculationService, CostEstimateCalculationService>();
-            services.AddScoped<ICostEstimateTemplateService, CostEstimateTemplateService>();
+            services.AddScoped<ICostEstimateRecalculationService, CostEstimateRecalculationService>();
             services.AddScoped<ICostEstimateCacheService, CostEstimateCacheService>();
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<IProjectCostAccessService, ProjectCostAccessService>();
@@ -392,10 +388,10 @@ namespace WebApi.Extensions
             services.AddScoped<IWorkScheduleCacheService, WorkScheduleCacheService>();
             services.AddScoped<IWorkScheduleAccessService, WorkScheduleAccessService>();
             services.AddScoped<WorkScheduleBuilder>();
+            services.AddScoped<IWorkScheduleAIGeneratorService, WorkScheduleAIGeneratorService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
-            services.AddScoped<CostEstimateGroupValidator>();
-            services.AddScoped<CostEstimateItemValidator>();
+            services.AddScoped<IProjectMembershipProvisioner, ProjectMembershipProvisioner>();
             services.AddSingleton<ICacheService, CacheService>();
             services.AddScoped<IProjectFilesService, ProjectFilesService>();
             services.AddScoped<IFileAccessGuard, FileAccessGuard>();
@@ -408,7 +404,16 @@ namespace WebApi.Extensions
             services.AddScoped<IProjectDashboardAssembler, ProjectDashboardAssembler>();
 
             services.AddHostedService<StartupSeederService>();
-            services.AddHostedService<RolePermissionSeederService>();
+
+            services.AddScoped<IDocumentParserService, DocumentParserService>();
+            services.AddScoped<ICostEstimateAIGeneratorService, CostEstimateAIGeneratorService>();
+
+            services.AddScoped<IAICostDocumentEnrichmentService, Business.Implementation.Services.AI.AICostDocumentEnrichmentService>();
+            services.AddScoped<IAICostImportBlobService, Business.Implementation.Services.AI.AICostImportBlobService>();
+            services.AddScoped<IAICostDuplicateDetectionService, Business.Implementation.Services.AI.AICostDuplicateDetectionService>();
+            services.AddScoped<IAICostImportNotificationService, Business.Implementation.Services.AI.AICostImportNotificationService>();
+            services.AddHostedService<Business.Implementation.Services.AI.AICostImportWorker>();
+            services.AddHostedService<Business.Implementation.Services.AI.AICostImportRetentionCleanupService>();
 
             return services;
         }
@@ -446,6 +451,7 @@ namespace WebApi.Extensions
             services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
             services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
             services.Configure<RedisSettings>(config.GetSection(RedisSettings.SectionName));
+            services.Configure<AICostImportOptions>(config.GetSection(AICostImportOptions.SectionName));
             return services;
         }
 

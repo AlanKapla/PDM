@@ -1,7 +1,12 @@
 import { useProjectPermissions } from "./useProjectPermissions";
 
+export type ResourceModule = "files" | "estimates" | "costs" | "schedule";
+
 /**
  * Centralna logika uprawnień dla zasobów projektu (pliki, koszty, harmonogramy, kosztorysy)
+ * 
+ * @param module - Moduł projektu: "files" | "estimates" | "costs" | "schedule"
+ *                 Domyślnie "files" dla zachowania kompatybilności wstecznej.
  * 
  * ZASADY UPRAWNIEŃ:
  * 
@@ -24,6 +29,7 @@ export interface ResourcePermissions {
     showAll: boolean;
     showMine: boolean;
     showShared: boolean;
+    showPendingApproval: boolean;
   };
   mine: {
     canCreate: boolean;
@@ -47,65 +53,75 @@ export interface ResourcePermissions {
   raw: any;
 }
 
-export const useResourcePermissions = (projectId: string | undefined): ResourcePermissions => {
+export const useResourcePermissions = (projectId: string | undefined, module: ResourceModule = "files"): ResourcePermissions => {
   const permissions = useProjectPermissions(projectId);
+
+  const canView =
+    module === "files" ? permissions.canViewFiles :
+    module === "estimates" ? permissions.canViewEstimates :
+    module === "costs" ? permissions.canViewCosts :
+    module === "schedule" ? permissions.canViewSchedule :
+    permissions.canViewFiles;
 
   return {
     // ==================== ZAKŁADKI ====================
     tabs: {
-      /** Zakładka "Wszystkie" - widoczna gdy user ma READ_ALL */
-      showAll: permissions.canReadAllResources,
+      /** Zakładka "Wszystkie" - widoczna tylko dla admina projektu, TenantAdmin i SuperAdmin */
+      showAll: permissions.canViewAllResources,
       
-      /** Zakładka "Moje" - widoczna gdy user ma READ */
-      showMine: permissions.canReadResources,
+      /** Zakładka "Moje" - widoczna gdy user ma dostęp do modułu */
+      showMine: canView,
       
-      /** Zakładka "Udostępnione" - widoczna gdy user ma READ_SHARED */
-      showShared: permissions.canReadSharedResources,
+      /** Zakładka "Udostępnione" - widoczna gdy user ma dostęp do modułu */
+      showShared: canView,
+
+      /** Zakładka "Do akceptacji" - widoczna tylko dla adminów projektu */
+      showPendingApproval: permissions.canViewAllResources,
     },
 
     // ==================== AKCJE W "MOJE" ====================
     mine: {
-      /** Czy user może dodawać nowe zasoby w zakładce "Moje" - wymaga WRITE */
-      canCreate: permissions.canWriteResources,
+      /** Czy user może dodawać nowe zasoby w zakładce "Moje" */
+      canCreate: canView,
       
-      /** Czy user może edytować zasoby w zakładce "Moje" - wymaga WRITE */
-      canEdit: permissions.canWriteResources,
+      /** Czy user może edytować zasoby w zakładce "Moje" */
+      canEdit: canView,
       
-      /** Czy user może usuwać zasoby w zakładce "Moje" - wymaga WRITE */
-      canDelete: permissions.canWriteResources,
+      /** Czy user może usuwać zasoby w zakładce "Moje" */
+      canDelete: canView,
       
-      /** Czy user może udostępniać zasoby (grupowo i pojedynczo) - wymaga SHARE */
-      canShare: permissions.canShareResources,
+      /** Czy user może udostępniać zasoby */
+      canShare: canView,
       
-      /** Czy user może zarządzać udostępnieniem (pojedynczy zasób) - wymaga SHARE */
-      canManageShare: permissions.canShareResources,
+      /** Czy user może zarządzać udostępnieniem */
+      canManageShare: canView,
     },
 
     // ==================== AKCJE W "WSZYSTKIE" ====================
     all: {
-      /** Czy user może dodawać nowe zasoby w zakładce "Wszystkie" - wymaga WRITE_ALL */
-      canCreate: permissions.canWriteAllResources,
+      /** Czy user może dodawać nowe zasoby w zakładce "Wszystkie" */
+      canCreate: permissions.canViewAllResources,
       
-      /** Czy user może edytować zasoby w zakładce "Wszystkie" - wymaga WRITE_ALL */
-      canEdit: permissions.canWriteAllResources,
+      /** Czy user może edytować zasoby w zakładce "Wszystkie" */
+      canEdit: permissions.canViewAllResources,
       
-      /** Czy user może usuwać zasoby w zakładce "Wszystkie" - wymaga WRITE_ALL */
-      canDelete: permissions.canWriteAllResources,
+      /** Czy user może usuwać zasoby w zakładce "Wszystkie" */
+      canDelete: permissions.canViewAllResources,
       
-      /** Czy user może udostępniać zasoby w zakładce "Wszystkie" - wymaga SHARE */
-      canShare: permissions.canShareResources,
+      /** Czy user może udostępniać zasoby w zakładce "Wszystkie" */
+      canShare: permissions.canViewAllResources,
       
-      /** Czy user może zarządzać udostępnieniem w zakładce "Wszystkie" - wymaga SHARE */
-      canManageShare: permissions.canShareResources,
+      /** Czy user może zarządzać udostępnieniem w zakładce "Wszystkie" */
+      canManageShare: permissions.canViewAllResources,
     },
 
     // ==================== AKCJE W "UDOSTĘPNIONE" ====================
     shared: {
-      /** Czy user może edytować udostępnione zasoby - wymaga WRITE_SHARED */
-      canEdit: permissions.canWriteSharedResources,
+      /** Czy user może edytować udostępnione zasoby */
+      canEdit: canView,
       
       /** Czy user może tylko czytać udostępnione zasoby */
-      canReadOnly: permissions.canReadSharedResources && !permissions.canWriteSharedResources,
+      canReadOnly: canView,
     },
 
     // ==================== OGÓLNE ====================

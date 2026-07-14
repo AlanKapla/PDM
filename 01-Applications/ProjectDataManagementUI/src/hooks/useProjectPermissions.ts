@@ -18,61 +18,59 @@ export function useProjectPermissions(projectId: string | undefined) {
   );
 
   const permissions = projectDetails?.userPermissions ?? [];
-  const roleCode = projectDetails?.userRoleCode;
+  const isAdmin = projectDetails?.isAdmin ?? false;
+  const canViewAllResources = projectDetails?.canViewAllResources ?? false;
   const loading = isLoading;
 
   if (!projectId || !user || loading) {
     return {
       canView: false,
       canEdit: false,
-      canViewMembers: false,
-      canManageMembers: false,
       canManageStatus: false,
-      canReadResources: false,
-      canWriteResources: false,
-      canReadSharedResources: false,
-      canWriteSharedResources: false,
-      canReadAllResources: false,
-      canWriteAllResources: false,
-      canShareResources: false,
+      canDashboardTracker: false,
+      canViewFiles: false,
+      canViewEstimates: false,
+      canViewCosts: false,
+      canViewSchedule: false,
       hasAnyResourceAccess: false,
-      canReadMessages: false,
-      canWriteMessages: false,
-      canDeleteMessages: false,
-      canListRoles: false,
-      roleCode: undefined,
+      isAdmin: false,
+      canViewAllResources: false,
       allPermissions: [],
       loading,
     };
   }
 
-  const hasAnyResourceAccess =
-    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ) ||
-    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE) ||
-    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_SHARED) ||
-    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_SHARED) ||
-    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_ALL) ||
-    hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_ALL);
-
   return {
-    canView: hasPermission(permissions, PermissionCodes.PROJECT_VIEW),
-    canEdit: hasPermission(permissions, PermissionCodes.PROJECT_EDIT),
-    canViewMembers: hasPermission(permissions, PermissionCodes.PROJECT_MEMBERS_VIEW),
-    canManageMembers: hasPermission(permissions, PermissionCodes.PROJECT_MEMBERS_MANAGE),
-    canManageStatus: hasPermission(permissions, PermissionCodes.PROJECT_STATUS_MANAGE),
-    canReadResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ),
-    canWriteResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE),
-    canReadSharedResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_SHARED),
-    canWriteSharedResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_SHARED),
-    canReadAllResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_READ_ALL),
-    canWriteAllResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_WRITE_ALL),
-    canShareResources: hasPermission(permissions, PermissionCodes.PROJECT_RESOURCES_SHARE),
-    hasAnyResourceAccess,
-    canReadMessages: hasPermission(permissions, PermissionCodes.PROJECT_MESSAGES_READ),
-    canWriteMessages: hasPermission(permissions, PermissionCodes.PROJECT_MESSAGES_WRITE),
-    canDeleteMessages: hasPermission(permissions, PermissionCodes.PROJECT_MESSAGES_DELETE),
-    canListRoles: hasPermission(permissions, PermissionCodes.ROLE_LIST),
-    roleCode,
+    // Settings
+    canView: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectSettings),
+    canEdit: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectSettings),
+    canManageStatus: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectSettings),
+
+    // Dashboard & Tracker
+    canDashboardTracker: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectDashboardTracker),
+
+    // Files
+    canViewFiles: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectFiles),
+
+    // Estimates
+    canViewEstimates: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectEstimates),
+
+    // Costs
+    canViewCosts: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectCosts),
+
+    // Schedule
+    canViewSchedule: canViewAllResources || hasPermission(permissions, PermissionCodes.ProjectSchedule),
+
+    // Derived
+    hasAnyResourceAccess:
+      canViewAllResources ||
+      hasPermission(permissions, PermissionCodes.ProjectFiles) ||
+      hasPermission(permissions, PermissionCodes.ProjectEstimates) ||
+      hasPermission(permissions, PermissionCodes.ProjectCosts) ||
+      hasPermission(permissions, PermissionCodes.ProjectSchedule),
+
+    isAdmin,
+    canViewAllResources,
     allPermissions: permissions,
     loading,
   };

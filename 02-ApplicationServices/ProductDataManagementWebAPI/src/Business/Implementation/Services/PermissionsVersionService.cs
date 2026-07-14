@@ -5,7 +5,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -17,13 +16,16 @@ namespace Business.Implementation.Services;
 public sealed class PermissionsVersionService : IPermissionsVersionService
 {
     private readonly IRepository<PermissionsVersionProfile> permissionsVersionRepo;
+    private readonly IUserContextCache userContextCache;
     private readonly ILogger<PermissionsVersionService> logger;
 
     public PermissionsVersionService(
         IRepository<PermissionsVersionProfile> permissionsVersionRepo,
+        IUserContextCache userContextCache,
         ILogger<PermissionsVersionService> logger)
     {
         this.permissionsVersionRepo = permissionsVersionRepo;
+        this.userContextCache = userContextCache;
         this.logger = logger;
     }
 
@@ -48,6 +50,8 @@ public sealed class PermissionsVersionService : IPermissionsVersionService
             await permissionsVersionRepo.Update(profile);
             logger.LogInformation("Bumped PermissionsVersion for user {UserId} to version {Version}", userId, profile.Version);
         }
+
+        userContextCache.InvalidateUserPermissionsVersion(userId);
     }
 
     public async Task BumpVersionsAsync(IEnumerable<Guid> userIds, CancellationToken cancellationToken = default)
@@ -78,6 +82,11 @@ public sealed class PermissionsVersionService : IPermissionsVersionService
             await permissionsVersionRepo.InsertRange(newProfiles);
             await permissionsVersionRepo.SaveChangesAsync(cancellationToken);
             logger.LogInformation("Created {Count} new PermissionsVersion profiles", newProfiles.Count);
+        }
+
+        foreach (Guid userId in userIdList)
+        {
+            userContextCache.InvalidateUserPermissionsVersion(userId);
         }
     }
 }

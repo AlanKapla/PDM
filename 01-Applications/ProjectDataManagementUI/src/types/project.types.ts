@@ -50,7 +50,8 @@ export interface ProjectDetailsWeb {
   createdAt: string;
   createdByUserId: string;
   createdByUserName: string;
-  userRoleCode: string;
+  isAdmin: boolean;
+  canViewAllResources: boolean;
   membersCount: number;
   userPermissions: string[];  // User's permissions for this specific project
   currency?: ProjectCurrencyWeb;
@@ -83,8 +84,32 @@ export interface ProjectMemberWeb {
   email: string;
   firstName: string;
   lastName: string;
-  roleCode: string;
   joinedAt: string;
+  isAdmin: boolean;
+  modules: number[];
+}
+
+export interface ProjectInvitationWeb {
+  invitationId: string;
+  tenantId: string;
+  tenantName: string;
+  projectId: string;
+  projectName: string;
+  email: string;
+  isAdmin: boolean;
+  modules: number[];
+  invitedByUserEmail: string;
+  invitedByUserName: string;
+  createdAt: string;
+  expiresAt: string | null;
+  status: import('./auth.types').InvitationStatus;
+  token: string;
+}
+
+export interface InviteProjectMemberRequest {
+  email: string;
+  modules: number[];
+  isAdmin?: boolean;
 }
 
 export interface ProjectFilePackageWeb {
@@ -95,6 +120,13 @@ export interface ProjectFilePackageWeb {
   ownerName: string;
   files: ProjectFileWeb[];
   totalFiles: number;
+  parentId: string | null;
+  subCatalogs: ProjectFilePackageWeb[];
+}
+
+export interface CreateDirectoryPayload {
+  directoryName: string;
+  parentId?: string | null;
 }
 
 export interface ProjectFileWeb {
@@ -169,6 +201,8 @@ export interface SharedProjectFileWeb {
 
 // ===== Koszty projektowe =====
 
+export type CostApprovalStatus = 'Draft' | 'PendingApproval' | 'Approved';
+
 export interface ProjectCostListItemWeb {
   id: string;
   userId: string;
@@ -177,16 +211,20 @@ export interface ProjectCostListItemWeb {
   number: string | null;
   contractorId: string | null;
   contractorName: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryColor: string | null;
   date: string;
   description?: string;
   net: number | null;
   gross: number | null;
-  isAccepted: boolean;
+  approvalStatus: CostApprovalStatus;
+  approvedByUserId: string | null;
+  approvedAt: string | null;
   hasDocument: boolean;
   documentFileName?: string;
   previewSasUrl?: string;
   downloadSasUrl?: string;
-  sharedWithUserIds: string[];
   createdAt: string;
 }
 
@@ -196,11 +234,11 @@ export interface CreateProjectCostCommand {
   name: string;
   number?: string | null;
   contractorId?: string | null;
+  categoryId?: string | null;
   date: string;
   description?: string;
   net?: number | null;
   gross?: number | null;
-  isAccepted?: boolean;
   document?: File;
 }
 
@@ -211,11 +249,11 @@ export interface UpdateProjectCostCommand {
   name: string;
   number?: string | null;
   contractorId?: string | null;
+  categoryId?: string | null;
   date: string;
   description?: string;
   net?: number | null;
   gross?: number | null;
-  isAccepted: boolean;
   /** Nowy dokument dołączany do kosztu który nie miał wcześniej pliku */
   document?: File;
   /** Nowy plik zastępujący istniejący dokument */
@@ -223,24 +261,4 @@ export interface UpdateProjectCostCommand {
   removeDocument: boolean;
 }
 
-export interface SharedProjectCostWeb {
-  id: string;
-  projectCostId: string;
-  sharedWithUserId: string;
-  sharedWithUserName: string;
-  sharedByUserId: string;
-  sharedByUserName: string;
-  sharedAt: string;
-  costName: string;
-  costPlace?: string;
-  costDate: string;
-  costDescription?: string;
-  costNetAmount?: number;
-  costVatRate?: number;
-  costGrossAmount: number;
-  costIsAccepted: boolean;
-  costHasDocument: boolean;
-  costDocumentFileName?: string;
-  previewSasUrl?: string;
-  downloadSasUrl?: string;
-}
+

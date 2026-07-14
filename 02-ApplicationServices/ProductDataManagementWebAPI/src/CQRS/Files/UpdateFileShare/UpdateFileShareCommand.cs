@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.Files._Shared;
 using MediatR;
 
@@ -15,6 +15,6 @@ namespace CQRS.Files.UpdateFileShare
         /// </summary>
         public required List<Guid> SharedWithUserIds { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesShare;
+        public override string PermissionCode => PermissionCodes.ProjectFiles;
     }
 }

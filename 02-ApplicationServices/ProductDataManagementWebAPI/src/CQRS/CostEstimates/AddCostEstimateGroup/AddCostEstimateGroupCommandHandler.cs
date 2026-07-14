@@ -1,9 +1,8 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -42,14 +41,6 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
 
             accessLevel.EnsureCanModifyStructure();
 
-            CostEstimateTemplate template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
-                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
-
-            if (!template.CanAddGroups)
-            {
-                throw new ValidationApiException("Template does not allow adding new groups");
-            }
-
             int level = 0;
             if (request.ParentGroupId.HasValue)
             {
@@ -62,17 +53,6 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
                 }
 
                 level = parentGroup.Level + 1;
-
-                if (!template.CanBranchGroups)
-                {
-                    throw new ValidationApiException("Template does not allow branching groups (subgroups)");
-                }
-
-                if (template.MaxGroupLevel.HasValue && level > template.MaxGroupLevel.Value)
-                {
-                    throw new ValidationApiException(
-                        $"Group level {level} exceeds maximum allowed level {template.MaxGroupLevel.Value}");
-                }
             }
 
             CostEstimateGroup group = new CostEstimateGroup
@@ -95,3 +75,5 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
         }
     }
 }
+
+

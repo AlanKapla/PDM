@@ -16,7 +16,7 @@ namespace WebApi.Controllers
     public class ContractorController(IMediator mediator) : BaseApiController(mediator)
     {
         [HttpGet]
-        [Authorize(Policy = PermissionCodes.TenantView)]
+        [Authorize(Policy = PermissionCodes.TenantSettingsView)]
         [ProducesResponseType(typeof(IEnumerable<ContractorWeb>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetContractors(
             [FromRoute] Guid tenantId,
@@ -29,7 +29,7 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("{contractorId:guid}")]
-        [Authorize(Policy = PermissionCodes.TenantView)]
+        [Authorize(Policy = PermissionCodes.TenantSettingsView)]
         [ProducesResponseType(typeof(ContractorWeb), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetContractor(
@@ -43,7 +43,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = PermissionCodes.TenantEdit)]
+        [Authorize(Policy = PermissionCodes.TenantSettingsEdit)]
         [ProducesResponseType(typeof(ContractorWeb), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateContractor(
@@ -57,7 +57,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPut("{contractorId:guid}")]
-        [Authorize(Policy = PermissionCodes.TenantEdit)]
+        [Authorize(Policy = PermissionCodes.TenantSettingsEdit)]
         [ProducesResponseType(typeof(ContractorWeb), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -73,7 +73,7 @@ namespace WebApi.Controllers
         }
 
         [HttpDelete("{contractorId:guid}")]
-        [Authorize(Policy = PermissionCodes.TenantEdit)]
+        [Authorize(Policy = PermissionCodes.TenantSettingsEdit)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteContractor(

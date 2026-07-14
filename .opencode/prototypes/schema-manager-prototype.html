@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schema Manager — Prototyp UX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#F3F5F8;
+  --surface:#FFFFFF;
+  --surface-2:#FBFCFE;
+  --surface-3:#F6F8FB;
+  --line:#E8EBF0;
+  --line-2:#EDF0F4;
+  --line-strong:#D9DEE6;
+  --text:#15212F;
+  --text-2:#566071;
+  --muted:#8B95A6;
+  --faint:#AEB7C5;
+  --brand:#2F6CEC;
+  --brand-ink:#1E50C0;
+  --brand-tint:#EAF1FE;
+  --brand-tint-2:#F4F8FF;
+  --ok:#1E9E63;
+  --ok-tint:#E7F6EE;
+  --danger:#E5544B;
+  --danger-tint:#FCEEED;
+  --radius:14px;
+  --radius-sm:10px;
+  --shadow-sm:0 1px 2px rgba(20,33,47,.05),0 1px 3px rgba(20,33,47,.04);
+  --shadow-md:0 4px 16px rgba(20,33,47,.08),0 1px 3px rgba(20,33,47,.05);
+  --shadow-lg:0 18px 50px rgba(20,33,47,.16),0 4px 14px rgba(20,33,47,.08);
+  --mono:'Spline Sans Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Hanken Grotesk',system-ui,-apple-system,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  padding:40px 20px;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input{font-family:inherit;}
+::selection{background:var(--brand-tint);}
+
+.container{max-width:1000px;margin:0 auto;}
+.hero{text-align:center;margin-bottom:40px;}
+.hero h1{font-size:32px;font-weight:800;letter-spacing:-.02em;margin:0 0 12px;}
+.hero p{font-size:16px;color:var(--text-2);margin:0;}
+
+.demo-section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:30px;box-shadow:var(--shadow-sm);}
+.demo-section h2{font-size:18px;font-weight:700;margin:0 0 16px;}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;
+  border:1px solid var(--line);background:var(--surface);color:var(--text-2);transition:all .12s;}
+.btn:hover{background:var(--surface-3);color:var(--text);border-color:var(--line-strong);}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;}
+.btn.primary:hover{background:var(--brand-ink);}
+.btn svg{width:16px;height:16px;stroke-width:1.9;}
+
+.count-pill{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;
+  background:var(--brand-tint);color:var(--brand-ink);font-size:11.5px;font-weight:700;}
+.btn.primary .count-pill{background:rgba(255,255,255,.22);color:#fff;}
+
+/* columns manager popover */
+.colpop{position:relative;width:420px;background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;box-shadow:var(--shadow-lg);padding:18px;}
+.colpop-head{display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:16px;
+  letter-spacing:-.01em;margin-bottom:10px;}
+.colpop-close{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted);}
+.colpop-close:hover{background:var(--surface-3);color:var(--text);}
+.colpop-close svg{width:18px;height:18px;}
+.colpop-note{font-size:13px;color:var(--muted);margin-bottom:14px;}
+
+.collist{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+.collist-sub{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.05em;margin:14px 6px 8px;padding-top:14px;border-top:1px solid var(--line);}
+.collist-sub svg{width:14px;height:14px;}
+
+.colrow{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:10px;transition:background .12s;}
+.colrow:hover{background:var(--surface-3);}
+.colrow.is-dragging{background:var(--brand-tint-2);box-shadow:var(--shadow-md);cursor:grabbing;}
+
+.drag-handle{width:32px;height:32px;flex:0 0 32px;border-radius:8px;display:grid;place-items:center;color:var(--faint);cursor:grab;}
+.drag-handle:hover{background:rgba(20,33,47,.05);color:var(--muted);}
+.drag-handle svg{width:16px;height:16px;}
+
+.eye{width:36px;height:36px;flex:0 0 36px;border-radius:8px;display:grid;place-items:center;color:var(--brand);background:var(--brand-tint);}
+.eye.off{color:var(--muted);background:var(--surface-3);border:1px solid var(--line);}
+.eye svg{width:18px;height:18px;}
+
+.colname{flex:1;min-width:0;border:1px solid transparent;background:transparent;border-radius:7px;padding:7px 10px;
+  font:inherit;font-weight:600;font-size:14px;}
+.colname:hover{background:var(--surface);border-color:var(--line);}
+.colname:focus{outline:none;background:var(--surface);border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-tint);}
+.colname.readonly{cursor:default;font-weight:600;}
+.colname.readonly:hover{background:transparent;border-color:transparent;}
+
+.coltype{font-size:11px;font-weight:700;color:var(--brand-ink);background:var(--brand-tint);border-radius:6px;
+  padding:3px 9px;white-space:nowrap;}
+.colscope{font-size:11px;color:var(--muted);white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis;}
+
+.del-btn{width:32px;height:32px;flex:0 0 32px;border-radius:8px;display:grid;place-items:center;color:var(--danger);opacity:0;transition:opacity .12s;}
+.colrow:hover .del-btn{opacity:1;}
+.del-btn:hover{background:var(--danger-tint);}
+.del-btn svg{width:16px;height:16px;}
+
+.colrow.is-hidden .colname{flex:1;color:var(--muted);font-weight:600;padding:7px 10px;}
+.colrow.is-hidden .coltype{background:var(--surface-3);color:var(--muted);}
+.show-btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--brand);
+  background:var(--brand-tint);border-radius:8px;padding:7px 12px;white-space:nowrap;}
+.show-btn:hover{background:var(--brand);color:#fff;}
+.show-btn svg{width:14px;height:14px;}
+
+.colempty{font-size:13px;color:var(--muted);padding:12px 8px;text-align:center;}
+
+/* add-column form */
+.colform{border-top:1px solid var(--line);margin-top:12px;padding-top:16px;display:flex;flex-direction:column;gap:10px;}
+.cf-lbl{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;}
+.cf-in{border:1px solid var(--line-strong);border-radius:9px;padding:10px 12px;font:inherit;font-size:14px;}
+.cf-in:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-tint);}
+.cf-types{display:flex;flex-wrap:wrap;gap:7px;}
+.cf-type{font-size:13px;font-weight:600;color:var(--text-2);border:1px solid var(--line-strong);border-radius:8px;padding:7px 13px;}
+.cf-type:hover{border-color:var(--brand);color:var(--brand-ink);}
+.cf-type.on{background:var(--brand);border-color:var(--brand);color:#fff;}
+.cf-sel{border:1px solid var(--line-strong);border-radius:9px;padding:10px 12px;font:inherit;font-size:14px;background:var(--surface);}
+.cf-sel:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-tint);}
+.cf-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}
+
+/* API spec table */
+.api-spec{margin-top:30px;}
+.api-spec h3{font-size:16px;font-weight:700;margin:0 0 14px;}
+.api-table{width:100%;border-collapse:collapse;font-size:13px;}
+.api-table th{text-align:left;font-weight:700;padding:10px 12px;border-bottom:2px solid var(--line);}
+.api-table td{padding:10px 12px;border-bottom:1px solid var(--line-2);vertical-align:top;}
+.api-table code{font-family:var(--mono);font-size:12px;background:var(--surface-3);padding:2px 6px;border-radius:4px;color:var(--brand-ink);}
+.api-table .method{font-family:var(--mono);font-weight:700;font-size:11px;padding:3px 8px;border-radius:5px;white-space:nowrap;}
+.api-table .method.post{background:#E7F6EE;color:#1E9E63;}
+.api-table .method.put{background:#FFF4E6;color:#C2792B;}
+.api-table .method.delete{background:var(--danger-tint);color:var(--danger);}
+.api-table .method.get{background:var(--brand-tint);color:var(--brand-ink);}
+
+.drag-placeholder{background:var(--brand-tint-2);border:2px dashed var(--brand);border-radius:10px;height:52px;margin:6px 0;}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="hero">
+    <h1>Schema Manager — Prototyp UX</h1>
+    <p>Zarządzanie kolumnami kosztorysu (ukryj/odkryj/dodaj/usuń/zmień kolejność)</p>
+  </div>
+
+  <!-- Demo: Przycisk otwierający popover -->
+  <div class="demo-section">
+    <h2>1. Przycisk w Toolbarze</h2>
+    <p style="margin:0 0 14px;color:var(--text-2);font-size:14px;">
+      Kliknij aby otworzyć popover "Zarządzanie kolumnami"
+    </p>
+    <button class="btn primary" id="openPopoverBtn">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      Kolumny
+      <span class="count-pill">12</span>
+    </button>
+  </div>
+
+  <!-- Demo: Popover (ukryty domyślnie) -->
+  <div class="demo-section" id="popoverDemo" style="display:none;">
+    <h2>2. Popover: Zarządzanie kolumnami</h2>
+    <div class="colpop">
+      <div class="colpop-head">
+        <span>Zarządzanie kolumnami</span>
+        <button class="colpop-close" id="closePopoverBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="colpop-note">
+        Przeciągnij ⋮⋮ aby zmienić kolejność. Kliknij 👁 aby ukryć/odkryć. Kliknij nazwę aby edytować.
+      </div>
+
+      <!-- Widoczne kolumny -->
+      <div class="collist" id="visibleList">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:0 8px;">
+          WIDOCZNE (9)
+        </div>
+        <!-- Standardowe pola (nie można usunąć) -->
+        <div class="colrow" draggable="true" data-id="field-1" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="Nazwa" data-can-rename="true" />
+          <span class="coltype">SYSTEM</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+
+        <div class="colrow" draggable="true" data-id="field-2" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="Ilość" data-can-rename="true" />
+          <span class="coltype">SYSTEM</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+
+        <div class="colrow" draggable="true" data-id="field-3" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="Jednostka" data-can-rename="true" />
+          <span class="coltype">SYSTEM</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+
+        <div class="colrow" draggable="true" data-id="field-4" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="Cena netto" data-can-rename="true" />
+          <span class="coltype">OBLICZ</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+
+        <div class="colrow" draggable="true" data-id="field-5" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="VAT" data-can-rename="true" />
+          <span class="coltype">OBLICZ</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+
+        <div class="colrow" draggable="true" data-id="field-6" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="Cena brutto" data-can-rename="true" />
+          <span class="coltype">OBLICZ</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+
+        <div class="colrow" draggable="true" data-id="field-7" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-7">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="Wartość netto" data-can-rename="true" />
+          <span class="coltype">OBLICZ</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+
+        <div class="colrow" draggable="true" data-id="field-8" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-8">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="Wartość brutto" data-can-rename="true" />
+          <span class="coltype">OBLICZ</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+
+        <div class="colrow" draggable="true" data-id="field-9" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye" data-field-id="field-9">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <input class="colname" value="Wartość VAT" data-can-rename="true" />
+          <span class="coltype">OBLICZ</span>
+          <span class="colscope">Pozycje</span>
+        </div>
+      </div>
+
+      <!-- Ukryte kolumny -->
+      <div class="collist" id="hiddenList">
+        <div class="collist-sub">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+          UKRYTE (3)
+        </div>
+
+        <div class="colrow is-hidden" data-id="field-10" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye off" data-field-id="field-10">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+          </button>
+          <span class="colname dim">Kategoria</span>
+          <span class="coltype dim">SYSTEM</span>
+          <span class="colscope">Pozycje</span>
+          <button class="show-btn" data-field-id="field-10">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            Odkryj
+          </button>
+        </div>
+
+        <div class="colrow is-hidden" data-id="field-11" data-user-defined="false">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye off" data-field-id="field-11">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+          </button>
+          <span class="colname dim">Pliki</span>
+          <span class="coltype dim">SYSTEM</span>
+          <span class="colscope">Pozycje</span>
+          <button class="show-btn" data-field-id="field-11">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            Odkryj
+          </button>
+        </div>
+
+        <div class="colrow is-hidden" data-id="field-12" data-user-defined="true">
+          <div class="drag-handle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          </div>
+          <button class="eye off" data-field-id="field-12">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+          </button>
+          <span class="colname dim">Status budowy</span>
+          <span class="coltype dim">WŁASNE</span>
+          <span class="colscope">Pozycje</span>
+          <button class="show-btn" data-field-id="field-12">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            Odkryj
+          </button>
+          <button class="del-btn" data-field-id="field-12">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Formularz dodawania nowej kolumny -->
+      <div class="colform">
+        <div>
+          <div class="cf-lbl">Nazwa kolumny</div>
+          <input type="text" class="cf-in" id="newFieldName" placeholder="np. Priorytet, Status, Uwagi..." />
+        </div>
+        <div>
+          <div class="cf-lbl">Typ danych</div>
+          <div class="cf-types">
+            <button class="cf-type on" data-type="string">Tekst</button>
+            <button class="cf-type" data-type="number">Liczba</button>
+            <button class="cf-type" data-type="boolean">Tak/Nie</button>
+            <button class="cf-type" data-type="date">Data</button>
+            <button class="cf-type" data-type="datetime">Data i czas</button>
+          </div>
+        </div>
+        <div>
+          <div class="cf-lbl">Zakres (gdzie wyświetlać)</div>
+          <select class="cf-sel" id="newFieldScope">
+            <option value="ItemGeneric">Pozycje</option>
+            <option value="Group">Grupy (etapy/podetapy)</option>
+          </select>
+        </div>
+        <div class="cf-actions">
+          <button class="btn" id="cancelAddBtn">Anuluj</button>
+          <button class="btn primary" id="addFieldBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            Dodaj kolumnę
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Specification -->
+  <div class="demo-section api-spec">
+    <h3>3. API Endpoints (definicja dla backendu)</h3>
+    <table class="api-table">
+      <thead>
+        <tr>
+          <th style="width:80px;">Method</th>
+          <th>Endpoint</th>
+          <th>Opis</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="method get">GET</span></td>
+          <td><code>/api/tenants/{tid}/projects/{pid}/cost-estimate/{eid}</code></td>
+          <td>Zwraca <code>CostEstimateDetailsWeb</code> ze schematem (<code>schema</code> zamiast <code>templateStructure</code>)</td>
+        </tr>
+        <tr>
+          <td><span class="method post">POST</span></td>
+          <td><code>/api/tenants/{tid}/projects/{pid}/cost-estimate/{eid}/schema/fields</code></td>
+          <td>Dodaje nowe pole do schematu. Body: <code>{ label, fieldType, fieldScope, order }</code></td>
+        </tr>
+        <tr>
+          <td><span class="method put">PUT</span></td>
+          <td><code>/api/tenants/{tid}/projects/{pid}/cost-estimate/{eid}/schema/fields/{fid}</code></td>
+          <td>Aktualizuje pole (label, isVisible, order). Body: <code>{ label?, isVisible?, order? }</code></td>
+        </tr>
+        <tr>
+          <td><span class="method delete">DELETE</span></td>
+          <td><code>/api/tenants/{tid}/projects/{pid}/cost-estimate/{eid}/schema/fields/{fid}</code></td>
+          <td>Usuwa pole (tylko dla <code>isUserDefined == true</code>). Soft delete.</td>
+        </tr>
+        <tr>
+          <td><span class="method post">POST</span></td>
+          <td><code>/api/tenants/{tid}/projects/{pid}/cost-estimate/{eid}/schema/fields/reorder</code></td>
+          <td>Zmienia kolejność pól. Body: <code>{ fieldIds: Guid[] }</code></td>
+        </tr>
+        <tr>
+          <td><span class="method get">GET</span></td>
+          <td><code>/api/tenants/{tid}/projects/{pid}/cost-estimate/{eid}/export/pdf</code></td>
+          <td>Eksportuje kosztorys do PDF (fancy design). Response: Binary PDF (download).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Request/Response Examples -->
+  <div class="demo-section">
+    <h3>4. Request/Response Examples</h3>
+    <details style="margin-bottom:16px;">
+      <summary style="font-weight:700;cursor:pointer;padding:8px 0;">POST /schema/fields — Add Field</summary>
+      <pre style="background:var(--surface-3);padding:14px;border-radius:8px;overflow-x:auto;font-size:12px;margin:10px 0 0;"><code>{
+  "label": "Priorytet",
+  "fieldType": 301,        // ItemGenericString
+  "fieldScope": 3,         // ItemGeneric
+  "order": 10,
+  "parentFieldId": null
+}
+
+Response: 201 Created
+{
+  "id": "guid-new-field",
+  "schemaId": "guid-schema",
+  "fieldName": "guid-field-name",
+  "label": "Priorytet",
+  "fieldType": 301,
+  "fieldScope": 3,
+  "isSortable": true,
+  "isFilterable": true,
+  "isVisible": true,
+  "isReadonly": false,
+  "order": 10,
+  "isUserDefined": true,
+  "canRename": true,
+  "canDelete": true
+}</code></pre>
+    </details>
+
+    <details style="margin-bottom:16px;">
+      <summary style="font-weight:700;cursor:pointer;padding:8px 0;">PUT /schema/fields/{fid} — Update Field</summary>
+      <pre style="background:var(--surface-3);padding:14px;border-radius:8px;overflow-x:auto;font-size:12px;margin:10px 0 0;"><code>{
+  "label": "Priorytet zadania",  // zmiana nazwy
+  "isVisible": true,
+  "order": 5                     // zmiana kolejności
+}
+
+Response: 204 No Content</code></pre>
+    </details>
+
+    <details style="margin-bottom:16px;">
+      <summary style="font-weight:700;cursor:pointer;padding:8px 0;">POST /schema/fields/reorder — Reorder Fields</summary>
+      <pre style="background:var(--surface-3);padding:14px;border-radius:8px;overflow-x:auto;font-size:12px;margin:10px 0 0;"><code>{
+  "fieldIds": [
+    "field-1",  // Nazwa
+    "field-2",  // Ilość
+    "field-12", // Priorytet (user-defined, przesunięty wyżej)
+    "field-3",  // Jednostka
+    "field-4",  // Cena netto
+    // ...
+  ]
+}
+
+Response: 204 No Content</code></pre>
+    </details>
+
+    <details>
+      <summary style="font-weight:700;cursor:pointer;padding:8px 0;">GET /cost-estimate/{eid} — Response z nowym schematem</summary>
+      <pre style="background:var(--surface-3);padding:14px;border-radius:8px;overflow-x:auto;font-size:12px;margin:10px 0 0;"><code>{
+  "id": "estimate-guid",
+  "name": "Kosztorys #1",
+  "schema": {                        // ← NOWE (zamiast templateStructure)
+    "id": "schema-guid",
+    "costEstimateId": "estimate-guid",
+    "fieldDefinitions": [
+      {
+        "id": "field-1",
+        "fieldName": "name-guid",
+        "label": "Nazwa",
+        "fieldType": 100,            // ItemSystemName
+        "fieldScope": 1,             // ItemSystem
+        "isSortable": true,
+        "isFilterable": true,
+        "isVisible": true,
+        "isReadonly": false,
+        "order": 1,
+        "isUserDefined": false,
+        "canRename": true,
+        "canDelete": false
+      },
+      {
+        "id": "field-12",
+        "fieldName": "custom-guid",
+        "label": "Priorytet",
+        "fieldType": 301,            // ItemGenericString
+        "fieldScope": 3,             // ItemGeneric
+        "isSortable": true,
+        "isFilterable": true,
+        "isVisible": true,
+        "isReadonly": false,
+        "order": 3,
+        "isUserDefined": true,       // ← user-defined field
+        "canRename": true,
+        "canDelete": true            // ← można usunąć
+      }
+      // ... więcej pól
+    ],
+    "createdAt": "2026-06-11T10:00:00Z",
+    "updatedAt": "2026-06-11T15:30:00Z"
+  },
+  "rootGroups": [ /* ... */ ],
+  // ... reszta danych
+}</code></pre>
+    </details>
+  </div>
+</div>
+
+<script>
+// Toggle popover
+const openBtn = document.getElementById('openPopoverBtn');
+const closeBtn = document.getElementById('closePopoverBtn');
+const popoverDemo = document.getElementById('popoverDemo');
+
+openBtn.addEventListener('click', () => {
+  popoverDemo.style.display = 'block';
+  popoverDemo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+closeBtn.addEventListener('click', () => {
+  popoverDemo.style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// Toggle visibility (eye button)
+document.querySelectorAll('.eye').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fieldId = btn.dataset.fieldId;
+    const row = btn.closest('.colrow');
+    const isVisible = !row.classList.contains('is-hidden');
+    
+    if (isVisible) {
+      // Ukryj pole → przenieś do sekcji UKRYTE
+      row.classList.add('is-hidden');
+      btn.classList.add('off');
+      btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>`;
+      
+      // Zmień input na span
+      const input = row.querySelector('.colname');
+      const label = input.value;
+      input.replaceWith(Object.assign(document.createElement('span'), {
+        className: 'colname dim',
+        textContent: label
+      }));
+      
+      // Dodaj przycisk "Odkryj"
+      const showBtn = document.createElement('button');
+      showBtn.className = 'show-btn';
+      showBtn.dataset.fieldId = fieldId;
+      showBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg> Odkryj`;
+      showBtn.addEventListener('click', () => showField(fieldId));
+      row.appendChild(showBtn);
+      
+      // Przenieś do UKRYTE
+      document.getElementById('hiddenList').appendChild(row);
+      
+      console.log(`API: PUT /schema/fields/${fieldId} → { isVisible: false }`);
+    }
+  });
+});
+
+// Show field (odkryj button)
+function showField(fieldId) {
+  const row = document.querySelector(`[data-id="${fieldId}"]`);
+  if (!row) return;
+  
+  row.classList.remove('is-hidden');
+  const eye = row.querySelector('.eye');
+  eye.classList.remove('off');
+  eye.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  
+  // Zmień span na input
+  const span = row.querySelector('.colname');
+  const label = span.textContent;
+  const canRename = row.dataset.userDefined === 'true' || true; // wszystkie pola można przemianować
+  span.replaceWith(Object.assign(document.createElement('input'), {
+    className: 'colname',
+    value: label,
+    dataset: { canRename }
+  }));
+  
+  // Usuń przycisk "Odkryj"
+  row.querySelector('.show-btn')?.remove();
+  
+  // Przenieś do WIDOCZNE
+  document.getElementById('visibleList').appendChild(row);
+  
+  console.log(`API: PUT /schema/fields/${fieldId} → { isVisible: true }`);
+}
+
+// Delete field (tylko user-defined)
+document.querySelectorAll('.del-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fieldId = btn.dataset.fieldId;
+    const row = btn.closest('.colrow');
+    const isUserDefined = row.dataset.userDefined === 'true';
+    
+    if (!isUserDefined) {
+      alert('Nie można usunąć pola systemowego!');
+      return;
+    }
+    
+    if (confirm('Czy na pewno chcesz usunąć to pole?')) {
+      row.remove();
+      console.log(`API: DELETE /schema/fields/${fieldId}`);
+    }
+  });
+});
+
+// Rename field (inline edit)
+document.querySelectorAll('.colname').forEach(input => {
+  if (input.dataset.canRename !== 'true') {
+    input.readOnly = true;
+    input.classList.add('readonly');
+    return;
+  }
+  
+  input.addEventListener('blur', () => {
+    const fieldId = input.closest('.colrow').dataset.id;
+    const newLabel = input.value;
+    console.log(`API: PUT /schema/fields/${fieldId} → { label: "${newLabel}" }`);
+  });
+});
+
+// Add field type toggle
+document.querySelectorAll('.cf-type').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cf-type').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  });
+});
+
+// Add field
+document.getElementById('addFieldBtn').addEventListener('click', () => {
+  const label = document.getElementById('newFieldName').value.trim();
+  const typeBtn = document.querySelector('.cf-type.on');
+  const type = typeBtn?.dataset.type || 'string';
+  const scope = document.getElementById('newFieldScope').value;
+  
+  if (!label) {
+    alert('Podaj nazwę pola!');
+    return;
+  }
+  
+  const fieldTypeMap = {
+    string: { type: 301, name: 'TEKST' },      // ItemGenericString
+    number: { type: 300, name: 'LICZBA' },     // ItemGenericNumber
+    boolean: { type: 302, name: 'TAK/NIE' },   // ItemGenericBoolean
+    date: { type: 303, name: 'DATA' },         // ItemGenericDate
+    datetime: { type: 304, name: 'DATA+CZAS' } // ItemGenericDateTime
+  };
+  
+  const fieldType = fieldTypeMap[type];
+  const newId = `field-new-${Date.now()}`;
+  
+  console.log(`API: POST /schema/fields → { label: "${label}", fieldType: ${fieldType.type}, fieldScope: ${scope === 'ItemGeneric' ? 3 : 0}, order: 999 }`);
+  
+  // Dodaj wiersz do WIDOCZNE
+  const newRow = document.createElement('div');
+  newRow.className = 'colrow';
+  newRow.draggable = true;
+  newRow.dataset.id = newId;
+  newRow.dataset.userDefined = 'true';
+  newRow.innerHTML = `
+    <div class="drag-handle">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+    </div>
+    <button class="eye" data-field-id="${newId}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+    <input class="colname" value="${label}" data-can-rename="true" />
+    <span class="coltype">${fieldType.name}</span>
+    <span class="colscope">${scope === 'ItemGeneric' ? 'Pozycje' : 'Grupy'}</span>
+    <button class="del-btn" data-field-id="${newId}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+    </button>
+  `;
+  
+  document.getElementById('visibleList').appendChild(newRow);
+  
+  // Bind events
+  newRow.querySelector('.eye').addEventListener('click', function() {
+    // (logic jak wyżej)
+  });
+  newRow.querySelector('.del-btn').addEventListener('click', function() {
+    if (confirm('Czy na pewno chcesz usunąć to pole?')) {
+      newRow.remove();
+      console.log(`API: DELETE /schema/fields/${newId}`);
+    }
+  });
+  newRow.querySelector('.colname').addEventListener('blur', function() {
+    const newLabel = this.value;
+    console.log(`API: PUT /schema/fields/${newId} → { label: "${newLabel}" }`);
+  });
+  
+  // Reset form
+  document.getElementById('newFieldName').value = '';
+  document.querySelectorAll('.cf-type').forEach(b => b.classList.remove('on'));
+  document.querySelector('.cf-type[data-type="string"]').classList.add('on');
+  
+  alert(`Pole "${label}" dodane! (Zobacz console.log dla API call)`);
+});
+
+// Cancel add
+document.getElementById('cancelAddBtn').addEventListener('click', () => {
+  document.getElementById('newFieldName').value = '';
+  document.querySelectorAll('.cf-type').forEach(b => b.classList.remove('on'));
+  document.querySelector('.cf-type[data-type="string"]').classList.add('on');
+});
+
+// Drag & Drop (simplified — production would use DnD Kit)
+let draggedRow = null;
+
+document.addEventListener('dragstart', (e) => {
+  if (e.target.classList.contains('colrow')) {
+    draggedRow = e.target;
+    e.target.classList.add('is-dragging');
+  }
+});
+
+document.addEventListener('dragend', (e) => {
+  if (e.target.classList.contains('colrow')) {
+    e.target.classList.remove('is-dragging');
+    draggedRow = null;
+  }
+});
+
+document.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
+  const container = document.getElementById('visibleList');
+  if (afterElement == null) {
+    container.appendChild(draggedRow);
+  } else {
+    container.insertBefore(draggedRow, afterElement);
+  }
+});
+
+function getDragAfterElement(container, y) {
+  const draggableElements = [...container.querySelectorAll('.colrow:not(.is-dragging)')];
+  
+  return draggableElements.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// Log reorder on drop
+document.addEventListener('drop', (e) => {
+  if (draggedRow) {
+    const fieldIds = [...document.querySelectorAll('#visibleList .colrow')].map(row => row.dataset.id);
+    console.log(`API: POST /schema/fields/reorder → { fieldIds: [${fieldIds.map(id => `"${id}"`).join(', ')}] }`);
+  }
+});
+</script>
+
+</body>
+</html>

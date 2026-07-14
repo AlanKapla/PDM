@@ -18,7 +18,6 @@ import { Edit2, Save, X, TrendingDown, TrendingUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { costTrackerApi } from "../../api/costTrackerApi";
 import { costTrackerKeys } from "../../hooks/queries";
-import { handleApiError } from "../../utils/handleApiError";
 import type { CostTrackerBudgetSummary } from "../../types/costTracker.types";
 import { useToastNotification } from "../../hooks/useToastNotification";
 
@@ -75,7 +74,7 @@ export default function BudgetSummarySection({
   budgetSummary,
   onMutated,
 }: BudgetSummarySectionProps) {
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, showApiError } = useToastNotification();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -108,13 +107,7 @@ export default function BudgetSummarySection({
       setIsEditing(false);
       onMutated();
     } catch (err) {
-      const { title, description } = handleApiError(err);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-      });
+      showApiError(err);
     } finally {
       setIsSaving(false);
     }

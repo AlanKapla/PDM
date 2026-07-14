@@ -19,9 +19,9 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriods
                 period.RuleFor(p => p.StartDate).NotEmpty();
                 period.RuleFor(p => p.EndDate).NotEmpty();
                 period.RuleFor(p => p)
-                    .Must(p => p.EndDate > p.StartDate)
+                    .Must(p => p.EndDate >= p.StartDate)
                     .WithName("Period")
-                    .WithMessage("Start date must be earlier than end date.");
+                    .WithMessage("Period end date cannot be before start date.");
             });
 
             RuleFor(x => x.Periods)

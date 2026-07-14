@@ -45,7 +45,7 @@ import {
   Paperclip,
   Save,
 } from 'lucide-react';
-import type { CostEstimateFieldFileWeb } from '../../types/costEstimate.types.new';
+import type { CostEstimateItemFileWeb } from '../../types/costEstimate.types.new';
 import { useToastNotification } from "../../hooks/useToastNotification";
 import { handleApiError } from "../../utils/handleApiError";
 
@@ -56,8 +56,8 @@ const MAX_FILE_SIZE = 52_428_800; // 50 MB
 const MAX_FILES_PER_REQUEST = 10;
 
 interface FileFieldRendererProps {
-  /** Lista plików dołączonych do pola (z serwera) */
-  files: CostEstimateFieldFileWeb[] | null | undefined;
+  /** Lista plików dołączonych do pozycji (z serwera) */
+  files: CostEstimateItemFileWeb[] | null | undefined;
   /** Callback do uploadu plików - zwraca Promise z ID utworzonych plików */
   onUpload?: (files: File[]) => Promise<string[]>;
   /** Callback po pomyślnym uploadzie - do odświeżenia danych */
@@ -138,8 +138,8 @@ const fileToDisplayFile = (file: File): DisplayFile => {
   };
 };
 
-/** Konwertuje CostEstimateFieldFileWeb do DisplayFile */
-const serverFileToDisplayFile = (file: CostEstimateFieldFileWeb): DisplayFile => {
+/** Konwertuje CostEstimateItemFileWeb do DisplayFile */
+const serverFileToDisplayFile = (file: CostEstimateItemFileWeb): DisplayFile => {
   return {
     id: file.id,
     originalFileName: file.originalFileName,
@@ -223,11 +223,11 @@ const FilePreviewModal: React.FC<{
 const FileManagerModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  initialFiles: CostEstimateFieldFileWeb[];
+  initialFiles: CostEstimateItemFileWeb[];
   onSave: (filesToUpload: File[]) => Promise<void>;
   readOnly?: boolean;
 }> = ({ isOpen, onClose, initialFiles, onSave, readOnly }) => {
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const {showSuccess, showError, showWarning, showInfo, toast, showApiError } = useToastNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [displayFiles, setDisplayFiles] = useState<DisplayFile[]>([]);
@@ -370,8 +370,7 @@ const FileManagerModal: React.FC<{
 
       onClose();
     } catch (error: unknown) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setIsSaving(false);
       setSaveProgress(0);

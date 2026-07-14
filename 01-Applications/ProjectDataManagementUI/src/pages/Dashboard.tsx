@@ -1,5 +1,5 @@
 ﻿import { Box, SimpleGrid, Card, CardBody, Heading, Text, Icon, VStack, Badge, HStack } from "@chakra-ui/react";
-import { Building2, FolderKanban, Settings, Briefcase, FileText, RefreshCw, Mail, MessageSquare } from "lucide-react";
+import { Building2, FolderKanban, Settings, Briefcase, RefreshCw, Mail, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import MainLayout from "../layout/MainLayout";
@@ -70,13 +70,6 @@ export default function Dashboard() {
       icon: Briefcase,
       color: "orange.500",
       path: "/assigned-works",
-    },
-    {
-      title: "Szablony kosztorysów",
-      description: "Zarządzaj szablonami kosztorysów",
-      icon: FileText,
-      color: "action.500",
-      path: "/cost-estimate-templates",
     },
     {
       title: "Ustawienia",

@@ -10,7 +10,6 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
         {
             RuleFor(x => x.TenantId).RequiredId();
             RuleFor(x => x.UserId).RequiredId();
-            RuleFor(x => x.RoleId).RequiredId();
             RuleFor(x => x.UserId).NotCurrentUser(currentUser);
         }
     }

@@ -130,6 +130,7 @@ namespace CQRS.WorkSchedules.Shared
                 .GetBySearch(
                     pm => pm.TenantId == tenantId
                         && pm.ProjectId == projectId
+                        && pm.IsActive
                         && allUserIds.Contains(pm.UserId)))
                 .ToList();
 

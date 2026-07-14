@@ -2,6 +2,18 @@
  * Utility functions for common formatting operations
  */
 
+import {
+  formatDateCompactLocal,
+  formatDateLocal,
+  formatDateShortLocal,
+  formatDateTimeCompactLocal,
+  formatDateTimeLocal,
+  formatTimeLocal,
+  parseApiDateTime,
+} from './dateTimeUtils';
+
+export { parseApiDateTime } from './dateTimeUtils';
+
 /**
  * Format file size from bytes to human readable format
  */
@@ -14,63 +26,65 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 /**
- * Format date to Polish locale format
+ * Format date to Polish locale format in the user's local timezone.
+ * API timestamps are stored in UTC.
  */
 export const formatDate = (dateString: string | Date | null | undefined, includeTime = true): string => {
   if (!dateString) return "-";
-  
-  const date = typeof dateString === "string" ? new Date(dateString) : dateString;
-  
-  if (isNaN(date.getTime())) return "-";
-  
-  const options: Intl.DateTimeFormatOptions = {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  };
 
   if (includeTime) {
-    options.hour = "2-digit";
-    options.minute = "2-digit";
+    return formatDateTimeLocal(dateString);
   }
 
-  return date.toLocaleDateString("pl-PL", options);
+  return formatDateLocal(dateString);
 };
 
 /**
- * Format date to short format (DD.MM.YYYY)
+ * Format date to short format (DD.MM.YYYY) in the user's local timezone.
  */
 export const formatDateShort = (dateString: string | Date | null | undefined): string => {
-  if (!dateString) return "-";
-  
-  const date = typeof dateString === "string" ? new Date(dateString) : dateString;
-  
-  if (isNaN(date.getTime())) return "-";
-  
-  return date.toLocaleDateString("pl-PL", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return formatDateShortLocal(dateString);
 };
 
 /**
- * Format date for input[type="date"] (YYYY-MM-DD)
+ * Format time (HH:MM) in the user's local timezone.
+ */
+export const formatTime = (dateString: string | Date | null | undefined): string => {
+  return formatTimeLocal(dateString);
+};
+
+/**
+ * Compact date-time format for comments and similar UI.
+ */
+export const formatDateTimeCompact = (dateString: string | Date | null | undefined): string => {
+  return formatDateTimeCompactLocal(dateString);
+};
+
+/**
+ * Compact date format for comments and similar UI.
+ */
+export const formatDateCompact = (dateString: string | Date | null | undefined): string => {
+  return formatDateCompactLocal(dateString);
+};
+
+/**
+ * Format date for input[type="date"] (YYYY-MM-DD) using local calendar date.
  */
 export const formatDateForInput = (date: Date = new Date()): string => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 /**
  * Get relative time (e.g., "2 godziny temu")
  */
 export const getRelativeTime = (dateString: string | Date | null | undefined): string => {
-  if (!dateString) return "-";
-  
-  const date = typeof dateString === "string" ? new Date(dateString) : dateString;
-  
-  if (isNaN(date.getTime())) return "-";
-  
+  const date = parseApiDateTime(dateString);
+
+  if (!date) return "-";
+
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
@@ -78,7 +92,7 @@ export const getRelativeTime = (dateString: string | Date | null | undefined): s
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min temu`;
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} godz. temu`;
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} dni temu`;
-  
+
   return formatDate(date, false);
 };
 

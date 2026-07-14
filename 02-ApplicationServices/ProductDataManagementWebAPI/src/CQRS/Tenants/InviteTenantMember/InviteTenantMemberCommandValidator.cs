@@ -11,18 +11,15 @@ namespace CQRS.Tenants.InviteTenantMember
     public sealed class InviteTenantMemberCommandValidator : AbstractValidator<InviteTenantMemberCommand>
     {
         private readonly IRepository<TenantMember> tenantMemberRepo;
-        private readonly IRepository<TenantInvitation> invitationRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly ICurrentUser currentUser;
 
         public InviteTenantMemberCommandValidator(
             IRepository<TenantMember> tenantMemberRepo,
-            IRepository<TenantInvitation> invitationRepo,
             IReadRepository<User> userRepo,
             ICurrentUser currentUser)
         {
             this.tenantMemberRepo = tenantMemberRepo;
-            this.invitationRepo = invitationRepo;
             this.userRepo = userRepo;
             this.currentUser = currentUser;
 
@@ -45,10 +42,6 @@ namespace CQRS.Tenants.InviteTenantMember
             RuleFor(x => x)
                 .MustAsync(UserMustNotBeAlreadyMember)
                 .WithMessage("User is already a member of this tenant.");
-
-            RuleFor(x => x)
-                .MustAsync(InvitationMustNotExist)
-                .WithMessage("An active invitation for this email already exists.");
         }
 
         private async Task<bool> UserMustNotBeAlreadyMember(InviteTenantMemberCommand command, CancellationToken cancellationToken)
@@ -66,20 +59,6 @@ namespace CQRS.Tenants.InviteTenantMember
                 m => m.TenantId == command.TenantId && m.UserId == existingUser.Id && m.IsActive);
 
             return existingMembership == null;
-        }
-
-        private async Task<bool> InvitationMustNotExist(InviteTenantMemberCommand command, CancellationToken cancellationToken)
-        {
-            string normalizedEmail = command.Email.Trim().ToLowerInvariant();
-
-            TenantInvitation? existingInvitation = await invitationRepo.GetFirstBySearch(
-                i => i.TenantId == command.TenantId
-                    && i.Email == normalizedEmail
-                    && i.IsActive
-                    && i.Status == InvitationStatus.Pending
-                    && i.ExpiresAt > DateTime.UtcNow);
-
-            return existingInvitation == null;
         }
     }
 }

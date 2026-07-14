@@ -3,6 +3,7 @@ using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.ProjectCosts.CreateProjectCost;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,7 @@ namespace CQRS.Tests.ProjectCosts;
 public sealed class CreateProjectCostCommandHandlerTests
 {
     private readonly Mock<IRepository<ProjectCost>> _projectCostRepoMock = new();
+    private readonly Mock<IReadRepository<ProjectCostCategory>> _categoryRepoMock = new();
     private readonly Mock<IBlobStorageService> _blobStorageServiceMock = new();
     private readonly Mock<IRepository<BaseCostAttachment>> _attachmentRepoMock = new();
     private readonly Mock<IContractorService> _contractorServiceMock = new();
@@ -34,6 +36,7 @@ public sealed class CreateProjectCostCommandHandlerTests
 
         _handler = new CreateProjectCostCommandHandler(
             _projectCostRepoMock.Object,
+            _categoryRepoMock.Object,
             _blobStorageServiceMock.Object,
             _attachmentRepoMock.Object,
             _contractorServiceMock.Object,
@@ -50,8 +53,7 @@ public sealed class CreateProjectCostCommandHandlerTests
             ProjectId = ProjectId,
             Name = "Test Cost",
             ContractorId = contractorId,
-            Net = 1000m,
-            IsAccepted = false
+            Net = 1000m
         };
     }
 

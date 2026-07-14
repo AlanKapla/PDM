@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Badge,
@@ -21,7 +22,6 @@ import {
   Text,
   VStack,
   useColorModeValue,
-  useToast,
 } from "@chakra-ui/react";
 import { Bell, Info, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,14 +31,43 @@ import {
   useMarkAsRead,
   useMarkAllAsRead,
   notificationKeys,
+  aiCostImportKeys,
 } from "../hooks/queries";
+import { useToastNotification } from "../hooks/useToastNotification";
 import { notificationHubService } from "../services/notificationHubService";
-import { type NotificationWeb, NotificationType } from "../types/notification.types";
+import { type NotificationWeb, NotificationType, type NotificationMetadata } from "../types/notification.types";
+import { getRelativeTime } from "../utils/formatters";
+
+function resolveNotificationRoute(metadata: NotificationMetadata | undefined): string | undefined {
+  if (!metadata?.route) {
+    return undefined;
+  }
+
+  const contextualMatch = metadata.route.match(
+    /\/projects\/([^/]+)\/(costs|dashboard)\/ai-review/
+  );
+  if (contextualMatch) {
+    return `/projects/${contextualMatch[1]}/${contextualMatch[2]}/ai-review`;
+  }
+
+  if (metadata.route.startsWith('/projects/')) {
+    return metadata.route;
+  }
+  return metadata.route;
+}
+
+function isAICostImportNotification(metadata: NotificationMetadata | undefined): boolean {
+  if (!metadata) {
+    return false;
+  }
+  return Boolean(metadata.batchId || metadata.route?.includes("ai-review"));
+}
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
-  const toast = useToast();
+  const navigate = useNavigate();
+  const { showSuccess, showError, showWarning, showInfo } = useToastNotification();
   const queryClient = useQueryClient();
 
   const { data: unreadCount = 0 } = useUnreadCounter();
@@ -62,6 +91,39 @@ export default function NotificationBell() {
   const unreadBg = useColorModeValue("primary.50", "primary.900");
   const messageTextColor = useColorModeValue("gray.700", "gray.300");
 
+  const getToastStatus = (type: NotificationType): "success" | "warning" | "error" | "info" => {
+    switch (type) {
+      case NotificationType.Success: return "success";
+      case NotificationType.Warning: return "warning";
+      case NotificationType.Error: return "error";
+      default: return "info";
+    }
+  };
+
+  const showNotificationToast = (
+    title: string,
+    description: string,
+    type: NotificationType
+  ) => {
+    const toastStatus = getToastStatus(type);
+    const options = { duration: 5000 };
+
+    switch (toastStatus) {
+      case "success":
+        showSuccess(title, description, options);
+        break;
+      case "warning":
+        showWarning(title, description, options);
+        break;
+      case "error":
+        showError(title, description, options);
+        break;
+      default:
+        showInfo(title, description, options);
+        break;
+    }
+  };
+
   // SignalR - nasłuchuj na nowe powiadomienia
   useEffect(() => {
     const unsubscribeNew = notificationHubService.onNotificationReceived((payload) => {
@@ -73,14 +135,16 @@ export default function NotificationBell() {
       // Invaliduj listy żeby nowe powiadomienie pojawiło się
       queryClient.invalidateQueries({ queryKey: notificationKeys.all });
 
-      toast({
-        title: payload.notification.title,
-        description: payload.notification.message,
-        status: getToastStatus(payload.notification.type),
-        duration: 5000,
-        isClosable: true,
-        position: "top-right",
-      });
+      const metadata = payload.notification.metadata ?? undefined;
+      if (isAICostImportNotification(metadata)) {
+        queryClient.invalidateQueries({ queryKey: aiCostImportKeys.all });
+      }
+
+      showNotificationToast(
+        payload.notification.title,
+        payload.notification.message,
+        payload.notification.type
+      );
     });
 
     const unsubscribeSync = notificationHubService.onNotificationSynced(() => {
@@ -91,23 +155,29 @@ export default function NotificationBell() {
       unsubscribeNew();
       unsubscribeSync();
     };
-  }, [queryClient, toast]);
+  }, [queryClient, showSuccess, showWarning, showError, showInfo]);
 
-  const handleMarkAsRead = (notificationId: string) => {
-    markAsReadMutation.mutate(notificationId);
+  const handleNotificationClick = (notification: NotificationWeb) => {
+    const route = resolveNotificationRoute(notification.metadata ?? undefined);
+
+    if (!notification.isRead) {
+      markAsReadMutation.mutate(notification.id);
+    }
+
+    if (route) {
+      setIsOpen(false);
+      navigate(route);
+    }
   };
 
   const handleMarkAllAsRead = () => {
     markAllAsReadMutation.mutate(undefined, {
       onSuccess: (result) => {
         if (result.markedCount > 0) {
-          toast({
-            title: "Oznaczono wszystkie jako przeczytane",
-            description: `Oznaczono ${result.markedCount} powiadomień`,
-            status: "success",
-            duration: 3000,
-            isClosable: true,
-          });
+          showSuccess(
+            "Oznaczono wszystkie jako przeczytane",
+            `Oznaczono ${result.markedCount} powiadomień`
+          );
         }
       },
     });
@@ -131,34 +201,7 @@ export default function NotificationBell() {
     }
   };
 
-  const getToastStatus = (type: NotificationType): "success" | "warning" | "error" | "info" => {
-    switch (type) {
-      case NotificationType.Success: return "success";
-      case NotificationType.Warning: return "warning";
-      case NotificationType.Error: return "error";
-      default: return "info";
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Teraz";
-    if (diffMins < 60) return `${diffMins} min temu`;
-    if (diffHours < 24) return `${diffHours} godz. temu`;
-    if (diffDays < 7) return `${diffDays} dni temu`;
-    
-    return date.toLocaleDateString("pl-PL", {
-      day: "numeric",
-      month: "short",
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-    });
-  };
+  const formatDate = (dateString: string) => getRelativeTime(dateString);
 
   const renderNotifications = (notifications: NotificationWeb[]) => (
     loading ? (
@@ -184,7 +227,7 @@ export default function NotificationBell() {
             _hover={{ bg: hoverBg }}
             transition="background 0.2s"
             cursor="pointer"
-            onClick={() => !notification.isRead && handleMarkAsRead(notification.id)}
+            onClick={() => handleNotificationClick(notification)}
           >
             <HStack align="flex-start" spacing={3}>
               <Icon

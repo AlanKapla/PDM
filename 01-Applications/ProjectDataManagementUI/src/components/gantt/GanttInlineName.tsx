@@ -1,7 +1,8 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { G } from "./ganttTokens";
+import { GanttTruncatedName } from "./GanttTruncatedName";
 
-interface GanttInlineNameProps {
+export interface GanttInlineNameProps {
   value: string;
   /** Czy Gantt jest w trybie edycji — tylko wtedy aktywność */
   isEditing: boolean;
@@ -9,6 +10,8 @@ interface GanttInlineNameProps {
   fontSize?: string;
   color?: string;
   textDecoration?: string;
+  /** Gdy true — nazwa zawija się w całości zamiast być ucinana wielokropkiem */
+  wrap?: boolean;
   onCommit: (newName: string) => Promise<void>;
 }
 
@@ -23,8 +26,9 @@ export default function GanttInlineName({
   fontSize = "sm",
   color = G.text,
   textDecoration = "none",
+  wrap = false,
   onCommit,
-}: GanttInlineNameProps) {
+}: GanttInlineNameProps): React.ReactElement {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState(value);
 
@@ -74,26 +78,17 @@ export default function GanttInlineName({
   }
 
   return (
-    <span
+    <GanttTruncatedName
+      label={value}
+      fontWeight={fontWeight}
+      fontSize={fontSize}
+      color={color}
+      textDecoration={textDecoration}
+      cursor={isEditing ? "text" : "default"}
       onDoubleClick={startEdit}
-      title={isEditing ? "Dwuklik aby zmienić nazwę" : value}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-        display: "block",
-        fontSize,
-        fontWeight: String(fontWeight),
-        color,
-        textDecoration,
-        cursor: isEditing ? "text" : "default",
-        borderRadius: 3,
-        padding: "1px 4px",
-      }}
-    >
-      {value || <span style={{ color: G.text3, fontStyle: "italic" }}>Bez nazwy</span>}
-    </span>
+      isEditingMode={isEditing}
+      editHint="Dwuklik aby zmienić nazwę"
+      wrap={wrap}
+    />
   );
 }

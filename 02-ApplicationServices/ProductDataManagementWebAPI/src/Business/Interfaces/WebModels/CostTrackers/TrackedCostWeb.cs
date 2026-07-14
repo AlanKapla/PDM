@@ -13,6 +13,9 @@
         public decimal? Gross { get; init; }
         public Guid? ContractorId { get; init; }
         public string? ContractorName { get; init; }
+        public Guid? CategoryId { get; init; }
+        public string? CategoryName { get; init; }
+        public string? CategoryColor { get; init; }
         public DateTime? Date { get; init; }
         public required DateTime CreatedAt { get; init; }
         public DateTime? UpdatedAt { get; init; }

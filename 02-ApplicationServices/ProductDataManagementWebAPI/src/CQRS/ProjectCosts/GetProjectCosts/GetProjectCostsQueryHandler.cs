@@ -5,19 +5,16 @@ using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.ProjectCosts;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.ProjectCosts.GetProjectCosts
 {
-    /// <summary>
-    /// Handler do pobierania kosztów projektu według zakresu (All, Mine, Shared)
-    /// </summary>
     public sealed class GetProjectCostsQueryHandler : IRequestHandler<GetProjectCostsQuery, IEnumerable<ProjectCostListItemWeb>>
     {
         private readonly IReadRepository<ProjectCost> projectCostRepo;
-        private readonly IReadRepository<SharedProjectCost> sharedProjectCostRepo;
+        private readonly IReadRepository<ProjectCostCategory> categoryRepo;
         private readonly IReadRepository<BaseCostAttachment> attachmentRepository;
         private readonly IUserService userService;
         private readonly IBlobStorageService blobStorageService;
@@ -29,7 +26,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
 
         public GetProjectCostsQueryHandler(
             IReadRepository<ProjectCost> projectCostRepo,
-            IReadRepository<SharedProjectCost> sharedProjectCostRepo,
+            IReadRepository<ProjectCostCategory> categoryRepo,
             IReadRepository<BaseCostAttachment> attachmentRepository,
             IUserService userService,
             IBlobStorageService blobStorageService,
@@ -37,7 +34,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
             ICurrentUser currentUser)
         {
             this.projectCostRepo = projectCostRepo;
-            this.sharedProjectCostRepo = sharedProjectCostRepo;
+            this.categoryRepo = categoryRepo;
             this.attachmentRepository = attachmentRepository;
             this.userService = userService;
             this.blobStorageService = blobStorageService;
@@ -49,7 +46,7 @@ namespace CQRS.ProjectCosts.GetProjectCosts
             GetProjectCostsQuery request,
             CancellationToken cancellationToken)
         {
-            IEnumerable<ProjectCost> costs = await LoadCostsAsync(request);
+            IEnumerable<ProjectCost> costs = await LoadCostsAsync(request, cancellationToken);
 
             List<ProjectCost> costList = costs.ToList();
             HashSet<Guid> costIds = costList.Select(pc => pc.Id).ToHashSet();
@@ -69,50 +66,55 @@ namespace CQRS.ProjectCosts.GetProjectCosts
             Dictionary<Guid, string> contractorNames = await contractorService.GetNamesByIdsAsync(
                 contractorIds, request.TenantId, cancellationToken);
 
+            List<Guid> categoryIds = costList
+                .Where(pc => pc.CategoryId.HasValue)
+                .Select(pc => pc.CategoryId!.Value)
+                .Distinct()
+                .ToList();
+
+            Dictionary<Guid, ProjectCostCategory> categoriesById = (await categoryRepo.GetBySearch(
+                c => c.ProjectId == request.ProjectId && categoryIds.Contains(c.Id)))
+                .ToDictionary(c => c.Id);
+
             return costList
-                .Select(pc => MapToWeb(pc, attachmentsByCostId[pc.Id].FirstOrDefault(), membersDict, contractorNames))
+                .Select(pc => MapToWeb(
+                    pc,
+                    attachmentsByCostId[pc.Id].FirstOrDefault(),
+                    membersDict,
+                    contractorNames,
+                    categoriesById))
                 .OrderByDescending(c => c.Date)
                 .ThenByDescending(c => c.CreatedAt)
                 .ToList();
         }
 
-        private async Task<IEnumerable<ProjectCost>> LoadCostsAsync(GetProjectCostsQuery request)
+        private async Task<IEnumerable<ProjectCost>> LoadCostsAsync(
+            GetProjectCostsQuery request,
+            CancellationToken cancellationToken)
         {
-            switch (request.Scope)
+            return request.Scope switch
             {
-                case ResourceScope.All:
-                    return await projectCostRepo.GetBySearch(
-                        pc => pc.ProjectId == request.ProjectId
-                            && pc.TenantId == request.TenantId
-                            && !pc.IsDeleted,
-                        query => query.Include(pc => pc.SharedWith));
+                ResourceScope.All => await projectCostRepo.GetBySearch(
+                    pc => pc.ProjectId == request.ProjectId
+                        && pc.TenantId == request.TenantId
+                        && !pc.IsDeleted),
 
-                case ResourceScope.Mine:
-                    return await projectCostRepo.GetBySearch(
-                        pc => pc.ProjectId == request.ProjectId
-                            && pc.TenantId == request.TenantId
-                            && pc.UserId == currentUser.Id
-                            && !pc.IsDeleted,
-                        query => query.Include(pc => pc.SharedWith));
+                ResourceScope.Mine => await projectCostRepo.GetBySearch(
+                    pc => pc.ProjectId == request.ProjectId
+                        && pc.TenantId == request.TenantId
+                        && pc.UserId == currentUser.Id
+                        && !pc.IsDeleted),
 
-                case ResourceScope.Shared:
-                    IEnumerable<SharedProjectCost> sharedCosts = await sharedProjectCostRepo.GetBySearch(
-                        spc => spc.ProjectId == request.ProjectId
-                            && spc.TenantId == request.TenantId
-                            && spc.SharedWithUserId == currentUser.Id
-                            && !spc.ProjectCost.IsDeleted,
-                        query => query
-                            .Include(spc => spc.ProjectCost).ThenInclude(pc => pc.SharedWith));
+                ResourceScope.PendingApproval => await projectCostRepo.GetBySearch(
+                    pc => pc.ProjectId == request.ProjectId
+                        && pc.TenantId == request.TenantId
+                        && pc.ApprovalStatus == CostApprovalStatus.PendingApproval
+                        && !pc.IsDeleted),
 
-                    return sharedCosts
-                        .Where(spc => spc.ProjectCost is not null)
-                        .Select(spc => spc.ProjectCost)
-                        .Distinct()
-                        .ToList();
+                ResourceScope.Shared => [],
 
-                default:
-                    throw new ValidationApiException($"Unsupported scope value: {request.Scope}");
-            }
+                _ => throw new ValidationApiException($"Unsupported scope value: {request.Scope}")
+            };
         }
 
         private async Task<ILookup<Guid, BaseCostAttachment>> LoadAttachmentLookupAsync(HashSet<Guid> costIds)
@@ -132,7 +134,8 @@ namespace CQRS.ProjectCosts.GetProjectCosts
             ProjectCost pc,
             BaseCostAttachment? attachment,
             Dictionary<Guid, ProjectMemberUserInfo> membersDict,
-            Dictionary<Guid, string> contractorNames)
+            Dictionary<Guid, string> contractorNames,
+            Dictionary<Guid, ProjectCostCategory> categoriesById)
         {
             string? previewSasUrl = null;
             string? downloadSasUrl = null;
@@ -159,11 +162,15 @@ namespace CQRS.ProjectCosts.GetProjectCosts
 
             string userName = membersDict.TryGetValue(pc.UserId, out ProjectMemberUserInfo? member)
                 ? member.FullName
-                : "Unknown";
+                : pc.UserId.ToString();
 
-            List<Guid> sharedWithUserIds = pc.SharedWith
-                .Select(spc => spc.SharedWithUserId)
-                .ToList();
+            string? contractorName = pc.ContractorId.HasValue
+                ? contractorNames.GetValueOrDefault(pc.ContractorId.Value)
+                : null;
+
+            ProjectCostCategory? category = pc.CategoryId.HasValue
+                ? categoriesById.GetValueOrDefault(pc.CategoryId.Value)
+                : null;
 
             return new ProjectCostListItemWeb
             {
@@ -172,22 +179,25 @@ namespace CQRS.ProjectCosts.GetProjectCosts
                 UserName = userName,
                 Name = pc.Name,
                 ContractorId = pc.ContractorId,
-                ContractorName = pc.ContractorId.HasValue
-                    ? contractorNames.GetValueOrDefault(pc.ContractorId.Value)
-                    : null,
+                ContractorName = contractorName,
+                CategoryId = pc.CategoryId,
+                CategoryName = category?.Name,
+                CategoryColor = category?.Color,
                 Number = pc.Number,
                 Date = pc.Date,
                 Description = pc.Description,
                 Net = pc.Net,
                 Gross = pc.Gross,
-                IsAccepted = pc.IsAccepted,
+                ApprovalStatus = pc.ApprovalStatus,
+                ApprovedByUserId = pc.ApprovedByUserId,
+                ApprovedAt = pc.ApprovedAt,
                 HasDocument = attachment is not null,
                 DocumentFileName = attachment?.OriginalFileName,
                 PreviewSasUrl = previewSasUrl,
                 DownloadSasUrl = downloadSasUrl,
-                SharedWithUserIds = sharedWithUserIds,
                 CreatedAt = pc.CreatedAt
             };
         }
     }
 }
+

@@ -1,4 +1,5 @@
 import type { WorkScheduleStageWeb, WorkScheduleStageWorkWeb, WorkScheduleStageWorkPeriodWeb } from "../../types/workSchedule.types";
+import { formatDateShortLocal } from "../../utils/dateTimeUtils";
 import type { GanttMode } from "./GanttContext";
 import { G } from "./ganttTokens";
 
@@ -47,6 +48,87 @@ export function buildFlatRows(
     }
   }
   return rows;
+}
+
+/** Czy etap lub jego potomkowie pasują do zapytania (nazwa etapu lub pracy). */
+export function stageMatchesSearch(stage: WorkScheduleStageWeb, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return true;
+  }
+  if ((stage.name ?? '').toLowerCase().includes(q)) {
+    return true;
+  }
+  const workMatch = (stage.works ?? []).some((w) => (w.name ?? '').toLowerCase().includes(q));
+  if (workMatch) {
+    return true;
+  }
+  return (stage.childStages ?? []).some((child) => stageMatchesSearch(child, query));
+}
+
+/** Filtruje drzewo etapów po nazwie etapu lub pracy (case-insensitive). */
+export function filterStagesBySearch(
+  stages: WorkScheduleStageWeb[],
+  query: string,
+): WorkScheduleStageWeb[] {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return stages;
+  }
+
+  const filterRecursive = (stageList: WorkScheduleStageWeb[]): WorkScheduleStageWeb[] => {
+    const result: WorkScheduleStageWeb[] = [];
+    for (const stage of stageList) {
+      const stageNameMatch = (stage.name ?? '').toLowerCase().includes(q);
+      const filteredChildren = filterRecursive(stage.childStages ?? []);
+      const matchingWorks = stageNameMatch
+        ? (stage.works ?? [])
+        : (stage.works ?? []).filter((w) => (w.name ?? '').toLowerCase().includes(q));
+      const hasMatchingChildren = filteredChildren.length > 0;
+      const hasMatchingWorks = matchingWorks.length > 0;
+
+      if (stageNameMatch || hasMatchingWorks || hasMatchingChildren) {
+        result.push({
+          ...stage,
+          works: matchingWorks,
+          childStages: stageNameMatch ? (stage.childStages ?? []) : filteredChildren,
+        });
+      }
+    }
+    return result;
+  };
+
+  return filterRecursive(stages);
+}
+
+/** Zwraca ID etapów do auto-rozwinięcia przy aktywnym wyszukiwaniu. */
+export function collectExpandableStageIdsForSearch(
+  stages: WorkScheduleStageWeb[],
+  query: string,
+): string[] {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return [];
+  }
+
+  const ids: string[] = [];
+
+  const walk = (stageList: WorkScheduleStageWeb[]): boolean => {
+    let subtreeHasMatch = false;
+    for (const stage of stageList) {
+      const nameMatch = (stage.name ?? '').toLowerCase().includes(q);
+      const workMatch = (stage.works ?? []).some((w) => (w.name ?? '').toLowerCase().includes(q));
+      const childMatch = walk(stage.childStages ?? []);
+      if (nameMatch || workMatch || childMatch) {
+        ids.push(stage.id);
+        subtreeHasMatch = true;
+      }
+    }
+    return subtreeHasMatch;
+  };
+
+  walk(stages);
+  return ids;
 }
 
 // ─── Date utilities ───────────────────────────────────────────────────────────
@@ -107,12 +189,9 @@ export function fmtShortDate(s: string): string {
   return d.toLocaleDateString("pl-PL", { day: "numeric", month: "short" });
 }
 
-/** Formatuje datę do kompaktowego wyświetlenia: D.MM (np. 25.02) */
+/** Formatuje datę do kompaktowego wyświetlenia: DD.MM.YYYY (np. 25.02.2026) */
 export function fmtCompactDate(s: string): string {
-  const d = new Date(s.slice(0, 10) + "T00:00:00");
-  const day = d.getDate();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  return `${day}.${month}`;
+  return formatDateShortLocal(s.slice(0, 10));
 }
 
 /** Oblicza zakres dat etapu (min start, max end) ze wszystkich prac rekurencyjnie */

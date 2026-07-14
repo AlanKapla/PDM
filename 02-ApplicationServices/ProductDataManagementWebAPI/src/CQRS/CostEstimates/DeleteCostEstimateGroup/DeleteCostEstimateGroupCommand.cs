@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using MediatR;
 
 namespace CQRS.CostEstimates.DeleteCostEstimateGroup
@@ -11,6 +11,6 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
     {
         public Guid GroupId { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

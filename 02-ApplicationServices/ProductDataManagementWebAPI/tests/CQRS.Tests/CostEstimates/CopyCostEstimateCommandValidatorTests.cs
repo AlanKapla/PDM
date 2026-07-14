@@ -27,9 +27,7 @@ public sealed class CopyCostEstimateCommandValidatorTests
         // Default: tenant admin — bypasses membership checks
         TenantCtxSnapshot tenantSnapshot = new TenantCtxSnapshot(
             TenantId: Guid.NewGuid(),
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: [],
-            IsTenantAdmin: true,
+            IsAdmin: true,
             IsActive: true);
 
         _currentUserMock

@@ -40,7 +40,7 @@ import {
   GridItem,
   Tooltip,
 } from "@chakra-ui/react";
-import { Plus, Trash2, GripVertical, FolderPlus, ArrowRight } from "lucide-react";
+import { Plus, Trash2, GripVertical, FolderPlus, ArrowRight, Sparkles } from "lucide-react";
 import { projectApi } from "../api/projectApi";
 import { costEstimateApi } from "../api/costEstimateApi";
 import { ResourceScope } from "../api/projectApi";
@@ -284,7 +284,7 @@ export default function WorkScheduleFormModal({
   initialCostEstimateId,
   initialCostEstimateName,
 }: WorkScheduleFormModalProps) {
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, showApiError } = useToastNotification();
   const navigate = useNavigate();
   const [scheduleName, setScheduleName] = useState("");
   const [stages, setStages] = useState<StageFormData[]>([]);
@@ -297,6 +297,15 @@ export default function WorkScheduleFormModal({
   const [selectedCostEstimateId, setSelectedCostEstimateId] = useState<string>("");
   const [costEstimates, setCostEstimates] = useState<CostEstimateListItemWeb[]>([]);
   const [loadingCostEstimates, setLoadingCostEstimates] = useState(false);
+
+  // ——— Stan dla AI Schedule Generator ———
+  const [overallStartDate, setOverallStartDate] = useState<string>("");
+  const [overallEndDate, setOverallEndDate] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiGenerationError, setAiGenerationError] = useState<string | null>(null);
+  // ID utworzonego harmonogramu — gdy ustawiony, pokazujemy sekcję AI zamiast nawigować
+  const [createdScheduleId, setCreatedScheduleId] = useState<string | null>(null);
+
 
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -385,6 +394,12 @@ export default function WorkScheduleFormModal({
   }, [isOpen, mode, scheduleMode, initialCostEstimateId]);
 
   const resetForm = () => {
+    // Reset AI state
+    setCreatedScheduleId(null);
+    setOverallStartDate("");
+    setOverallEndDate("");
+    setIsGenerating(false);
+    setAiGenerationError(null);
     setScheduleName("");
     setStages([]);
     setDependencies([]);
@@ -744,13 +759,11 @@ export default function WorkScheduleFormModal({
       .map(([id, { shiftedBy }]) => `„${allWorks.find(w => w.tempId === id)?.name ?? id}" o ${shiftedBy} dni`)
       .join(', ');
 
-    toast({
-      title: 'Daty przesunięte kaskadowo',
-      description: `Przesunięto: ${shiftLines}`,
-      status: 'info',
-      duration: 6000,
-      isClosable: true,
-    });
+    showInfo(
+      'Daty przesunięte kaskadowo',
+      `Przesunięto: ${shiftLines}`,
+      { duration: 6000 }
+    );
   };
 
   const removeDependency = (tempId: string) => {
@@ -876,43 +889,23 @@ export default function WorkScheduleFormModal({
 
   const handleSubmit = async () => {
     if (!scheduleName.trim()) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa harmonogramu jest wymagana",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa harmonogramu jest wymagana");
       return;
     }
 
     if (scheduleName.length > 200) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Nazwa harmonogramu nie może przekraczać 200 znaków",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Nazwa harmonogramu nie może przekraczać 200 znaków");
       return;
     }
 
     if (scheduleMode === 'linked' && !selectedCostEstimateId) {
-      toast({
-        title: "Błąd walidacji",
-        description: "Wybierz kosztorys, z którego ma zostać wygenerowany harmonogram",
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", "Wybierz kosztorys, z którego ma zostać wygenerowany harmonogram");
       return;
     }
 
     const validationError = validateStagesTree(stages);
     if (validationError) {
-      toast({
-        title: "Błąd walidacji",
-        description: validationError,
-        status: "error",
-        duration: 3000,
-      });
+      showError("Błąd walidacji", validationError);
       return;
     }
 
@@ -929,39 +922,83 @@ export default function WorkScheduleFormModal({
 
       if (mode === 'create') {
         const response = await projectApi.createWorkSchedule(tenantId, projectId, command);
-        toast({
-          title: "Sukces",
-          description: "Harmonogram został utworzony",
-          status: "success",
-          duration: 3000,
-        });
-        onSuccess?.();
-        onClose();
-        const newId = response?.data?.id;
-        if (newId) {
-          navigate(`/projects/${projectId}/schedules/${newId}`);
+        const newId = response?.data;
+
+        if (isFromCostEstimate && newId) {
+          // Dla flow "z kosztorysu" — nie nawiguj, pokaż sekcję AI
+          setCreatedScheduleId(newId);
+          // Ustaw domyślne ramy czasowe: dzisiaj + 30 dni
+          const today = new Date();
+          const defaultEnd = new Date(today);
+          defaultEnd.setDate(defaultEnd.getDate() + 30);
+          setOverallStartDate(today.toISOString().split("T")[0]);
+          setOverallEndDate(defaultEnd.toISOString().split("T")[0]);
+
+          showSuccess(
+            "Harmonogram utworzony",
+            "Teraz możesz wygenerować harmonogram z AI, aby automatycznie ustawić okresy i zależności.",
+            { duration: 5000 }
+          );
+        } else {
+          // Dla zwykłego create — istniejący flow
+          showSuccess("Sukces", "Harmonogram został utworzony");
+          onSuccess?.();
+          onClose();
+          if (newId) {
+            navigate(`/projects/${projectId}/schedules/${newId}`);
+          }
         }
       } else {
         await projectApi.updateWorkSchedule(tenantId, projectId, schedule!.id, command);
-        toast({
-          title: "Sukces",
-          description: "Harmonogram został zaktualizowany",
-          status: "success",
-          duration: 3000,
-        });
+        showSuccess("Sukces", "Harmonogram został zaktualizowany");
         onSuccess?.();
         onClose();
       }
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 3000,
-      });
+      showApiError(error);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGenerateFromAI = async () => {
+    if (!createdScheduleId) return;
+
+    // Walidacja dat
+    if (!overallStartDate || !overallEndDate) {
+      showError("Błąd walidacji", "Podaj datę rozpoczęcia i zakończenia harmonogramu");
+      return;
+    }
+
+    if (new Date(overallStartDate) >= new Date(overallEndDate)) {
+      showError("Błąd walidacji", "Data rozpoczęcia musi być wcześniejsza niż data zakończenia");
+      return;
+    }
+
+    setIsGenerating(true);
+    setAiGenerationError(null);
+
+    try {
+      await projectApi.generateScheduleFromEstimateAI(
+        tenantId,
+        projectId,
+        createdScheduleId,
+        {
+          overallStartDate: new Date(overallStartDate).toISOString(),
+          overallEndDate: new Date(overallEndDate).toISOString(),
+        }
+      );
+
+      showSuccess("Sukces", "Harmonogram został wygenerowany przez AI z okresami i zależnościami");
+      onSuccess?.();
+      onClose();
+      navigate(`/projects/${projectId}/schedules/${createdScheduleId}`);
+    } catch (error) {
+      const { title, description } = handleApiError(error);
+      setAiGenerationError(description || title);
+      showApiError(error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -1375,7 +1412,9 @@ export default function WorkScheduleFormModal({
 
   const isFromCostEstimate = mode === 'create' && !!initialCostEstimateId;
 
-  const modalTitle = isFromCostEstimate
+  const modalTitle = createdScheduleId
+    ? 'Krok 2: Generuj harmonogram z AI'
+    : isFromCostEstimate
     ? 'Nowy harmonogram z kosztorysu'
     : mode === 'create'
     ? `Utwórz harmonogram prac - ${projectName}`
@@ -1385,11 +1424,17 @@ export default function WorkScheduleFormModal({
   const submitLoadingText = mode === 'create' ? 'Tworzenie...' : 'Zapisywanie...';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: isFromCostEstimate ? "md" : "6xl" }} scrollBehavior="inside">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      closeOnOverlayClick={!isGenerating}
+      closeOnEsc={!isGenerating}
+      size={{ base: "full", md: isFromCostEstimate || createdScheduleId ? "md" : "6xl" }}
+      scrollBehavior="inside">
       <ModalOverlay />
       <ModalContent maxH={{ base: "100vh", md: "90vh" }} mx={{ base: 0, md: "auto" }}>
         <ModalHeader fontSize={{ base: "sm", md: "lg" }}>{modalTitle}</ModalHeader>
-        <ModalCloseButton />
+        <ModalCloseButton isDisabled={isGenerating} />
         <ModalBody pb={20}>
           <VStack spacing={6} align="stretch">
             <FormControl isRequired>
@@ -1762,10 +1807,101 @@ export default function WorkScheduleFormModal({
               </>
             )}
           </VStack>
+
+            {/* ——— Sekcja AI Generation (po utworzeniu harmonogramu z kosztorysu) ——— */}
+            {createdScheduleId && (
+              <>
+                <Divider mt={4} />
+                <Box>
+                  <VStack align="flex-start" spacing={4}>
+                    <Box>
+                      <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>
+                        Krok 2: Generowanie harmonogramu z AI
+                      </Text>
+                      <Text fontSize="sm" color="neutral.600">
+                        Podaj ramy czasowe całego harmonogramu. AI automatycznie dobierze czasy trwania
+                        i zależności między zakresami robót na podstawie struktury kosztorysu.
+                      </Text>
+                    </Box>
+
+                    {/* Ramy czasowe */}
+                    <HStack spacing={4} width="100%" flexWrap={{ base: "wrap", md: "nowrap" }}>
+                      <FormControl isRequired>
+                        <FormLabel fontSize="sm">Data rozpoczęcia</FormLabel>
+                        <Input
+                          type="date"
+                          value={overallStartDate}
+                          onChange={(e) => setOverallStartDate(e.target.value)}
+                          min={new Date().toISOString().split("T")[0]}
+                          size="md"
+                        />
+                      </FormControl>
+                      <FormControl isRequired>
+                        <FormLabel fontSize="sm">Data zakończenia</FormLabel>
+                        <Input
+                          type="date"
+                          value={overallEndDate}
+                          onChange={(e) => setOverallEndDate(e.target.value)}
+                          min={overallStartDate || new Date().toISOString().split("T")[0]}
+                          size="md"
+                        />
+                      </FormControl>
+                    </HStack>
+
+                    {/* Przycisk AI + stany */}
+                    <HStack spacing={3}>
+                      <Button
+                        colorScheme="primary"
+                        leftIcon={isGenerating ? undefined : <Sparkles size={16} />}
+                        onClick={handleGenerateFromAI}
+                        isLoading={isGenerating}
+                        loadingText="AI generuje harmonogram..."
+                        isDisabled={isGenerating || !overallStartDate || !overallEndDate}
+                        size="md"
+                      >
+                        Generuj harmonogram z AI
+                      </Button>
+
+                      {isGenerating && (
+                        <Text fontSize="sm" color="neutral.500">
+                          To może potrwać kilka sekund...
+                        </Text>
+                      )}
+                    </HStack>
+
+                    {/* Błąd AI generation */}
+                    {aiGenerationError && (
+                      <Alert status="error" borderRadius="md" role="alert">
+                        <AlertIcon aria-hidden="true" />
+                        <AlertDescription fontSize="sm">
+                          {aiGenerationError}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+
+                  </VStack>
+                </Box>
+              </>
+            )}
+
+            {/* ——— ModalCloseButton blokowany podczas generowania ——— */}
         </ModalBody>
 
         <ModalFooter position={{ base: "fixed", md: "relative" }} bottom={{ base: 0, md: "auto" }} left={{ base: 0, md: "auto" }} right={{ base: 0, md: "auto" }} bg={bgColor} borderTopWidth={{ base: "1px", md: 0 }} borderColor={borderColor} p={3} gap={2}>
-          {mode === 'edit' && schedule?.id && (
+          {createdScheduleId ? (
+            // Krok 2: harmonogram już utworzony — przycisk nawigacji
+            <Button
+              variant="outline"
+              colorScheme="orange"
+              onClick={() => { onClose(); navigate(`/projects/${projectId}/schedules/${createdScheduleId}`); }}
+              isDisabled={isGenerating}
+              size={{ base: "sm", md: "md" }}
+              mr="auto"
+            >
+              Przejdź do harmonogramu
+            </Button>
+          ) : mode === 'edit' && schedule?.id ? (
             <Button
               variant="outline"
               colorScheme="orange"
@@ -1776,10 +1912,11 @@ export default function WorkScheduleFormModal({
             >
               Przejdź do harmonogramu
             </Button>
-          )}
-          <Button variant="ghost" onClick={onClose} isDisabled={submitting} size={{ base: "sm", md: "md" }}>
+          ) : null}
+          <Button variant="ghost" onClick={onClose} isDisabled={submitting || isGenerating} size={{ base: "sm", md: "md" }}>
             Anuluj
           </Button>
+          {!createdScheduleId && (
           <Button
             colorScheme="primary"
             onClick={handleSubmit}
@@ -1789,6 +1926,7 @@ export default function WorkScheduleFormModal({
           >
             {submitButtonText}
           </Button>
+          )}
         </ModalFooter>
       </ModalContent>
     </Modal>

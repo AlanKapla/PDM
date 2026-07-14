@@ -17,6 +17,12 @@ interface DeleteAlertDialogProps {
   onConfirm: () => void;
   /** Opcjonalna nazwa usuwanego elementu wyświetlana w treści */
   itemName?: string;
+  /** Opcjonalny tytuł dialogu */
+  title?: string;
+  /** Opcjonalny opis — zastępuje domyślną treść */
+  description?: string;
+  /** Etykieta przycisku potwierdzenia */
+  confirmLabel?: string;
   isLoading?: boolean;
 }
 
@@ -29,11 +35,21 @@ export default function DeleteAlertDialog({
   onClose,
   onConfirm,
   itemName,
+  title = "Czy na pewno?",
+  description,
+  confirmLabel = "Usuń",
   isLoading = false,
 }: DeleteAlertDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
   const modalSize = useBreakpointValue({ base: "full", md: "md" });
   const isMobile = useBreakpointValue({ base: true, md: false });
+
+  const bodyText = description ?? (
+    <>
+      {itemName ? `Czy na pewno chcesz usunąć "${itemName}"? ` : ""}
+      Tej operacji nie można cofnąć.
+    </>
+  );
 
   return (
     <AlertDialog
@@ -49,16 +65,11 @@ export default function DeleteAlertDialog({
           my={{ base: 0, md: "auto" }}
         >
           <AlertDialogHeader fontSize="lg" fontWeight="semibold">
-            Czy na pewno?
+            {title}
           </AlertDialogHeader>
 
           <AlertDialogBody>
-            <Text>
-              {itemName
-                ? `Czy na pewno chcesz usunąć "${itemName}"? `
-                : ""}
-              Tej operacji nie można cofnąć.
-            </Text>
+            <Text>{bodyText}</Text>
           </AlertDialogBody>
 
           <AlertDialogFooter gap={2}>
@@ -77,7 +88,7 @@ export default function DeleteAlertDialog({
               isLoading={isLoading}
               ml={3}
             >
-              Usuń
+              {confirmLabel}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

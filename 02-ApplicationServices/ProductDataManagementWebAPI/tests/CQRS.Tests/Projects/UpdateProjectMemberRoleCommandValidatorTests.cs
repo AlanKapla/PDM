@@ -1,5 +1,6 @@
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using CQRS.Projects.UpdateProjectMemberRole;
+using Entities.Enums;
 using FluentValidation.TestHelper;
 using Moq;
 
@@ -114,32 +115,68 @@ public sealed class UpdateProjectMemberRoleCommandValidatorTests
         result.ShouldNotHaveValidationErrorFor(x => x.UserId);
     }
 
-    // === RoleId ===
+    // === IsAdmin ===
 
     [Fact]
-    public void Validate_WhenRoleIdIsEmpty_HasValidationError()
+    public void Validate_WhenIsAdminIsFalse_HasNoValidationError()
     {
         // Arrange
-        UpdateProjectMemberRoleCommand command = ValidCommand() with { RoleId = Guid.Empty };
+        UpdateProjectMemberRoleCommand command = ValidCommand() with { IsAdmin = false };
 
         // Act
         TestValidationResult<UpdateProjectMemberRoleCommand> result = _validator.TestValidate(command);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x.RoleId);
+        result.ShouldNotHaveValidationErrorFor(x => x.IsAdmin);
     }
 
     [Fact]
-    public void Validate_WhenRoleIdIsValid_HasNoValidationError()
+    public void Validate_WhenIsAdminIsTrue_HasNoValidationError()
     {
         // Arrange
-        UpdateProjectMemberRoleCommand command = ValidCommand();
+        UpdateProjectMemberRoleCommand command = ValidCommand() with { IsAdmin = true };
 
         // Act
         TestValidationResult<UpdateProjectMemberRoleCommand> result = _validator.TestValidate(command);
 
         // Assert
-        result.ShouldNotHaveValidationErrorFor(x => x.RoleId);
+        result.ShouldNotHaveValidationErrorFor(x => x.IsAdmin);
+    }
+
+    // === Modules — Settings admin-only ===
+
+    [Fact]
+    public void Validate_WhenSettingsModuleAssignedToNonAdmin_HasValidationError()
+    {
+        // Arrange
+        UpdateProjectMemberRoleCommand command = ValidCommand() with
+        {
+            IsAdmin = false,
+            Modules = new[] { ProjectModule.Settings, ProjectModule.Files }
+        };
+
+        // Act
+        TestValidationResult<UpdateProjectMemberRoleCommand> result = _validator.TestValidate(command);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.Modules);
+    }
+
+    [Fact]
+    public void Validate_WhenSettingsModuleAssignedToAdmin_HasNoValidationError()
+    {
+        // Arrange
+        UpdateProjectMemberRoleCommand command = ValidCommand() with
+        {
+            IsAdmin = true,
+            Modules = new[] { ProjectModule.Settings, ProjectModule.Files }
+        };
+
+        // Act
+        TestValidationResult<UpdateProjectMemberRoleCommand> result = _validator.TestValidate(command);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x.Modules);
     }
 
     // === Happy path ===
@@ -164,6 +201,6 @@ public sealed class UpdateProjectMemberRoleCommandValidatorTests
         TenantId = Guid.NewGuid(),
         ProjectId = Guid.NewGuid(),
         UserId = Guid.NewGuid(),
-        RoleId = Guid.NewGuid(),
+        IsAdmin = false,
     };
 }

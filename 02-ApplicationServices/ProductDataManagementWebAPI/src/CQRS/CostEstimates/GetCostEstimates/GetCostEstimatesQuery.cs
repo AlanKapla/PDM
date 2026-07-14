@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostEstimates;
 
 namespace CQRS.CostEstimates.GetCostEstimates
@@ -12,9 +12,9 @@ namespace CQRS.CostEstimates.GetCostEstimates
 
         public override string PermissionCode => Scope switch
         {
-            ResourceScope.All => PermissionCodes.ProjectResourcesReadAll,
-            ResourceScope.Mine => PermissionCodes.ProjectResourcesRead,
-            ResourceScope.Shared => PermissionCodes.ProjectResourcesReadShared,
+            ResourceScope.All => PermissionCodes.ProjectEstimates,
+            ResourceScope.Mine => PermissionCodes.ProjectEstimates,
+            ResourceScope.Shared => PermissionCodes.ProjectEstimates,
             _ => throw new ArgumentOutOfRangeException(nameof(Scope))
         };
     }

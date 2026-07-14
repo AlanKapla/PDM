@@ -12,13 +12,17 @@ import {
   HStack,
   Divider,
 } from "@chakra-ui/react";
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
 import { AuthContext } from "../context/AuthContext";
 import { LoadingSpinner } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { axiosClient } from "../api/axiosClient";
+import { hasActiveTenant } from "../utils/tenantUtils";
 
 export default function Profile() {
+  const navigate = useNavigate();
   const { user, refreshUser } = useContext(AuthContext);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -33,7 +37,7 @@ export default function Profile() {
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState("");
 
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiError } = useToastNotification();
 
   const cardBg = useColorModeValue("white", "gray.800");
   const cardText = useColorModeValue("gray.700", "gray.300");
@@ -90,12 +94,8 @@ export default function Profile() {
       await refreshUser();
       showSuccess("Profil zaktualizowany", "Twoje dane zostały zapisane");
       setIsEditing(false);
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.message ??
-        error?.response?.data?.detail ??
-        "Nie udało się zaktualizować profilu";
-      showError("Błąd", message);
+    } catch (error) {
+      showApiError(error);
     } finally {
       setSaving(false);
     }
@@ -112,6 +112,19 @@ export default function Profile() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} bg={pageBg} minH="100vh">
+        {!hasActiveTenant(user.activeTenantId) && (
+          <Button
+            variant="ghost"
+            leftIcon={<ArrowLeft size={16} />}
+            onClick={() => navigate("/dashboard")}
+            mb={4}
+            color="gray.600"
+            _hover={{ bg: "gray.100" }}
+          >
+            Strona główna
+          </Button>
+        )}
+
         <Box
           bg={cardBg}
           p={{ base: 4, md: 8 }}

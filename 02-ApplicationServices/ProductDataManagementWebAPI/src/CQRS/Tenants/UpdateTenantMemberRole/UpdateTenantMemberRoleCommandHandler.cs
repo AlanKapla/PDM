@@ -1,17 +1,13 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.DTO;
+﻿using Business.Interfaces.DTO;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Helpers;
-using Entities.Enums;
 using Entities.Models;
 using Entities.Models.Notifications;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
 using NotificationType = Business.Interfaces.DTO.NotificationType;
 
@@ -22,8 +18,6 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IReadRepository<User> userRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
-        private readonly IRepository<TenantPreferencesProfile> tenantPrefsRepo;
-        private readonly IReadRepository<Role> roleRepo;
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly IPermissionsVersionService permissionsVersionService;
         private readonly INotificationSender notificationSender;
@@ -33,8 +27,6 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
             IReadRepository<Tenant> tenantRepo,
             IReadRepository<User> userRepo,
             IRepository<TenantMember> tenantMemberRepo,
-            IRepository<TenantPreferencesProfile> tenantPrefsRepo,
-            IReadRepository<Role> roleRepo,
             IReadRepository<Notification> notificationRepo,
             IPermissionsVersionService permissionsVersionService,
             INotificationSender notificationSender,
@@ -43,8 +35,6 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
             this.tenantRepo = tenantRepo;
             this.userRepo = userRepo;
             this.tenantMemberRepo = tenantMemberRepo;
-            this.tenantPrefsRepo = tenantPrefsRepo;
-            this.roleRepo = roleRepo;
             this.notificationRepo = notificationRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.notificationSender = notificationSender;
@@ -59,24 +49,17 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
             TenantMember tenantMember = await tenantMemberRepo.GetFirstBySearch(
                 m => m.TenantId == request.TenantId
                     && m.UserId == request.UserId
-                    && m.IsActive,
-                q => q.Include(m => m.MemberRole))
+                    && m.IsActive)
                 ?? throw new NotFoundApiException(nameof(TenantMember), $"Tenant: {request.TenantId}, User: {request.UserId}");
 
-            Role newRole = await roleRepo.GetFirstBySearch(
-                r => r.Id == request.RoleId && r.Scope == RoleScope.Tenant && r.IsActive,
-                cancellationToken)
-                ?? throw new NotFoundApiException(nameof(Role), request.RoleId.ToString());
-
-            bool isDemoting = tenantMember.MemberRole?.Code == RoleCodes.TenantAdmin
-                && newRole.Code != RoleCodes.TenantAdmin;
+            bool isDemoting = tenantMember.IsAdmin && !request.IsAdmin;
 
             if (isDemoting)
             {
                 int adminCount = await tenantMemberRepo.CountAsync(
                     m => m.TenantId == request.TenantId
                          && m.IsActive
-                         && m.MemberRole!.Code == RoleCodes.TenantAdmin,
+                         && m.IsAdmin,
                     cancellationToken);
 
                 if (adminCount <= 1)
@@ -84,30 +67,22 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
                     throw new ConflictApiException(
                         nameof(TenantMember),
                         request.UserId.ToString(),
-                        "Nie można zdegradować ostatniego administratora tenanta.");
+                        "Nie można odebrać uprawnień administratora ostatniemu administratorowi tenanta.");
                 }
             }
 
-            Guid? oldRoleId = tenantMember.RoleId;
-            tenantMember.RoleId = newRole.Id;
+            tenantMember.IsAdmin = request.IsAdmin;
 
             await tenantMemberRepo.Update(tenantMember);
-
-            if (!tenant.IsActive && newRole.Code != RoleCodes.TenantAdmin)
-            {
-                TenantPreferencesProfile? userProfile = await tenantPrefsRepo.GetFirstBySearch(
-                    p => p.UserId == request.UserId && p.ActiveTenantId == request.TenantId);
-
-                if (userProfile is not null)
-                {
-                    userProfile.ActiveTenantId = null;
-                    await tenantPrefsRepo.Update(userProfile);
-                }
-            }
+            await tenantMemberRepo.SaveChangesAsync(cancellationToken);
 
             await permissionsVersionService.BumpVersionAsync(request.UserId, cancellationToken);
 
-            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId);
+            User? targetUser = await userRepo.GetFirstBySearch(u => u.Id == request.UserId, cancellationToken);
+
+            string message = request.IsAdmin
+                ? $"Otrzymałeś uprawnienia administratora w organizacji: {tenant.Name}"
+                : $"Zmieniono Twoje uprawnienia w organizacji: {tenant.Name}";
 
             NotificationDto notification = new NotificationDto
             {
@@ -117,18 +92,15 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
                 UserId = request.UserId,
                 AzureAdB2CObjectId = targetUser?.AzureAdB2CObjectId,
                 Type = NotificationType.Info,
-                Title = "Zmieniono Twoją rolę w organizacji",
-                Message = $"Twoja rola w organizacji '{tenant.Name}' została zmieniona na {newRole.Name}.",
+                Title = "Zmiana uprawnień",
+                Message = message,
                 CreatedAt = DateTime.UtcNow,
                 IsRead = false,
                 Metadata = new Dictionary<string, object?>
                 {
                     { "tenantId", request.TenantId },
                     { "tenantName", tenant.Name },
-                    { "oldRoleId", oldRoleId },
-                    { "newRoleId", newRole.Id },
-                    { "newRoleCode", newRole.Code },
-                    { "newRoleName", newRole.Name },
+                    { "isAdmin", request.IsAdmin },
                     { "changedByUserId", currentUser.Id }
                 }
             };
@@ -140,3 +112,4 @@ namespace CQRS.Tenants.UpdateTenantMemberRole
         }
     }
 }
+

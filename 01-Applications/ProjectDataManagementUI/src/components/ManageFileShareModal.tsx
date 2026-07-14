@@ -45,7 +45,7 @@ export const ManageFileShareModal = ({
   ownerUserId,
   onShareUpdated,
 }: ManageFileShareModalProps) => {
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const {showSuccess, showError, showWarning, showInfo, toast, showApiError } = useToastNotification();
   const [loading, setLoading] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
@@ -75,8 +75,7 @@ export const ManageFileShareModal = ({
       onShareUpdated();
       onClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setLoading(false);
     }

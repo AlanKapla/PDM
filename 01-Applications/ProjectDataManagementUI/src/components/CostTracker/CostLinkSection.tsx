@@ -5,7 +5,6 @@ import {
   Select,
   Text,
   HStack,
-  Badge,
   Button,
   VStack,
   Divider,
@@ -13,15 +12,12 @@ import {
   Alert,
   AlertIcon,
 } from "@chakra-ui/react";
-import { Link2, Link2Off, Pencil } from "lucide-react";
-import { useState } from "react";
+import { Link2, Link2Off } from "lucide-react";
 import { useCostLinkOptions } from "../../hooks/queries";
 import type {
   EstimateItemLinkOptionWeb,
   WorkLinkOptionWeb,
 } from "../../types/costTracker.types";
-
-// Minimalne interfejsy strukturalne — USUNIĘTE: zastąpione przez CostLinkOptionsWeb z API
 
 interface CostLinkSectionProps {
   /** Pełna ścieżka bieżącej pozycji kosztorysu z web modelu (bez ładowania danych). */
@@ -46,16 +42,8 @@ export default function CostLinkSection({
   tenantId,
   projectId,
 }: CostLinkSectionProps) {
-  const [isChangingEstimate, setIsChangingEstimate] = useState(false);
-  const [isChangingWork, setIsChangingWork] = useState(false);
-
-  const isChangingAny = isChangingEstimate || isChangingWork;
-
-  const { data: linkOptions, isLoading } = useCostLinkOptions(
-    tenantId,
-    projectId,
-    isChangingAny
-  );
+  // Opcje ładowane zawsze — od razu po otwarciu modala
+  const { data: linkOptions, isLoading } = useCostLinkOptions(tenantId, projectId, true);
 
   const estimateItems: EstimateItemLinkOptionWeb[] = linkOptions?.estimateItems ?? [];
   const workItems: WorkLinkOptionWeb[] = linkOptions?.workItems ?? [];
@@ -64,7 +52,7 @@ export default function CostLinkSection({
   const selectedItem = estimateItems.find((i) => i.itemId === selectedItemId) ?? null;
   const selectedWork = workItems.find((w) => w.workId === selectedWorkId) ?? null;
 
-  // Pozycja wybrana ale bez spięcia → blokuj zakres
+  // Pozycja wybrana ale bez spięcia → blokuj zakres pracy
   const isWorkLockedByItem =
     selectedItemId !== null &&
     (selectedItem === null || selectedItem.linkedWorkId === null);
@@ -74,17 +62,12 @@ export default function CostLinkSection({
     selectedWorkId !== null &&
     (selectedWork === null || selectedWork.linkedItemId === null);
 
-  // Gdy pozycja ma spięcie → w dropdownie zakresu pokazuj tylko ten jeden zakres
-  const filteredWorkItems: WorkLinkOptionWeb[] =
-    selectedItemId !== null && selectedItem?.linkedWorkId != null
-      ? workItems.filter((w) => w.workId === selectedItem!.linkedWorkId)
-      : workItems;
+  const filteredWorkItems = workItems;
+  const filteredEstimateItems = estimateItems;
 
-  // Gdy zakres ma spięcie → w dropdownie pozycji pokazuj tylko tę jedną pozycję
-  const filteredEstimateItems: EstimateItemLinkOptionWeb[] =
-    selectedWorkId !== null && selectedWork?.linkedItemId != null
-      ? estimateItems.filter((i) => i.itemId === selectedWork!.linkedItemId)
-      : estimateItems;
+  // Path: preferuj dane z opcji (działa w create i edit), fallback do props
+  const resolvedEstimatePath = selectedItem?.path ?? currentEstimatePath;
+  const resolvedWorkPath = selectedWork?.path ?? currentWorkPath;
 
   const handleItemSelect = (itemId: string | null) => {
     onChange(itemId);
@@ -98,7 +81,6 @@ export default function CostLinkSection({
     } else {
       onWorkChange(null);
     }
-    setIsChangingEstimate(false);
   };
 
   const handleWorkSelect = (workId: string | null) => {
@@ -115,24 +97,28 @@ export default function CostLinkSection({
       onChange(null);
       onWorkChange(workId);
     }
-    setIsChangingWork(false);
   };
 
   const handleDetachAll = () => {
     onChange(null);
     onWorkChange(null);
-    setIsChangingEstimate(false);
-    setIsChangingWork(false);
   };
 
   const isLinked = !!selectedItemId || !!selectedWorkId;
 
   return (
-    <Box border="1px solid" borderColor="neutral.200" borderRadius="md" p={3} bg={isLinked ? "blue.50" : "neutral.50"}>
+    <Box
+      border="1px solid"
+      borderColor={isLinked ? "blue.200" : "neutral.200"}
+      borderRadius="md"
+      p={3}
+      bg={isLinked ? "blue.50" : "neutral.50"}
+    >
+      {/* Nagłówek sekcji */}
       <HStack mb={3} justify="space-between">
         <HStack spacing={1}>
           <Link2 size={14} />
-          <Text fontWeight="medium" fontSize="sm">Powiązanie kosztu</Text>
+          <Text fontWeight="semibold" fontSize="sm">Powiązanie kosztu</Text>
         </HStack>
         {isLinked && (
           <Button
@@ -147,153 +133,94 @@ export default function CostLinkSection({
         )}
       </HStack>
 
-      {/* === Sekcja: Pozycja kosztorysu === */}
-      <VStack align="stretch" spacing={1} mb={3}>
-        <HStack justify="space-between">
-          <FormLabel fontSize="xs" mb={0} fontWeight="semibold" color="neutral.600">
-            Pozycja kosztorysu
-          </FormLabel>
-          {selectedItemId && !isChangingEstimate && (
-            <HStack spacing={1}>
-              {!isItemLockedByWork && (
-                <Button size="xs" variant="link" colorScheme="blue" leftIcon={<Pencil size={10} />}
-                  onClick={() => setIsChangingEstimate(true)}>
-                  Zmień
-                </Button>
-              )}
-              <Button size="xs" variant="link" colorScheme="red"
-                onClick={() => handleItemSelect(null)}>
-                Odepnij
-              </Button>
-            </HStack>
-          )}
-          {!selectedItemId && !isChangingEstimate && !isItemLockedByWork && (
-            <Button size="xs" variant="link" colorScheme="blue"
-              onClick={() => setIsChangingEstimate(true)}>
-              Powiąż
-            </Button>
-          )}
-          {isChangingEstimate && (
-            <Button size="xs" variant="link" colorScheme="gray"
-              onClick={() => setIsChangingEstimate(false)}>
-              Anuluj
-            </Button>
-          )}
+      {isLoading ? (
+        <HStack spacing={2} py={2}>
+          <Spinner size="xs" />
+          <Text fontSize="xs" color="neutral.500">Ładowanie opcji powiązania…</Text>
         </HStack>
-
-        {isItemLockedByWork && !selectedItemId && (
-          <Alert status="info" borderRadius="sm" py={1} px={2}>
-            <AlertIcon boxSize={3} />
-            <Text fontSize="xs">Wybrany zakres nie ma spiętej pozycji — odepnij zakres, aby powiązać pozycję.</Text>
-          </Alert>
-        )}
-
-        {selectedItemId && !isChangingEstimate && (
-          currentEstimatePath
-            ? <Badge colorScheme="blue" fontSize="xs" alignSelf="flex-start">{currentEstimatePath}</Badge>
-            : <Badge colorScheme="orange" fontSize="xs" alignSelf="flex-start">Powiązana pozycja (ścieżka niedostępna)</Badge>
-        )}
-
-        {isChangingEstimate && (
-          <FormControl>
-            {isLoading ? (
-              <HStack spacing={2}>
-                <Spinner size="xs" />
-                <Text fontSize="xs" color="neutral.500">Ładowanie pozycji…</Text>
-              </HStack>
-            ) : (
-              <Select
-                size="sm"
-                value={selectedItemId ?? ""}
-                onChange={(e) => handleItemSelect(e.target.value || null)}
-                placeholder="— wybierz pozycję —"
-                autoFocus
-              >
-                {filteredEstimateItems.map((item) => (
-                  <option key={item.itemId} value={item.itemId}>
-                    {item.path}{item.linkedWorkId ? " ⚡" : ""}
-                  </option>
-                ))}
-              </Select>
+      ) : (
+        <VStack align="stretch" spacing={0}>
+          {/* === Pozycja kosztorysu === */}
+          <FormControl isDisabled={isItemLockedByWork}>
+            <FormLabel fontSize="xs" mb={1} fontWeight="semibold" color="neutral.600">
+              Pozycja kosztorysu
+            </FormLabel>
+            <Select
+              size="sm"
+              value={selectedItemId ?? ""}
+              onChange={(e) => handleItemSelect(e.target.value || null)}
+              placeholder="— brak powiązania —"
+              bg="white"
+            >
+              {filteredEstimateItems.map((item) => (
+                <option key={item.itemId} value={item.itemId}>
+                  {item.path}{item.linkedWorkId ? " ⚡" : ""}
+                </option>
+              ))}
+            </Select>
+            {selectedItemId && resolvedEstimatePath && (
+              <Text fontSize="xs" color="blue.700" mt={1} noOfLines={2}>
+                📂 {resolvedEstimatePath}
+              </Text>
+            )}
+            {isItemLockedByWork && !selectedItemId && (
+              <Alert status="info" borderRadius="sm" py={1} px={2} mt={1}>
+                <AlertIcon boxSize={3} />
+                <Text fontSize="xs">Wybrany zakres nie ma spiętej pozycji — odepnij zakres, aby powiązać pozycję.</Text>
+              </Alert>
+            )}
+            {filteredEstimateItems.length === 0 && !isItemLockedByWork && (
+              <Text fontSize="xs" color="neutral.400" mt={1} fontStyle="italic">
+                Brak pozycji kosztorysu w tym projekcie.
+              </Text>
             )}
           </FormControl>
-        )}
-      </VStack>
 
-      <Divider />
+          <Divider my={3} />
 
-      {/* === Sekcja: Zakres pracy === */}
-      <VStack align="stretch" spacing={1} mt={3}>
-        <HStack justify="space-between">
-          <FormLabel fontSize="xs" mb={0} fontWeight="semibold" color="neutral.600">
-            Zakres pracy (harmonogram)
-          </FormLabel>
-          {selectedWorkId && !isChangingWork && (
-            <HStack spacing={1}>
-              {!isWorkLockedByItem && (
-                <Button size="xs" variant="link" colorScheme="blue" leftIcon={<Pencil size={10} />}
-                  onClick={() => setIsChangingWork(true)}>
-                  Zmień
-                </Button>
-              )}
-              <Button size="xs" variant="link" colorScheme="red"
-                onClick={() => handleWorkSelect(null)}>
-                Odepnij
-              </Button>
-            </HStack>
-          )}
-          {!selectedWorkId && !isChangingWork && !isWorkLockedByItem && (
-            <Button size="xs" variant="link" colorScheme="blue"
-              onClick={() => setIsChangingWork(true)}>
-              Powiąż
-            </Button>
-          )}
-          {isChangingWork && (
-            <Button size="xs" variant="link" colorScheme="gray"
-              onClick={() => setIsChangingWork(false)}>
-              Anuluj
-            </Button>
-          )}
-        </HStack>
-
-        {isWorkLockedByItem && !selectedWorkId && (
-          <Alert status="info" borderRadius="sm" py={1} px={2}>
-            <AlertIcon boxSize={3} />
-            <Text fontSize="xs">Wybrana pozycja nie ma spiętego zakresu — odepnij pozycję, aby powiązać zakres.</Text>
-          </Alert>
-        )}
-
-        {selectedWorkId && !isChangingWork && (
-          currentWorkPath
-            ? <Badge colorScheme="purple" fontSize="xs" alignSelf="flex-start">{currentWorkPath}</Badge>
-            : <Badge colorScheme="orange" fontSize="xs" alignSelf="flex-start">Powiązany zakres (ścieżka niedostępna)</Badge>
-        )}
-
-        {isChangingWork && (
-          <FormControl>
-            {isLoading ? (
-              <HStack spacing={2}>
-                <Spinner size="xs" />
-                <Text fontSize="xs" color="neutral.500">Ładowanie zakresów pracy…</Text>
-              </HStack>
-            ) : (
-              <Select
-                size="sm"
-                value={selectedWorkId ?? ""}
-                onChange={(e) => handleWorkSelect(e.target.value || null)}
-                placeholder="— wybierz zakres —"
-                autoFocus
-              >
-                {filteredWorkItems.map((item) => (
-                  <option key={item.workId} value={item.workId}>
-                    {item.path}{item.linkedItemId ? " ⚡" : ""}
-                  </option>
-                ))}
-              </Select>
+          {/* === Zakres pracy === */}
+          <FormControl isDisabled={isWorkLockedByItem}>
+            <FormLabel fontSize="xs" mb={1} fontWeight="semibold" color="neutral.600">
+              Zakres pracy (harmonogram)
+            </FormLabel>
+            <Select
+              size="sm"
+              value={selectedWorkId ?? ""}
+              onChange={(e) => handleWorkSelect(e.target.value || null)}
+              placeholder="— brak powiązania —"
+              bg="white"
+            >
+              {filteredWorkItems.map((item) => (
+                <option key={item.workId} value={item.workId}>
+                  {item.path}{item.linkedItemId ? " ⚡" : ""}
+                </option>
+              ))}
+            </Select>
+            {selectedWorkId && resolvedWorkPath && (
+              <Text fontSize="xs" color="purple.700" mt={1} noOfLines={2}>
+                📂 {resolvedWorkPath}
+              </Text>
+            )}
+            {isWorkLockedByItem && !selectedWorkId && (
+              <Alert status="info" borderRadius="sm" py={1} px={2} mt={1}>
+                <AlertIcon boxSize={3} />
+                <Text fontSize="xs">Wybrana pozycja nie ma spiętego zakresu — odepnij pozycję, aby powiązać zakres.</Text>
+              </Alert>
+            )}
+            {filteredWorkItems.length === 0 && !isWorkLockedByItem && (
+              <Text fontSize="xs" color="neutral.400" mt={1} fontStyle="italic">
+                Brak zakresów pracy w harmonogramach tego projektu.
+              </Text>
             )}
           </FormControl>
-        )}
-      </VStack>
+        </VStack>
+      )}
+
+      {isLinked && (
+        <Text fontSize="xs" color="neutral.500" mt={3}>
+          ⚡ oznacza wzajemne spięcie pozycji z zakresem pracy.
+        </Text>
+      )}
     </Box>
   );
 }

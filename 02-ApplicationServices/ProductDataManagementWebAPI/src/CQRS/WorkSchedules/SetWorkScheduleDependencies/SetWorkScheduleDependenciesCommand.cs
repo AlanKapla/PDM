@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.WorkSchedules;
 using CQRS.WorkSchedules.Shared;
 
@@ -8,6 +8,6 @@ namespace CQRS.WorkSchedules.SetWorkScheduleDependencies
     {
         public List<WorkDependencyDto> Dependencies { get; init; } = new();
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectSchedule;
     }
 }

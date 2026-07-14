@@ -9,7 +9,7 @@ namespace CQRS.Contractors.DeleteContractor
         public required Guid TenantId { get; init; }
         public required Guid Id { get; init; }
 
-        public string PermissionCode => PermissionCodes.TenantEdit;
+        public string PermissionCode => PermissionCodes.TenantSettingsEdit;
         public ResourceRef GetResource() => new(TenantId: TenantId);
     }
 }

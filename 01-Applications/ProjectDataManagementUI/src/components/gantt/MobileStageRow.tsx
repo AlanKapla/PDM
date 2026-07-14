@@ -8,23 +8,19 @@ import {
   Badge,
   useColorModeValue,
   useDisclosure,
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogContent,
-  AlertDialogOverlay,
-  Button,
   Spinner,
   Menu,
   MenuButton,
   MenuList,
   MenuItem,
 } from "@chakra-ui/react";
-import { ChevronDown, ChevronRight, Plus, Trash2, MoreVertical, Move, Pencil } from "lucide-react";
-import { useRef } from "react";
+import { ChevronDown, ChevronRight, Plus, Trash2, MoreVertical, Move, Pencil, Calendar } from "lucide-react";
+import ConfirmDialog from "../common/ConfirmDialog";
+import { AddInlineButton } from "../CostEstimate/PrototypeActionButtons";
 import { useGantt } from "./GanttContext";
 import MobileWorkRow from "./MobileWorkRow";
+import { fmtCompactDate, getStageRange } from "./ganttRowUtils";
+import { getStageDeleteDialogCopy } from "./ganttStageDeleteDialog";
 import type { WorkScheduleStageWeb } from "../../types/workSchedule.types";
 
 interface MobileStageRowProps {
@@ -33,16 +29,17 @@ interface MobileStageRowProps {
 }
 
 export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
-  const { mode, expandedStages, toggleStage, deleteStage, isMutating, openMobileModal, canEdit } = useGantt();
+  const { mode, expandedStages, toggleStage, deleteStage, addStage, isMutating, openMobileModal, canEdit } = useGantt();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
-  const cancelRef = useRef<HTMLButtonElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const deleteDialogCopy = getStageDeleteDialogCopy(depth);
 
   const isExpanded = expandedStages.has(stage.id);
   const isEditing = mode === "edit";
   const isDeleting = isMutating.has(`deleteStage-${stage.id}`);
   const works = [...(stage.works ?? [])].sort((a, b) => a.order - b.order);
   const childStages = [...(stage.childStages ?? [])].sort((a, b) => a.order - b.order);
+  const stageRange = getStageRange(stage);
 
   const bgStage = useColorModeValue("primary.50", "primary.900");
   const borderColor = useColorModeValue("primary.200", "primary.700");
@@ -63,17 +60,29 @@ export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
         bg={bgStage}
         ml={`${depth * 12}px`}
       >
-        <HStack px={3} py={2} spacing={2} justify="space-between">
-          <HStack spacing={2} flex={1} minW={0} onClick={() => toggleStage(stage.id)} cursor="pointer">
-            <Box color="primary.500" flexShrink={0}>
+        <HStack px={3} py={2} spacing={2} justify="space-between" align="start">
+          <HStack spacing={2} flex={1} minW={0} align="start" onClick={() => toggleStage(stage.id)} cursor="pointer">
+            <Box color="primary.500" flexShrink={0} mt="2px">
               {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </Box>
-            <Text fontWeight="semibold" fontSize="sm" noOfLines={1} flex={1}>
-              {stage.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
-            </Text>
-            <Badge colorScheme="gray" variant="subtle" fontSize="2xs">
-              {works.length > 0 ? `${works.length}` : "0"}
-            </Badge>
+            <VStack align="start" spacing={0} flex={1} minW={0}>
+              <HStack spacing={2} w="full" align="start">
+                <Text fontWeight="semibold" fontSize="sm" flex={1}>
+                  {stage.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
+                </Text>
+                <Badge colorScheme="gray" variant="subtle" fontSize="2xs">
+                  {works.length > 0 ? `${works.length}` : "0"}
+                </Badge>
+              </HStack>
+              {stageRange && (
+                <HStack spacing={1}>
+                  <Calendar size={10} color="gray" />
+                  <Text fontSize="xs" color="gray.500">
+                    {fmtCompactDate(stageRange.start)}–{fmtCompactDate(stageRange.end)}
+                  </Text>
+                </HStack>
+              )}
+            </VStack>
           </HStack>
 
           {isEditing && canEdit && (
@@ -141,35 +150,28 @@ export default function MobileStageRow({ stage, depth }: MobileStageRowProps) {
               px={3}
               py={1}
             >
-              <Button
-                size="xs"
-                leftIcon={<Plus size={12} />}
-                variant="ghost"
-                colorScheme="green"
-                onClick={() => openMobileModal({ type: "workForm", stageId: stage.id })}
-              >
-                Zakres pracy
-              </Button>
+              <HStack spacing={2} flexWrap="wrap">
+                <AddInlineButton onClick={() => openMobileModal({ type: "workForm", stageId: stage.id })}>
+                  Dodaj zakres
+                </AddInlineButton>
+                <AddInlineButton onClick={() => addStage("Nowy podetap", stage.id)}>
+                  Dodaj podetap
+                </AddInlineButton>
+              </HStack>
             </Box>
           )}
         </>
       )}
 
-      {/* Dialog potwierdzenia usunięcia */}
-      <AlertDialog isOpen={isDeleteOpen} leastDestructiveRef={cancelRef} onClose={onDeleteClose}>
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>Usuń etap</AlertDialogHeader>
-            <AlertDialogBody>
-              Czy na pewno chcesz usunąć etap <strong>{stage.name}</strong>?
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onDeleteClose}>Anuluj</Button>
-              <Button colorScheme="red" onClick={handleDeleteConfirm} ml={3}>Usuń</Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={onDeleteClose}
+        onConfirm={handleDeleteConfirm}
+        title={deleteDialogCopy.title}
+        message={deleteDialogCopy.message}
+        confirmText={deleteDialogCopy.confirmText}
+        isLoading={isDeleting}
+      />
     </>
   );
 }

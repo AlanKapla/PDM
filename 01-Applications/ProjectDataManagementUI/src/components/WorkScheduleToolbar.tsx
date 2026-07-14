@@ -22,7 +22,6 @@ import {
   FileSpreadsheet,
   MessageSquare,
   MoreHorizontal,
-  Pencil,
   Plus,
   RefreshCw,
   Save,
@@ -39,7 +38,6 @@ export interface WorkScheduleToolbarProps {
   hasCostEstimate: boolean;
   showComments: boolean;
   hideWeekends: boolean;
-  isEditing: boolean;
   isDirty: boolean;
   isSyncing: boolean;
   canEdit: boolean;
@@ -49,10 +47,8 @@ export interface WorkScheduleToolbarProps {
   onToggleComments: () => void;
   onSyncFromCostEstimate: () => void;
   onAddStage: () => void;
-  onEditMode: () => void;
-  onToggleInlineEdit: () => void;
-  onSaveAndExitEdit: () => void;
-  onCancelEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
   onToggleWeekends: () => void;
   onScrollToToday: () => void;
   onExpandAll: () => void;
@@ -99,7 +95,6 @@ export default function WorkScheduleToolbar({
   hasCostEstimate,
   showComments,
   hideWeekends,
-  isEditing,
   isDirty,
   isSyncing,
   canEdit,
@@ -107,10 +102,8 @@ export default function WorkScheduleToolbar({
   onToggleComments,
   onSyncFromCostEstimate,
   onAddStage,
-  onEditMode,
-  onToggleInlineEdit,
-  onSaveAndExitEdit,
-  onCancelEdit,
+  onSave,
+  onCancel,
   onToggleWeekends,
   onScrollToToday,
   onExpandAll,
@@ -125,7 +118,7 @@ export default function WorkScheduleToolbar({
     if (!el) return;
 
     const measure = (w: number) =>
-      setBp(w >= 1100 ? "full" : w >= 600 ? "compact" : "mobile");
+      setBp(w >= 960 ? "full" : w >= 600 ? "compact" : "mobile");
 
     // Odczyt synchroniczny przy montowaniu
     measure(el.offsetWidth);
@@ -142,7 +135,7 @@ export default function WorkScheduleToolbar({
   const viewActions: ActionDef[] = [
     {
       id: "weekends",
-      icon: hideWeekends ? <Eye size={14} /> : <EyeOff size={14} />,
+      icon: hideWeekends ? <Eye size={16} /> : <EyeOff size={16} />,
       label: hideWeekends ? "Pokaż weekendy" : "Ukryj weekendy",
       tooltip: hideWeekends ? "Pokaż weekendy" : "Ukryj weekendy",
       onClick: onToggleWeekends,
@@ -153,7 +146,7 @@ export default function WorkScheduleToolbar({
     },
     {
       id: "today",
-      icon: <CalendarDays size={14} />,
+      icon: <CalendarDays size={16} />,
       label: "Dzisiaj",
       tooltip: "Przewiń do dzisiejszej daty",
       onClick: onScrollToToday,
@@ -163,7 +156,7 @@ export default function WorkScheduleToolbar({
     },
     {
       id: "expand",
-      icon: <ChevronDown size={14} />,
+      icon: <ChevronDown size={16} />,
       label: "Rozwiń",
       tooltip: "Rozwiń wszystkie etapy",
       onClick: onExpandAll,
@@ -173,7 +166,7 @@ export default function WorkScheduleToolbar({
     },
     {
       id: "collapse",
-      icon: <ChevronUp size={14} />,
+      icon: <ChevronUp size={16} />,
       label: "Zwiń",
       tooltip: "Zwiń wszystkie etapy",
       onClick: onCollapseAll,
@@ -185,72 +178,51 @@ export default function WorkScheduleToolbar({
 
   const editActions: ActionDef[] = [
     {
-      id: "edit-modal",
-      icon: <Edit size={14} />,
-      label: "Edytuj",
-      tooltip: "Otwórz formularz edycji harmonogramu",
-      onClick: onEditMode,
-      colorScheme: "primary",
-      variant: "outline",
-      isVisible: canEdit && !isEditing,
-    },
-    {
-      id: "inline-edit",
-      icon: <Pencil size={14} />,
-      label: isEditing ? "Edycja inline ✓" : "Edycja inline",
-      tooltip: isEditing ? "Wyjdź z trybu edycji" : "Włącz edycję inline",
-      onClick: onToggleInlineEdit,
-      isActive: isEditing,
-      colorScheme: isEditing ? "primary" : "gray",
-      variant: isEditing ? "solid" : "outline",
-      isVisible: canEdit,
-    },
-    {
       id: "add-stage",
-      icon: <Plus size={14} />,
+      icon: <Plus size={16} />,
       label: "Dodaj etap",
       tooltip: "Dodaj nowy etap do harmonogramu",
       onClick: onAddStage,
       colorScheme: "gray",
       variant: "outline",
-      isVisible: canEdit && isEditing,
+      isVisible: canEdit,
     },
     {
       id: "save",
-      icon: <Save size={14} />,
+      icon: <Save size={16} />,
       label: "Zapisz",
-      tooltip: "Zapisz zmiany i wyjdź z trybu edycji",
-      onClick: onSaveAndExitEdit,
+      tooltip: "Zapisz zmiany",
+      onClick: onSave,
       colorScheme: "primary",
       variant: "solid",
-      isVisible: canEdit && (isEditing || isDirty),
+      isVisible: canEdit && isDirty,
     },
     {
       id: "cancel",
-      icon: <X size={14} />,
+      icon: <X size={16} />,
       label: "Anuluj",
       tooltip: "Odrzuć niezapisane zmiany",
-      onClick: onCancelEdit,
+      onClick: onCancel,
       colorScheme: "gray",
       variant: "ghost",
-      isVisible: canEdit && (isEditing || isDirty),
+      isVisible: canEdit && isDirty,
     },
   ];
 
   const akcjeActions: ActionDef[] = [
     {
       id: "cost-estimate",
-      icon: <FileSpreadsheet size={14} />,
+      icon: <FileSpreadsheet size={16} />,
       label: "Kosztorys",
       tooltip: "Przejdź do powiązanego kosztorysu",
       onClick: onNavigateToCostEstimate,
-      colorScheme: "gray",
+      colorScheme: "orange",
       variant: "ghost",
       isVisible: hasCostEstimate,
     },
     {
       id: "comments",
-      icon: <MessageSquare size={14} />,
+      icon: <MessageSquare size={16} />,
       label: "Komentarze",
       tooltip: showComments ? "Ukryj komentarze do prac" : "Pokaż komentarze do prac",
       onClick: onToggleComments,
@@ -261,19 +233,19 @@ export default function WorkScheduleToolbar({
     },
     {
       id: "sync",
-      icon: <RefreshCw size={14} />,
+      icon: <RefreshCw size={16} />,
       label: "Odśwież z kosztorysu",
       tooltip: "Aktualizuje strukturę etapów na podstawie grup w kosztorysie",
       onClick: onSyncFromCostEstimate,
       isLoading: isSyncing,
       colorScheme: "gray",
       variant: "ghost",
-      isVisible: hasCostEstimate && canEdit && !isEditing,
+      isVisible: hasCostEstimate && canEdit,
     },
   ];
 
   // Aktywne stany grup (dla wskaźnika w trybie zwinięcia)
-  const hasActiveEdit = isEditing || isDirty;
+  const hasActiveEdit = isDirty;
   const hasActiveView = hideWeekends;
   const hasActiveAction = showComments;
 
@@ -376,10 +348,10 @@ export default function WorkScheduleToolbar({
                   <Tooltip label="Akcje" hasArrow placement="bottom" isDisabled>
                     <MenuButton
                       as={IconButton}
-                      icon={<MoreHorizontal size={14} />}
+                      icon={<MoreHorizontal size={16} />}
                       size="sm"
                       variant="outline"
-                      colorScheme={hasActiveAction ? "teal" : "gray"}
+                      colorScheme={hasActiveAction ? "primary" : "gray"}
                       aria-label="Akcje"
                     />
                   </Tooltip>
@@ -394,7 +366,7 @@ export default function WorkScheduleToolbar({
         </HStack>
       )}
 
-      {/* ── MOBILE (<600px): 3 grupy jako osobne przyciski z dropdown ── */}
+      {/* ── MOBILE (<600px): grupy jako osobne przyciski z dropdown ── */}
       {bp === "mobile" && (
         <HStack spacing={2} flexWrap="wrap">
           {/* Widok */}
@@ -403,10 +375,10 @@ export default function WorkScheduleToolbar({
               <Menu>
                 <MenuButton
                   as={Button}
-                  rightIcon={<ChevronDown size={12} />}
-                  leftIcon={<Eye size={13} />}
+                  rightIcon={<ChevronDown size={16} />}
+                  leftIcon={<Eye size={16} />}
                   size="xs"
-                  colorScheme={hasActiveView ? "teal" : "gray"}
+                  colorScheme={hasActiveView ? "primary" : "gray"}
                   variant={hasActiveView ? "solid" : "outline"}
                 >
                   Widok
@@ -419,16 +391,16 @@ export default function WorkScheduleToolbar({
             </Box>
           )}
 
-          {/* Edycja */}
+          {/* Edycja (dodawanie/zapisywanie) */}
           {visibleEdit.length > 0 && (
             <Box position="relative" display="inline-flex">
               <Menu>
                 <MenuButton
                   as={Button}
-                  rightIcon={<ChevronDown size={12} />}
-                  leftIcon={<Edit size={13} />}
+                  rightIcon={<ChevronDown size={16} />}
+                  leftIcon={<Edit size={16} />}
                   size="xs"
-                  colorScheme={hasActiveEdit ? "teal" : "gray"}
+                  colorScheme={hasActiveEdit ? "primary" : "gray"}
                   variant={hasActiveEdit ? "solid" : "outline"}
                 >
                   Edycja
@@ -447,10 +419,10 @@ export default function WorkScheduleToolbar({
               <Menu>
                 <MenuButton
                   as={Button}
-                  rightIcon={<ChevronDown size={12} />}
-                  leftIcon={<Zap size={13} />}
+                  rightIcon={<ChevronDown size={16} />}
+                  leftIcon={<Zap size={16} />}
                   size="xs"
-                  colorScheme={hasActiveAction ? "teal" : "gray"}
+                  colorScheme={hasActiveAction ? "primary" : "gray"}
                   variant={hasActiveAction ? "solid" : "outline"}
                 >
                   Akcje

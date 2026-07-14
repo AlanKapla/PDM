@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
   useProjectDetails,
-  useCostEstimateTemplateDetails,
   useCostEstimateDetails,
 } from "../hooks/queries";
 
@@ -33,17 +32,13 @@ export default function Breadcrumbs() {
   );
   const projectName = projectData?.name ?? "";
 
-  // React Query — szczegóły szablonu i kosztorysu (lazy via `enabled`)
-  const { data: templateDetails, isLoading: templateLoading } =
-    useCostEstimateTemplateDetails(params.templateId);
-
+  // React Query — szczegóły kosztorysu (lazy via `enabled`)
   const { data: costEstimateDetails } = useCostEstimateDetails(
     user?.activeTenantId ?? undefined,
     params.projectId,
     params.estimateId
   );
 
-  const templateName = templateDetails?.name ?? "";
   const costEstimateName = costEstimateDetails?.name ?? "";
 
   // Generuj breadcrumbs po załadowaniu nazwy projektu
@@ -87,6 +82,8 @@ export default function Breadcrumbs() {
             segments.push({ label: "Wydatki", path: `/projects/${params.projectId}/costs`, isCurrentPage: true });
           } else if (pathSegments[2] === "dashboard") {
             segments.push({ label: "Dashboard", path: `/projects/${params.projectId}/dashboard`, isCurrentPage: true });
+          } else if (pathSegments[2] === "parameters") {
+            segments.push({ label: "Parametry", path: `/projects/${params.projectId}/parameters`, isCurrentPage: true });
           } else if (pathSegments[2] === "cost-estimates") {
             if (params.estimateId) {
               segments.push({ label: "Kosztorysy", path: `/projects/${params.projectId}/cost-estimates` });
@@ -103,27 +100,6 @@ export default function Breadcrumbs() {
         }
       } else if (pathSegments[0] === "assigned-works") {
         segments.push({ label: "Zaplanowane prace", path: "/assigned-works", isCurrentPage: true });
-      } else if (pathSegments[0] === "cost-estimate-templates") {
-        segments.push({ label: "Szablony kosztorysów", path: "/cost-estimate-templates" });
-        
-        if (params.templateId) {
-          const templateLabel = templateName || "Szablon";
-          
-          if (pathSegments[2] === "versions") {
-            segments.push({ label: templateLabel, path: `/cost-estimate-templates/${params.templateId}/edit` });
-            segments.push({ label: "Historia wersji", path: `/cost-estimate-templates/${params.templateId}/versions`, isCurrentPage: true });
-          } else if (pathSegments[2] === "edit") {
-            segments.push({ label: templateLabel, path: `/cost-estimate-templates/${params.templateId}/edit`, isCurrentPage: true });
-          } else {
-            segments[segments.length - 1].isCurrentPage = true;
-          }
-        } else if (pathSegments[1] === "new") {
-          segments.push({ label: "Nowy szablon", path: "/cost-estimate-templates/new", isCurrentPage: true });
-        } else if (pathSegments[1] === "select") {
-          segments.push({ label: "Wybierz szablon", path: "/cost-estimate-templates/select", isCurrentPage: true });
-        } else {
-          segments[segments.length - 1].isCurrentPage = true;
-        }
       } else if (pathSegments[0] === "profile") {
         segments.push({ label: "Ustawienia", path: "/profile", isCurrentPage: true });
       } else if (pathSegments[0] === "dashboard") {
@@ -134,7 +110,7 @@ export default function Breadcrumbs() {
     };
 
     generateBreadcrumbs();
-  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, params.templateId, projectName, templateName, costEstimateName]);
+  }, [location.pathname, params.projectId, params.tenantId, params.estimateId, params.workScheduleId, projectName, costEstimateName]);
 
   if (breadcrumbs.length <= 1) {
     return null;
@@ -142,10 +118,6 @@ export default function Breadcrumbs() {
 
   // Nie renderuj breadcrumbs dopóki nazwa projektu/szablonu się nie załaduje
   if (params.projectId && !projectName) {
-    return null;
-  }
-  
-  if (params.templateId && !templateName && templateLoading) {
     return null;
   }
 

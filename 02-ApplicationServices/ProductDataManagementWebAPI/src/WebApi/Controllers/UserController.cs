@@ -71,9 +71,9 @@ public class UserController : BaseApiController
     /// <returns>Hierarchically grouped assigned works with periods</returns>
     [Authorize]
     [HttpGet("assigned-works")]
-    public async Task<IActionResult> GetMyAssignedWorks([FromQuery] Guid tenantId, [FromQuery] Guid projectId)
+    public async Task<IActionResult> GetMyAssignedWorks()
     {
-        GetUserAssignedWorksQuery query = new GetUserAssignedWorksQuery { TenantId = tenantId, ProjectId = projectId };
+        GetUserAssignedWorksQuery query = new GetUserAssignedWorksQuery();
         return Ok(await Send(query));
     }
 }

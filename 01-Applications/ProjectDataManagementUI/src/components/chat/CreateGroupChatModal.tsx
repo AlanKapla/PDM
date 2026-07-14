@@ -49,7 +49,7 @@ export default function CreateGroupChatModal({
   const [groupName, setGroupName] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { showError, showSuccess } = useToastNotification();
+  const { showError, showSuccess, showApiError } = useToastNotification();
   const { user } = useContext(AuthContext);
   const activeTenantId = user?.activeTenantId ?? null;
 
@@ -120,13 +120,8 @@ export default function CreateGroupChatModal({
       showSuccess("Grupa utworzona");
       onCreated(result.id);
       onClose();
-    } catch (err: any) {
-      const status = err?.response?.status;
-      if (status === 403) {
-        showError("Nie wszyscy wybrani użytkownicy mają wspólny projekt.");
-      } else {
-        showError("Nie udało się utworzyć grupy.");
-      }
+    } catch (err) {
+      showApiError(err);
     } finally {
       setSubmitting(false);
     }

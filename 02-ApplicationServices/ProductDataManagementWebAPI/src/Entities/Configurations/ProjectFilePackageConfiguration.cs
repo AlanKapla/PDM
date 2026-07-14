@@ -3,7 +3,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -63,10 +62,21 @@ namespace Entities.Configurations
                 .HasPrincipalKey(tm => new { tm.TenantId, tm.UserId })
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Unique constraint: package name must be unique per tenant + project + owner
+            // Self-referencing FK for directory hierarchy
+            builder.HasOne(pfp => pfp.Parent)
+                .WithMany(pfp => pfp.Children)
+                .HasForeignKey(pfp => pfp.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Unique constraint for subdirectories (ParentId IS NOT NULL)
+            builder.HasIndex(pfp => new { pfp.TenantId, pfp.ProjectId, pfp.OwnerId, pfp.ParentId, pfp.Name })
+                .IsUnique()
+                .HasFilter("[IsDeleted] = 0 AND [ParentId] IS NOT NULL");
+
+            // Unique constraint for root directories (ParentId IS NULL)
             builder.HasIndex(pfp => new { pfp.TenantId, pfp.ProjectId, pfp.OwnerId, pfp.Name })
                 .IsUnique()
-                .HasFilter("[IsDeleted] = 0");
+                .HasFilter("[IsDeleted] = 0 AND [ParentId] IS NULL");
 
             // Index for fast lookups
             builder.HasIndex(pfp => new { pfp.ProjectId, pfp.TenantId });
@@ -76,6 +86,9 @@ namespace Entities.Configurations
             
             // Index for non-deleted packages
             builder.HasIndex(pfp => new { pfp.ProjectId, pfp.IsDeleted });
+
+            // Index for children lookups
+            builder.HasIndex(pfp => pfp.ParentId);
         }
     }
 }

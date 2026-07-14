@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.CreateTrackedCost;
 using CQRS.CostTrackers.DeleteTrackedCost;
@@ -31,7 +31,7 @@ namespace WebApi.Controllers
         /// <param name="command">Tracked cost data with optional file attachments</param>
         /// <returns>Created tracked cost</returns>
         [HttpPost("costs")]
-        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [Authorize(Policy = PermissionCodes.ProjectDashboardTracker)]
         [RequestSizeLimit(52428800)]
         [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
         [ProducesResponseType(typeof(TrackedCostWeb), StatusCodes.Status201Created)]
@@ -61,7 +61,7 @@ namespace WebApi.Controllers
         /// <param name="command">Updated tracked cost data with optional file attachments</param>
         /// <returns>Updated tracked cost</returns>
         [HttpPut("costs/{costId:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [Authorize(Policy = PermissionCodes.ProjectDashboardTracker)]
         [RequestSizeLimit(52428800)]
         [RequestFormLimits(MultipartBodyLengthLimit = 52428800)]
         [ProducesResponseType(typeof(TrackedCostWeb), StatusCodes.Status200OK)]
@@ -91,7 +91,7 @@ namespace WebApi.Controllers
         /// <param name="costTrackerId">Cost Tracker ID</param>
         /// <param name="command">Budget data</param>
         [HttpPut("budget")]
-        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [Authorize(Policy = PermissionCodes.ProjectDashboardTracker)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -118,7 +118,7 @@ namespace WebApi.Controllers
         /// <param name="projectId">Project ID</param>
         /// <param name="costId">Tracked cost ID</param>
         [HttpDelete("costs/{costId:guid}")]
-        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [Authorize(Policy = PermissionCodes.ProjectDashboardTracker)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -146,7 +146,7 @@ namespace WebApi.Controllers
         /// <param name="projectId">Project ID</param>
         /// <returns>Available estimate items and work items with paths and mutual link info</returns>
         [HttpGet("link-options")]
-        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [Authorize(Policy = PermissionCodes.ProjectDashboardTracker)]
         [ProducesResponseType(typeof(CostLinkOptionsWeb), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetCostLinkOptions(

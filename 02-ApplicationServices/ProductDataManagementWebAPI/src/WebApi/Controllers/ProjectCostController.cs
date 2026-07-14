@@ -1,33 +1,25 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.ProjectCosts;
+using CQRS.ProjectCosts.ApproveProjectCost;
 using CQRS.ProjectCosts.CreateProjectCost;
 using CQRS.ProjectCosts.DeleteProjectCost;
 using CQRS.ProjectCosts.GetProjectCosts;
-using CQRS.ProjectCosts.ShareProjectCosts;
-using CQRS.ProjectCosts.UpdateCostShare;
+using CQRS.ProjectCosts.RejectProjectCost;
+using CQRS.ProjectCosts.SubmitProjectCostForApproval;
 using CQRS.ProjectCosts.UpdateProjectCost;
+using CQRS.ProjectCosts.WithdrawProjectCost;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace WebApi.Controllers
 {
-    /// <summary>
-    /// Controller do zarządzania kosztami projektu
-    /// </summary>
     [Route("api/tenants/{tenantId}/projects/{projectId}/cost")]
     [ApiController]
     public class ProjectCostController(IMediator mediator) : BaseApiController(mediator)
     {
-        /// <summary>
-        /// Get project costs based on scope (All, Mine, Shared)
-        /// </summary>
-        /// <param name="tenantId">Tenant ID</param>
-        /// <param name="projectId">Project ID</param>
-        /// <param name="scope">Resource scope (All, Mine, Shared)</param>
-        /// <returns>List of project costs</returns>
         [HttpGet("{scope}")]
-        [Authorize(Policy = PermissionCodes.ProjectView)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> GetProjectCosts(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -39,15 +31,12 @@ namespace WebApi.Controllers
                 ProjectId = projectId,
                 Scope = scope
             };
-            IEnumerable<Business.Interfaces.WebModels.ProjectCosts.ProjectCostListItemWeb> result = await Send(query);
+            IEnumerable<ProjectCostListItemWeb> result = await Send(query);
             return Ok(result);
         }
 
-        /// <summary>
-        /// Tworzy nowy koszt projektu
-        /// </summary>
         [HttpPost]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> CreateProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -63,11 +52,8 @@ namespace WebApi.Controllers
             return Created(string.Empty, result);
         }
 
-        /// <summary>
-        /// Aktualizuje istniejący koszt projektu
-        /// </summary>
         [HttpPut("{costId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> UpdateProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -85,11 +71,8 @@ namespace WebApi.Controllers
             return Ok(result);
         }
 
-        /// <summary>
-        /// Usuwa koszt projektu (soft delete)
-        /// </summary>
         [HttpDelete("{costId}")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesWrite)]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
         public async Task<IActionResult> DeleteProjectCost(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -106,45 +89,83 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Udostępnia wiele kosztów wybranym członkom projektu (grupowe udostępnianie)
+        /// Skierowanie kosztu do akceptacji (właściciel lub admin, Draft → PendingApproval)
         /// </summary>
-        [HttpPost("share")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
-        public async Task<IActionResult> ShareProjectCosts(
+        [HttpPost("{costId}/submit")]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
+        public async Task<IActionResult> SubmitForApproval(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
-            [FromBody] ShareProjectCostsCommand command)
+            [FromRoute] Guid costId)
         {
-            command = command with
-            {
-                TenantId = tenantId,
-                ProjectId = projectId
-            };
-
-            await Send(command);
-            return NoContent();
-        }
-
-        /// <summary>
-        /// Aktualizuje udostępnienie pojedynczego kosztu - dodaje lub usuwa dostęp dla konkretnych użytkowników
-        /// </summary>
-        [HttpPut("{costId}/share")]
-        [Authorize(Policy = PermissionCodes.ProjectResourcesShare)]
-        public async Task<IActionResult> UpdateCostShare(
-            [FromRoute] Guid tenantId,
-            [FromRoute] Guid projectId,
-            [FromRoute] Guid costId,
-            [FromBody] UpdateCostShareCommand command)
-        {
-            command = command with
+            SubmitProjectCostForApprovalCommand command = new SubmitProjectCostForApprovalCommand
             {
                 TenantId = tenantId,
                 ProjectId = projectId,
                 CostId = costId
             };
+            ProjectCostListItemWeb result = await Send(command);
+            return Ok(result);
+        }
 
-            await Send(command);
-            return NoContent();
+        /// <summary>
+        /// Wycofanie kosztu z akceptacji (właściciel lub admin, PendingApproval → Draft)
+        /// </summary>
+        [HttpPost("{costId}/withdraw")]
+        [Authorize(Policy = PermissionCodes.ProjectCosts)]
+        public async Task<IActionResult> WithdrawFromApproval(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid costId)
+        {
+            WithdrawProjectCostCommand command = new WithdrawProjectCostCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CostId = costId
+            };
+            ProjectCostListItemWeb result = await Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Akceptacja kosztu (tylko admin, PendingApproval → Approved)
+        /// </summary>
+        [HttpPost("{costId}/approve")]
+        [Authorize(Policy = PermissionCodes.ProjectAdmin)]
+        public async Task<IActionResult> ApproveCost(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid costId)
+        {
+            ApproveProjectCostCommand command = new ApproveProjectCostCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CostId = costId
+            };
+            ProjectCostListItemWeb result = await Send(command);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Odrzucenie kosztu (tylko admin, PendingApproval → Draft)
+        /// </summary>
+        [HttpPost("{costId}/reject")]
+        [Authorize(Policy = PermissionCodes.ProjectAdmin)]
+        public async Task<IActionResult> RejectCost(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid costId)
+        {
+            RejectProjectCostCommand command = new RejectProjectCostCommand
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CostId = costId
+            };
+            ProjectCostListItemWeb result = await Send(command);
+            return Ok(result);
         }
     }
 }

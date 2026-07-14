@@ -1,4 +1,3 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.UpdateTenant;
@@ -81,7 +80,7 @@ public sealed class UpdateTenantCommandHandlerTests
         result.Id.Should().Be(tenantId);
         result.Name.Should().Be("Updated Tenant Name");
         result.IsActive.Should().BeTrue();
-        result.RoleCode.Should().Be(RoleCodes.TenantAdmin);
+        result.IsAdmin.Should().BeTrue();
 
         tenant.Name.Should().Be("Updated Tenant Name");
         _tenantRepoMock.Verify(r => r.Update(tenant), Times.Once);

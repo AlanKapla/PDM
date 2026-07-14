@@ -2,38 +2,32 @@ import { ExternalLink, Mail, CheckCircle2, ShieldCheck, Plug2, MapPin } from 'lu
 import './CallToAction.css'
 
 const MICRO_BENEFITS = [
-  'Bezpłatny dostęp na start',
-  'Gotowy do pracy w 5 minut',
+  'Bezpłatny dostęp',
+  'Uruchomienie w ciągu kilku minut',
   'Bez karty kredytowej',
 ]
 
 export default function CallToAction() {
   return (
     <section id="cta" className="cta-section">
-      <div className="cta-section__bg">
-        <div className="cta-section__blob cta-section__blob--1" />
-        <div className="cta-section__blob cta-section__blob--2" />
-        <div className="cta-section__grid" />
-      </div>
-
       <div className="container cta-section__content">
         <div className="cta-section__badge">
-          <span className="cta-section__badge-dot" />
-          Zacznij już dziś
+          <span className="cta-section__badge-dot" aria-hidden="true" />
+          Platforma dostępna bezpłatnie
         </div>
         <h2 className="cta-section__title">
-          Zacznij widzieć<br />
-          <span className="cta-section__title-accent">gdzie idą pieniądze.</span>
+          Rozpocznij zarządzanie<br />
+          <span className="cta-section__title-accent">inwestycjami profesjonalnie.</span>
         </h2>
         <p className="cta-section__subtitle">
-          Bezpłatny dostęp. Konfiguracja w 5 minut.
-          Bez karty kredytowej. I bez kolejnego Excela.
+          Bezpłatny dostęp do pełnej funkcjonalności platformy.
+          Konfiguracja projektu zajmuje kilka minut.
         </p>
 
         <div className="cta-section__micro-benefits">
           {MICRO_BENEFITS.map(b => (
             <span key={b} className="cta-section__micro-benefit">
-              <CheckCircle2 size={15} />
+              <CheckCircle2 size={15} aria-hidden="true" />
               {b}
             </span>
           ))}
@@ -41,9 +35,11 @@ export default function CallToAction() {
 
         <div className="cta-section__integration">
           <p className="cta-section__integration-text">
-            Brakuje Ci jakiejś funkcji? Chcesz połączyć Brickly
-            z Twoim systemem ERP, programem księgowym lub platformą zakupową?
-            Napisz do nas — lubimy ciekawe wyzwania.
+            Platforma jest otwarta na integracje z systemami zewnętrznymi —
+            ERP, oprogramowanie księgowe, platformy zakupowe.
+            Dostępne są inteligentne funkcje automatyzacji:
+            rozpoznawanie dokumentów kosztowych ze zdjęć
+            oraz generowanie kosztorysów na podstawie opisu inwestycji.
           </p>
         </div>
 
@@ -54,21 +50,21 @@ export default function CallToAction() {
             rel="noopener noreferrer"
             className="btn cta-section__btn-main"
           >
-            <ExternalLink size={18} />
-            Wejdź do aplikacji
+            <ExternalLink size={18} aria-hidden="true" />
+            Przejdź do platformy
           </a>
           <a href="mailto:kontakt@brickly.pro" className="btn cta-section__btn-secondary">
-            <Mail size={16} />
-            Napisz do nas
+            <Mail size={16} aria-hidden="true" />
+            Skontaktuj się z nami
           </a>
         </div>
 
-        <div className="cta-section__trust">
-          <span><ShieldCheck size={15} /> Bezpieczna platforma</span>
-          <span className="cta-section__trust-divider" />
-          <span><Plug2 size={15} /> Otwarte na integracje</span>
-          <span className="cta-section__trust-divider" />
-          <span><MapPin size={15} /> Produkt polski</span>
+        <div className="cta-section__trust" aria-label="Cechy platformy">
+          <span><ShieldCheck size={15} aria-hidden="true" /> Bezpieczna platforma</span>
+          <span className="cta-section__trust-divider" aria-hidden="true" />
+          <span><Plug2 size={15} aria-hidden="true" /> Otwarte na integracje</span>
+          <span className="cta-section__trust-divider" aria-hidden="true" />
+          <span><MapPin size={15} aria-hidden="true" /> Produkt polski</span>
         </div>
       </div>
     </section>

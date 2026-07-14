@@ -192,5 +192,171 @@ public sealed class GetCostLinkOptionsQueryHandlerTests
         result.EstimateItems.Should().BeEmpty();
         result.WorkItems.Should().HaveCount(1);
         result.WorkItems[0].WorkId.Should().Be(work.Id);
+        result.WorkItems[0].LinkedItemId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_WhenWorkLinksToDeletedItem_LinkedItemIdIsNull()
+    {
+        // Arrange
+        Guid tenantId = Guid.NewGuid();
+        Guid projectId = Guid.NewGuid();
+        Guid scheduleId = Guid.NewGuid();
+        Guid stageId = Guid.NewGuid();
+        Guid deletedItemId = Guid.NewGuid();
+
+        WorkSchedule schedule = new WorkSchedule
+        {
+            Id = scheduleId,
+            TenantId = tenantId,
+            ProjectId = projectId,
+            Name = "Schedule A"
+        };
+
+        WorkScheduleStage stage = new WorkScheduleStage
+        {
+            Id = stageId,
+            TenantId = tenantId,
+            ProjectId = projectId,
+            WorkScheduleId = scheduleId,
+            Name = "Stage A",
+            ParentStageId = null
+        };
+
+        WorkScheduleStageWork work = new WorkScheduleStageWork
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ProjectId = projectId,
+            WorkScheduleStageId = stageId,
+            Name = "Work A",
+            ColorRgb = "#FF0000",
+            CostEstimateItemId = deletedItemId
+        };
+
+        _costEstimateRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<CostEstimate, bool>>>()))
+            .ReturnsAsync(new List<CostEstimate>());
+
+        _workScheduleRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<WorkSchedule, bool>>>()))
+            .ReturnsAsync(new List<WorkSchedule> { schedule });
+
+        _stageRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<WorkScheduleStage, bool>>>()))
+            .ReturnsAsync(new List<WorkScheduleStage> { stage });
+
+        _stageWorkRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<WorkScheduleStageWork, bool>>>()))
+            .ReturnsAsync(new List<WorkScheduleStageWork> { work });
+
+        GetCostLinkOptionsQuery query = BuildQuery(tenantId, projectId);
+
+        // Act
+        CostLinkOptionsWeb result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.WorkItems.Should().HaveCount(1);
+        result.WorkItems[0].LinkedItemId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_WhenWorkLinksToExistingItem_LinkedItemIdIsSet()
+    {
+        // Arrange
+        Guid tenantId = Guid.NewGuid();
+        Guid projectId = Guid.NewGuid();
+        Guid estimateId = Guid.NewGuid();
+        Guid groupId = Guid.NewGuid();
+        Guid itemId = Guid.NewGuid();
+        Guid scheduleId = Guid.NewGuid();
+        Guid stageId = Guid.NewGuid();
+
+        CostEstimate estimate = new CostEstimate
+        {
+            Id = estimateId,
+            TenantId = tenantId,
+            ProjectId = projectId,
+            Name = "Estimate A"
+        };
+
+        CostEstimateGroup group = new CostEstimateGroup
+        {
+            Id = groupId,
+            CostEstimateId = estimateId,
+            Name = "Group A",
+            ParentGroupId = null
+        };
+
+        CostEstimateItem item = new CostEstimateItem
+        {
+            Id = itemId,
+            CostEstimateId = estimateId,
+            GroupId = groupId,
+            Name = "Item A",
+            RelationType = ItemRelationType.None
+        };
+
+        WorkSchedule schedule = new WorkSchedule
+        {
+            Id = scheduleId,
+            TenantId = tenantId,
+            ProjectId = projectId,
+            Name = "Schedule A"
+        };
+
+        WorkScheduleStage stage = new WorkScheduleStage
+        {
+            Id = stageId,
+            TenantId = tenantId,
+            ProjectId = projectId,
+            WorkScheduleId = scheduleId,
+            Name = "Stage A",
+            ParentStageId = null
+        };
+
+        WorkScheduleStageWork work = new WorkScheduleStageWork
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ProjectId = projectId,
+            WorkScheduleStageId = stageId,
+            Name = "Work A",
+            ColorRgb = "#FF0000",
+            CostEstimateItemId = itemId
+        };
+
+        _costEstimateRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<CostEstimate, bool>>>()))
+            .ReturnsAsync(new List<CostEstimate> { estimate });
+
+        _groupRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<CostEstimateGroup, bool>>>()))
+            .ReturnsAsync(new List<CostEstimateGroup> { group });
+
+        _itemRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<CostEstimateItem, bool>>>()))
+            .ReturnsAsync(new List<CostEstimateItem> { item });
+
+        _workScheduleRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<WorkSchedule, bool>>>()))
+            .ReturnsAsync(new List<WorkSchedule> { schedule });
+
+        _stageRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<WorkScheduleStage, bool>>>()))
+            .ReturnsAsync(new List<WorkScheduleStage> { stage });
+
+        _stageWorkRepoMock
+            .Setup(r => r.GetBySearch(It.IsAny<Expression<Func<WorkScheduleStageWork, bool>>>()))
+            .ReturnsAsync(new List<WorkScheduleStageWork> { work });
+
+        GetCostLinkOptionsQuery query = BuildQuery(tenantId, projectId);
+
+        // Act
+        CostLinkOptionsWeb result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.WorkItems.Should().HaveCount(1);
+        result.WorkItems[0].LinkedItemId.Should().Be(itemId);
     }
 }

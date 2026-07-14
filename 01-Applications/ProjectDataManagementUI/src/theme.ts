@@ -11,11 +11,20 @@ const theme = extendTheme({
   config,
   colors: {
     // Kolor przewodni – niebieski (rejestrujemy jako "primary" obok standardowych Chakra)
-    primary: primaryColors,
+    primary: {
+      ...primaryColors,
+      25: "#F5FAFF",
+    },
     // Hierarchia poziom 1 – zielony
-    level1: level1Colors,
+    level1: {
+      ...level1Colors,
+      25: "#F5FFF9",
+    },
     // Hierarchia poziom 2 – fioletowy
-    level2: level2Colors,
+    level2: {
+      ...level2Colors,
+      25: "#FBF7FF",
+    },
     // Akcje drugorzędne – teal
     action: actionColors,
     // Neutralne (ciepłe szarości — tło dashboardu, obramowania, tekst pomocniczy)
@@ -62,6 +71,12 @@ const theme = extendTheme({
       },
       defaultProps: {
         variant: "subtle",
+      },
+    },
+    Toast: {
+      defaultProps: {
+        position: "top-right",
+        isClosable: true,
       },
     },
   },

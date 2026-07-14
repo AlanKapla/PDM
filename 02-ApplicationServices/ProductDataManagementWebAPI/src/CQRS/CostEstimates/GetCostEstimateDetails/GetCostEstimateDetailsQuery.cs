@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostEstimates;
 
 namespace CQRS.CostEstimates.GetCostEstimateDetails
@@ -8,6 +8,6 @@ namespace CQRS.CostEstimates.GetCostEstimateDetails
     /// </summary>
     public sealed record GetCostEstimateDetailsQuery : CostEstimateCommandBase, IRequestQuery<CostEstimateDetailsWeb>
     {
-        public override string PermissionCode => PermissionCodes.ProjectResourcesReadSingle;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

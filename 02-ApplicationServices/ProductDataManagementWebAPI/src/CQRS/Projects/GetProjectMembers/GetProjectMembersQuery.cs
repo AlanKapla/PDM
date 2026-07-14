@@ -9,7 +9,7 @@ namespace CQRS.Projects.GetProjectMembers
         public required Guid TenantId { get; init; }
         public required Guid ProjectId { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectMembersView;
+        public string PermissionCode => PermissionCodes.ProjectView;
 
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }

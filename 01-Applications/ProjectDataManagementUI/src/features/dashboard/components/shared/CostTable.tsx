@@ -2,9 +2,9 @@ import React from 'react';
 import { Table, Thead, Tbody, Tr, Th, Td, IconButton, useToken } from '@chakra-ui/react';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
-import { PLN, DATE } from '../../utils/formatters';
+import { DATE } from '../../utils/formatters';
 import { AttachmentsCell } from './AttachmentsCell';
-import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
+import { NetGrossAmount } from './NetGrossAmount';
 
 export interface CostTableProps {
   costs: TrackedCostWeb[];
@@ -17,7 +17,6 @@ export interface CostTableProps {
 /** Tabela kosztów śledzonych. Wartości null wyświetlane jako "—". */
 export function CostTable({ costs, title, bgOverride, onEdit, onDelete }: CostTableProps): React.ReactElement {
   const [neutral400, neutral600] = useToken('colors', ['neutral.400', 'neutral.600']);
-  const currencySymbol = useDashboardCurrency();
 
   const hasActions = onEdit != null || onDelete != null;
 
@@ -37,10 +36,10 @@ export function CostTable({ costs, title, bgOverride, onEdit, onDelete }: CostTa
         <Table size="sm" variant="simple">
           <Thead>
             <Tr>
-              {['Nazwa', 'Wykonawca', 'Data', 'Nr faktury', 'Kwota netto', 'Zał.'].map((col) => (
+              {['Nazwa', 'Wykonawca', 'Data', 'Nr faktury', 'Kwota', 'Zał.'].map((col) => (
                 <Th
                   key={col}
-                  isNumeric={col === 'Kwota netto'}
+                  isNumeric={col === 'Kwota'}
                   color="neutral.400"
                   fontWeight="medium"
                   px="6px"
@@ -76,8 +75,14 @@ export function CostTable({ costs, title, bgOverride, onEdit, onDelete }: CostTa
                 <Td px="6px" py="4px" color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
                   {cost.number ?? '—'}
                 </Td>
-                <Td isNumeric px="6px" py="4px" color="orange.600" fontWeight="medium">
-                  {PLN(cost.net, currencySymbol)}
+                <Td isNumeric px="6px" py="4px">
+                  <NetGrossAmount
+                    net={cost.net}
+                    gross={cost.gross}
+                    size="sm"
+                    align="right"
+                    accentColor="orange.600"
+                  />
                 </Td>
                 <Td px="6px" py="4px">
                   <AttachmentsCell attachments={cost.attachments} costName={cost.name} />

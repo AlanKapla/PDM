@@ -16,10 +16,14 @@ export function useMyTenants(enabled: boolean = true) {
   });
 }
 
-export function useActiveInvitations(options?: { refetchInterval?: number }) {
+export function useActiveInvitations(options?: {
+  refetchInterval?: number;
+  refetchIntervalInBackground?: boolean;
+}) {
   return useQuery<TenantInvitationWeb[]>({
     queryKey: tenantKeys.invitations(),
     queryFn: getActiveInvitations,
     refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: options?.refetchIntervalInBackground ?? false,
   });
 }

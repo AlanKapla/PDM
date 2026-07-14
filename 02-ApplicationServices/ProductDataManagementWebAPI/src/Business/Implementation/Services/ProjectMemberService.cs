@@ -5,7 +5,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -38,7 +37,7 @@ public sealed class ProjectMemberService : IProjectMemberService
         CancellationToken cancellationToken = default)
     {
         List<Guid> user1ProjectIds = await projectMemberRepo.SelectAsync(
-            pm => pm.UserId == userId1,
+            pm => pm.UserId == userId1 && pm.IsActive,
             pm => pm.ProjectId,
             cancellationToken);
 
@@ -48,7 +47,7 @@ public sealed class ProjectMemberService : IProjectMemberService
         }
 
         return await projectMemberRepo.GetFirstBySearch(
-            pm => pm.UserId == userId2 && user1ProjectIds.Contains(pm.ProjectId));
+            pm => pm.UserId == userId2 && user1ProjectIds.Contains(pm.ProjectId) && pm.IsActive);
     }
 
     public async Task<ProjectMember?> FindCommonProjectForAllAsync(
@@ -63,20 +62,20 @@ public sealed class ProjectMemberService : IProjectMemberService
         }
 
         List<Guid> firstUserProjectIds = await projectMemberRepo.SelectAsync(
-            pm => pm.UserId == allUserIds[0],
+            pm => pm.UserId == allUserIds[0] && pm.IsActive,
             pm => pm.ProjectId,
             cancellationToken);
 
         foreach (Guid projectId in firstUserProjectIds)
         {
             int count = await projectMemberRepo.CountAsync(
-                pm => pm.ProjectId == projectId && allUserIds.Contains(pm.UserId),
+                pm => pm.ProjectId == projectId && allUserIds.Contains(pm.UserId) && pm.IsActive,
                 cancellationToken);
 
             if (count == allUserIds.Count)
             {
                 return await projectMemberRepo.GetFirstBySearch(
-                    pm => pm.ProjectId == projectId && pm.UserId == allUserIds[0]);
+                    pm => pm.ProjectId == projectId && pm.UserId == allUserIds[0] && pm.IsActive);
             }
         }
 
@@ -89,7 +88,7 @@ public sealed class ProjectMemberService : IProjectMemberService
         CancellationToken cancellationToken = default)
     {
         return projectMemberRepo.AnyAsync(
-            pm => pm.ProjectId == projectId && pm.UserId == userId,
+            pm => pm.ProjectId == projectId && pm.UserId == userId && pm.IsActive,
             cancellationToken);
     }
 
@@ -120,7 +119,7 @@ public sealed class ProjectMemberService : IProjectMemberService
         CancellationToken cancellationToken = default)
     {
         List<Guid> myProjectIds = await projectMemberRepo.SelectAsync(
-            pm => pm.UserId == userId,
+            pm => pm.UserId == userId && pm.IsActive,
             pm => pm.ProjectId,
             cancellationToken);
 
@@ -136,7 +135,7 @@ public sealed class ProjectMemberService : IProjectMemberService
         Dictionary<Guid, string> tenantNames = tenants.ToDictionary(t => t.Id, t => t.Name);
 
         IEnumerable<ProjectMember> allMembers = await projectMemberRepo.GetBySearch(
-            pm => myProjectIds.Contains(pm.ProjectId) && pm.UserId != userId);
+            pm => myProjectIds.Contains(pm.ProjectId) && pm.UserId != userId && pm.IsActive);
 
         Dictionary<Guid, List<Guid>> membersByProject = allMembers
             .GroupBy(pm => pm.ProjectId)
@@ -164,7 +163,7 @@ public sealed class ProjectMemberService : IProjectMemberService
         }
 
         int count = await projectMemberRepo.CountAsync(
-            pm => pm.ProjectId == projectId && ids.Contains(pm.UserId),
+            pm => pm.ProjectId == projectId && ids.Contains(pm.UserId) && pm.IsActive,
             cancellationToken);
 
         return count == ids.Count;
@@ -178,7 +177,7 @@ public sealed class ProjectMemberService : IProjectMemberService
         List<Guid> excludeIds = excludeUserIds.Distinct().ToList();
 
         List<Guid> projectUserIds = await projectMemberRepo.SelectAsync(
-            pm => pm.ProjectId == projectId && !excludeIds.Contains(pm.UserId),
+            pm => pm.ProjectId == projectId && !excludeIds.Contains(pm.UserId) && pm.IsActive,
             pm => pm.UserId,
             cancellationToken);
 

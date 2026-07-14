@@ -1,4 +1,5 @@
 import { FinancialStatus, TimelineStatus } from '../types/projectDashboard.types';
+import { formatDateShortLocal } from '../../../utils/dateTimeUtils';
 
 export interface StatusConfig {
   bg: string;
@@ -34,7 +35,7 @@ export function PLN(
     new Intl.NumberFormat('pl-PL', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(v) + ' ' + currencySymbol
+    }).format(v) + '\u00A0' + currencySymbol
   );
 }
 
@@ -57,15 +58,7 @@ export function DAYS(v: number | null | undefined): string {
 /** Formatuje datę ISO → dd.mm.yyyy. null → "—" */
 export function DATE(v: string | null | undefined): string {
   if (!v) return '—';
-  try {
-    return new Date(v).toLocaleDateString('pl-PL', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
+  return formatDateShortLocal(v);
 }
 
 /** Formatuje postęp jako %. null → "—" */

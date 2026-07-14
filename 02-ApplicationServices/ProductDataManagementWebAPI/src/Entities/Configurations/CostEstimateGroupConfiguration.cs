@@ -16,6 +16,10 @@ namespace Entities.Configurations
             builder.Property(g => g.CostEstimateId)
                 .IsRequired();
             
+            builder.Property(g => g.Name)
+                .IsRequired()
+                .HasMaxLength(500);
+            
             builder.Property(g => g.ParentGroupId);
             
             builder.Property(g => g.Level)
@@ -58,12 +62,6 @@ namespace Entities.Configurations
                 .HasForeignKey(g => g.ParentGroupId)
                 .OnDelete(DeleteBehavior.Restrict);
             
-            // Relationship with FieldValues
-            builder.HasMany(g => g.FieldValues)
-                .WithOne(fv => fv.Group)
-                .HasForeignKey(fv => fv.GroupId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
             // Relationship with Items
             builder.HasMany(g => g.Items)
                 .WithOne(w => w.Group)
@@ -83,56 +81,4 @@ namespace Entities.Configurations
         }
     }
     
-    /// <summary>
-    /// Konfiguracja EF Core dla CostEstimateGroupFieldValue
-    /// </summary>
-    public class CostEstimateGroupFieldValueConfiguration : IEntityTypeConfiguration<CostEstimateGroupFieldValue>
-    {
-        public void Configure(EntityTypeBuilder<CostEstimateGroupFieldValue> builder)
-        {
-            builder.HasKey(fv => fv.Id);
-            
-            builder.Property(fv => fv.GroupId)
-                .IsRequired();
-            
-            builder.Property(fv => fv.FieldDefinitionId)
-                .IsRequired();
-            
-            // Typowane właściwości wartości
-            builder.Property(fv => fv.StringValue)
-                .HasMaxLength(2000);
-            
-            builder.Property(fv => fv.DecimalValue)
-                .HasPrecision(18, 6);
-            
-            builder.Property(fv => fv.BoolValue);
-            
-            builder.Property(fv => fv.DateTimeValue);
-            
-            builder.Property(fv => fv.CreatedAt)
-                .IsRequired();
-            
-            builder.Property(fv => fv.UpdatedAt);
-            
-            // Relationship with Group
-            builder.HasOne(fv => fv.Group)
-                .WithMany(g => g.FieldValues)
-                .HasForeignKey(fv => fv.GroupId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
-            // Relationship with FieldDefinition
-            builder.HasOne(fv => fv.FieldDefinition)
-                .WithMany()
-                .HasForeignKey(fv => fv.FieldDefinitionId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
-            // Unique constraint: One value per field per group
-            builder.HasIndex(fv => new { fv.GroupId, fv.FieldDefinitionId })
-                .IsUnique();
-            
-            // Indexes
-            builder.HasIndex(fv => fv.GroupId);
-            builder.HasIndex(fv => fv.FieldDefinitionId);
-        }
-    }
 }

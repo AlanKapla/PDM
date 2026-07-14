@@ -1,4 +1,4 @@
-﻿using CQRS.Extensions;
+using CQRS.Extensions;
 using FluentValidation;
 
 namespace CQRS.CostEstimates.CreateCostEstimate
@@ -12,7 +12,6 @@ namespace CQRS.CostEstimates.CreateCostEstimate
         {
             RuleFor(x => x.TenantId).RequiredId();
             RuleFor(x => x.ProjectId).RequiredId();
-            RuleFor(x => x.TemplateId).RequiredId();
 
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Cost estimate name is required")

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 
@@ -8,7 +8,7 @@ namespace CQRS.Tenants.GetTenantMembers
     {
         public required Guid TenantId { get; init; }
 
-        public string PermissionCode => PermissionCodes.TenantView;
+        public string PermissionCode => PermissionCodes.TenantSettingsView;
 
         public ResourceRef GetResource() => new(TenantId: TenantId);
     }

@@ -17,4 +17,12 @@ namespace Business.Interfaces.WebModels.CostEstimates
         Guid ItemId,
         int Order
     );
+
+    /// <summary>
+    /// DTO for reordering child items (options or components) within a parent item
+    /// </summary>
+    public sealed record ReorderItemChildDto(
+        Guid ItemId,
+        int Order
+    );
 }

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using MediatR;
 
 namespace CQRS.CostEstimates.ShareCostEstimate
@@ -7,6 +7,6 @@ namespace CQRS.CostEstimates.ShareCostEstimate
     {
         public List<Guid> ShareWithUserIds { get; init; } = [];
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesShare;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

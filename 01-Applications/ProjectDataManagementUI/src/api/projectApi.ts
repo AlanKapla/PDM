@@ -1,11 +1,36 @@
 import { axiosClient } from "./axiosClient";
-import type { ProjectCostListItemWeb, SetProjectCurrencyRequest } from "../types/project.types";
+import type { ProjectCostListItemWeb, SetProjectCurrencyRequest, ProjectInvitationWeb, InviteProjectMemberRequest } from "../types/project.types";
+import type { WorkScheduleDetailsWeb, GenerateScheduleFromEstimateAIRequest } from "../types/workSchedule.types";
+
+export interface ProjectUnitDto {
+  id: string;
+  code: string;
+  name: string;
+  symbol?: string;
+  order: number;
+}
+
+export interface ProjectCostCategoryDto {
+  id: string;
+  name: string;
+  code?: string;
+  order: number;
+  color?: string;
+}
+
+export interface UpsertProjectCostCategoryDto {
+  name: string;
+  code?: string;
+  order: number;
+  color?: string;
+}
 
 // Resource scope enum matching backend
 export enum ResourceScope {
   All = 0,
   Mine = 1,
   Shared = 2,
+  PendingApproval = 3,
 }
 
 // Helper to convert enum to route string
@@ -17,6 +42,8 @@ const resourceScopeToRoute = (scope: ResourceScope): string => {
       return "mine";
     case ResourceScope.Shared:
       return "shared";
+    case ResourceScope.PendingApproval:
+      return "PendingApproval";
     default:
       return "mine";
   }
@@ -58,10 +85,52 @@ export const projectApi = {
   },
 
   // Dodaj członka do projektu
-  addProjectMember: async (tenantId: string, projectId: string, userId: string) => {
-    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/members`, { 
-      tenantId, projectId, userId 
+  addProjectMember: async (
+    tenantId: string,
+    projectId: string,
+    userId: string,
+    modules: number[]
+  ) => {
+    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/members`, {
+      tenantId, projectId, userId, modules
     });
+  },
+
+  inviteProjectMember: async (
+    tenantId: string,
+    projectId: string,
+    request: InviteProjectMemberRequest
+  ) => {
+    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/invitations`, request);
+  },
+
+  getProjectInvitations: async (
+    tenantId: string,
+    projectId: string
+  ): Promise<ProjectInvitationWeb[]> => {
+    const response = await axiosClient.get<ProjectInvitationWeb[]>(
+      `/tenants/${tenantId}/projects/${projectId}/invitations`
+    );
+    return response.data;
+  },
+
+  revokeProjectInvitation: async (
+    tenantId: string,
+    projectId: string,
+    invitationId: string
+  ) => {
+    return axiosClient.delete(
+      `/tenants/${tenantId}/projects/${projectId}/invitations/${invitationId}`
+    );
+  },
+
+  getActiveProjectInvitations: async (): Promise<ProjectInvitationWeb[]> => {
+    const response = await axiosClient.get<ProjectInvitationWeb[]>("/projects/invitations");
+    return response.data;
+  },
+
+  acceptProjectInvitation: async (token: string) => {
+    return axiosClient.post("/projects/invitations/accept", { token });
   },
 
   // Usuń członka z projektu
@@ -74,10 +143,14 @@ export const projectApi = {
     tenantId: string, 
     projectId: string, 
     packageName: string, 
-    files: Array<{ file: File; displayName?: string; comment?: string }>
+    files: Array<{ file: File; displayName?: string; comment?: string }>,
+    parentId?: string
   ) => {
     const formData = new FormData();
     formData.append('PackageName', packageName);
+    if (parentId) {
+      formData.append('ParentId', parentId);
+    }
     
     files.forEach((item, index) => {
       formData.append(`Files[${index}].File`, item.file);
@@ -117,6 +190,19 @@ export const projectApi = {
     return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/file`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
+  },
+
+  // Utwórz katalog
+  createDirectory: async (
+    tenantId: string,
+    projectId: string,
+    directoryName: string,
+    parentId?: string | null
+  ) => {
+    return axiosClient.post<void>(
+      `/tenants/${tenantId}/projects/${projectId}/file/directories`,
+      { directoryName, parentId: parentId ?? null }
+    );
   },
 
   // 🆕 Hierarchiczne endpointy dla plików (API v2.0)
@@ -208,6 +294,10 @@ export const projectApi = {
     comment: string
   ) => {
     return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/file/${fileId}/versions/${versionId}/comments`, {
+      tenantId,
+      projectId,
+      fileId,
+      versionId,
       comment
     });
   },
@@ -218,7 +308,7 @@ export const projectApi = {
   },
 
   // Aktualizuj projekt (nazwa)
-  updateProject: async (tenantId: string, projectId: string, data: { Name: string }) => {
+  updateProject: async (tenantId: string, projectId: string, data: { name: string }) => {
     return axiosClient.put(`/tenants/${tenantId}/projects/${projectId}`, data);
   },
 
@@ -350,6 +440,26 @@ export const projectApi = {
     return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/work-schedule/${workScheduleId}/sync-with-estimate`);
   },
 
+  // Generuj harmonogram z kosztorysu wspierany przez AI — okresy i zależności
+  generateScheduleFromEstimateAI: async (
+    tenantId: string,
+    projectId: string,
+    workScheduleId: string,
+    data: GenerateScheduleFromEstimateAIRequest
+  ): Promise<WorkScheduleDetailsWeb> => {
+    const response = await axiosClient.post<WorkScheduleDetailsWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/work-schedule/${workScheduleId}/generate-from-ai`,
+      {
+        tenantId,
+        projectId,
+        workScheduleId,
+        overallStartDate: data.overallStartDate,
+        overallEndDate: data.overallEndDate,
+      }
+    );
+    return response.data;
+  },
+
   // Pobierz prace przypisane do użytkownika (cross-tenant)
   getMyAssignedWorks: async () => {
     return axiosClient.get(`/user/assigned-works`);
@@ -368,11 +478,6 @@ export const projectApi = {
     return axiosClient.get(`/tenants/${tenantId}/projects/${projectId}/cost/mine`);
   },
 
-  // DEPRECATED - use getProjectCosts with ResourceScope.Shared
-  getSharedProjectCosts: async (tenantId: string, projectId: string) => {
-    return axiosClient.get(`/tenants/${tenantId}/projects/${projectId}/cost/shared`);
-  },
-
   // Utwórz nowy koszt projektowy
   createProjectCost: async (
     tenantId: string,
@@ -381,11 +486,11 @@ export const projectApi = {
       name: string;
       number?: string | null;
       contractorId?: string | null;
+      categoryId?: string | null;
       date: Date;
       description?: string;
       net?: number | null;
       gross?: number | null;
-      isAccepted?: boolean;
       document?: File;
     }
   ): Promise<ProjectCostListItemWeb> => {
@@ -395,11 +500,11 @@ export const projectApi = {
     formData.append("Name", data.name);
     if (data.number) formData.append("Number", data.number);
     if (data.contractorId) formData.append("ContractorId", data.contractorId);
+    if (data.categoryId) formData.append("CategoryId", data.categoryId);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
     if (data.net !== undefined && data.net !== null) formData.append("Net", data.net.toString());
     if (data.gross !== undefined && data.gross !== null) formData.append("Gross", data.gross.toString());
-    if (data.isAccepted !== undefined) formData.append("IsAccepted", data.isAccepted.toString());
     if (data.document) formData.append("Document", data.document);
 
     const res = await axiosClient.post<ProjectCostListItemWeb>(`/tenants/${tenantId}/projects/${projectId}/cost`, formData, {
@@ -417,11 +522,11 @@ export const projectApi = {
       name: string;
       number?: string | null;
       contractorId?: string | null;
+      categoryId?: string | null;
       date: Date;
       description?: string;
       net?: number | null;
       gross?: number | null;
-      isAccepted: boolean;
       /** Nowy dokument – gdy koszt nie miał wcześniej pliku */
       document?: File;
       /** Nowy plik zastępujący istniejący dokument */
@@ -436,11 +541,11 @@ export const projectApi = {
     formData.append("Name", data.name);
     if (data.number) formData.append("Number", data.number);
     if (data.contractorId) formData.append("ContractorId", data.contractorId);
+    if (data.categoryId) formData.append("CategoryId", data.categoryId);
     formData.append("Date", data.date.toISOString());
     if (data.description) formData.append("Description", data.description);
     if (data.net !== undefined && data.net !== null) formData.append("Net", data.net.toString());
     if (data.gross !== undefined && data.gross !== null) formData.append("Gross", data.gross.toString());
-    formData.append("IsAccepted", data.isAccepted.toString());
     if (data.document) formData.append("Document", data.document);
     if (data.updatedDocument) formData.append("UpdatedDocument", data.updatedDocument);
     formData.append("RemoveDocument", data.removeDocument.toString());
@@ -456,33 +561,66 @@ export const projectApi = {
     return axiosClient.delete(`/tenants/${tenantId}/projects/${projectId}/cost/${costId}`);
   },
 
-  // Udostępnij wiele kosztów wybranym członkom (grupowe udostępnianie)
-  shareProjectCosts: async (
+  // Prześlij koszt do akceptacji
+  submitProjectCostForApproval: async (
     tenantId: string,
     projectId: string,
-    data: {
-      projectCostIds: string[];
-      sharedWithUserIds: string[];
-    }
-  ) => {
-    return axiosClient.post(`/tenants/${tenantId}/projects/${projectId}/cost/share`, data);
+    costId: string
+  ): Promise<ProjectCostListItemWeb> => {
+    const res = await axiosClient.post<ProjectCostListItemWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost/${costId}/submit`
+    );
+    return res.data;
   },
 
-  // Aktualizuj udostępnienie pojedynczego kosztu
-  updateCostShare: async (
+  // Wycofaj koszt z akceptacji
+  withdrawProjectCostFromApproval: async (
     tenantId: string,
     projectId: string,
-    costId: string,
-    sharedWithUserIds: string[]
+    costId: string
+  ): Promise<ProjectCostListItemWeb> => {
+    const res = await axiosClient.post<ProjectCostListItemWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost/${costId}/withdraw`
+    );
+    return res.data;
+  },
+
+  // Zatwierdź koszt
+  approveProjectCost: async (
+    tenantId: string,
+    projectId: string,
+    costId: string
+  ): Promise<ProjectCostListItemWeb> => {
+    const res = await axiosClient.post<ProjectCostListItemWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost/${costId}/approve`
+    );
+    return res.data;
+  },
+
+  // Odrzuć koszt
+  rejectProjectCost: async (
+    tenantId: string,
+    projectId: string,
+    costId: string
+  ): Promise<ProjectCostListItemWeb> => {
+    const res = await axiosClient.post<ProjectCostListItemWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/cost/${costId}/reject`
+    );
+    return res.data;
+  },
+
+  // Zmień rolę i uprawnienia modułów członka projektu
+  updateProjectMemberPermissions: async (
+    tenantId: string,
+    projectId: string,
+    userId: string,
+    isAdmin: boolean,
+    modules: number[]
   ) => {
-    return axiosClient.put(`/tenants/${tenantId}/projects/${projectId}/cost/${costId}/share`, {
-      sharedWithUserIds,
+    return axiosClient.patch(`/tenants/${tenantId}/projects/${projectId}/members/${userId}/role`, {
+      isAdmin,
+      modules,
     });
-  },
-
-  // Zmień rolę członka projektu
-  updateProjectMemberRole: async (tenantId: string, projectId: string, userId: string, roleId: string) => {
-      return axiosClient.patch(`/tenants/${tenantId}/projects/${projectId}/members/${userId}/role`, { roleId });
   },
 
   // Ustaw walutę projektu
@@ -492,5 +630,125 @@ export const projectApi = {
     data: SetProjectCurrencyRequest
   ): Promise<void> => {
     await axiosClient.put(`/tenants/${tenantId}/projects/${projectId}/currency`, data);
+  },
+
+  // Pobierz słownik jednostek projektu
+  getProjectUnits: async (
+    tenantId: string,
+    projectId: string
+  ): Promise<ProjectUnitDto[]> => {
+    const response = await axiosClient.get<ProjectUnitDto[]>(
+      `/tenants/${tenantId}/projects/${projectId}/units`
+    );
+    return response.data;
+  },
+
+  // Dodaj nową jednostkę do projektu
+  addProjectUnit: async (
+    tenantId: string,
+    projectId: string,
+    data: { code: string; name: string; symbol?: string }
+  ): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      `/tenants/${tenantId}/projects/${projectId}/units`,
+      data
+    );
+    return response.data;
+  },
+
+  // Aktualizuj jednostkę projektu
+  updateProjectUnit: async (
+    tenantId: string,
+    projectId: string,
+    unitId: string,
+    data: { code: string; name: string; symbol?: string; order: number }
+  ): Promise<void> => {
+    await axiosClient.put(
+      `/tenants/${tenantId}/projects/${projectId}/units/${unitId}`,
+      data
+    );
+  },
+
+  // Usuń jednostkę projektu
+  deleteProjectUnit: async (
+    tenantId: string,
+    projectId: string,
+    unitId: string
+  ): Promise<void> => {
+    await axiosClient.delete(
+      `/tenants/${tenantId}/projects/${projectId}/units/${unitId}`
+    );
+  },
+
+  // Zmień kolejność jednostek projektu
+  reorderProjectUnits: async (
+    tenantId: string,
+    projectId: string,
+    unitIds: string[]
+  ): Promise<void> => {
+    await axiosClient.post(
+      `/tenants/${tenantId}/projects/${projectId}/units/reorder`,
+      unitIds
+    );
+  },
+
+  // Pobierz słownik kategorii kosztów projektu
+  getProjectCostCategories: async (
+    tenantId: string,
+    projectId: string
+  ): Promise<ProjectCostCategoryDto[]> => {
+    const response = await axiosClient.get<ProjectCostCategoryDto[]>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories`
+    );
+    return response.data;
+  },
+
+  // Dodaj nową kategorię kosztów do projektu
+  addProjectCostCategory: async (
+    tenantId: string,
+    projectId: string,
+    data: { name: string; code?: string; color?: string }
+  ): Promise<string> => {
+    const response = await axiosClient.post<string>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories`,
+      data
+    );
+    return response.data;
+  },
+
+  // Aktualizuj kategorię kosztów projektu
+  updateProjectCostCategory: async (
+    tenantId: string,
+    projectId: string,
+    categoryId: string,
+    data: UpsertProjectCostCategoryDto
+  ): Promise<void> => {
+    await axiosClient.put(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories/${categoryId}`,
+      data
+    );
+  },
+
+  // Usuń kategorię kosztów projektu
+  deleteProjectCostCategory: async (
+    tenantId: string,
+    projectId: string,
+    categoryId: string
+  ): Promise<void> => {
+    await axiosClient.delete(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories/${categoryId}`
+    );
+  },
+
+  // Zmień kolejność kategorii kosztów projektu
+  reorderProjectCostCategories: async (
+    tenantId: string,
+    projectId: string,
+    categoryIds: string[]
+  ): Promise<void> => {
+    await axiosClient.post(
+      `/tenants/${tenantId}/projects/${projectId}/cost-categories/reorder`,
+      categoryIds
+    );
   },
 };

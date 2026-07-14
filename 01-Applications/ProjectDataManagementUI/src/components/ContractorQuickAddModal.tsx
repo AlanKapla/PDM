@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   VStack,
   FormControl,
@@ -10,11 +10,19 @@ import AppModal from "./ui/AppModal";
 import { useCreateContractor } from "../hooks/queries/useContractors";
 import { useToastNotification } from "../hooks/useToastNotification";
 
+export interface ContractorQuickAddInitialValues {
+  name?: string;
+  taxId?: string;
+  street?: string;
+}
+
 export interface ContractorQuickAddModalProps {
   tenantId: string;
   isOpen: boolean;
   onClose: () => void;
   onCreated: (contractorId: string, contractorName: string) => void;
+  /** Wartości wstępne — np. z sugestii AI */
+  initialValues?: ContractorQuickAddInitialValues;
 }
 
 interface QuickAddFormState {
@@ -22,6 +30,7 @@ interface QuickAddFormState {
   taxId: string;
   email: string;
   phoneNumber: string;
+  street: string;
 }
 
 const EMPTY_FORM: QuickAddFormState = {
@@ -29,6 +38,7 @@ const EMPTY_FORM: QuickAddFormState = {
   taxId: "",
   email: "",
   phoneNumber: "",
+  street: "",
 };
 
 export default function ContractorQuickAddModal({
@@ -36,14 +46,28 @@ export default function ContractorQuickAddModal({
   isOpen,
   onClose,
   onCreated,
+  initialValues,
 }: ContractorQuickAddModalProps): React.ReactElement {
   const [form, setForm] = useState<QuickAddFormState>(EMPTY_FORM);
   const [nameError, setNameError] = useState<string>("");
   const mutation = useCreateContractor(tenantId);
   const { showError } = useToastNotification();
 
+  // Wypełnij formularz danymi z AI gdy modal się otwiera
+  useEffect(() => {
+    if (isOpen) {
+      setForm({
+        name: initialValues?.name ?? "",
+        taxId: initialValues?.taxId ?? "",
+        email: "",
+        phoneNumber: "",
+        street: initialValues?.street ?? "",
+      });
+      setNameError("");
+    }
+  }, [isOpen, initialValues?.name, initialValues?.taxId, initialValues?.street]);
+
   const handleClose = () => {
-    setForm(EMPTY_FORM);
     setNameError("");
     onClose();
   };
@@ -60,6 +84,7 @@ export default function ContractorQuickAddModal({
         taxId: form.taxId.trim() || null,
         email: form.email.trim() || null,
         phoneNumber: form.phoneNumber.trim() || null,
+        street: form.street.trim() || null,
       });
       onCreated(result.id, result.name);
       handleClose();
@@ -121,6 +146,15 @@ export default function ContractorQuickAddModal({
               setForm((p) => ({ ...p, phoneNumber: e.target.value }))
             }
             placeholder="+48 000 000 000"
+          />
+        </FormControl>
+
+        <FormControl>
+          <FormLabel>Adres</FormLabel>
+          <Input
+            value={form.street}
+            onChange={(e) => setForm((p) => ({ ...p, street: e.target.value }))}
+            placeholder="ul. Przykładowa 1, Warszawa"
           />
         </FormControl>
       </VStack>

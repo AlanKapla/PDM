@@ -25,11 +25,4 @@ public enum PermissionScope
     /// Route requirements: tenantId, projectId
     /// </summary>
     Project = 2,
-    
-    /// <summary>
-    /// Resource-scoped permission - requires tenantId, projectId AND specific resourceId in route
-    /// Examples: operations on specific files, costs, estimates
-    /// Route requirements: tenantId, projectId, resourceId (fileId, costId, etc.)
-    /// </summary>
-    Resource = 3
 }

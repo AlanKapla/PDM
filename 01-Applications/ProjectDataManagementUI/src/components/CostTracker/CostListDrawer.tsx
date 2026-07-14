@@ -54,7 +54,7 @@ export default function CostListDrawer({
   title,
   estimates,
 }: CostListDrawerProps) {
-  const { showSuccess, showError } = useToastNotification();
+  const {showSuccess, showError, showApiError } = useToastNotification();
   const queryClient = useQueryClient();
   const size = useBreakpointValue({ base: "full", md: "lg" }) as string;
 
@@ -76,8 +76,7 @@ export default function CostListDrawer({
       setDeletingCost(null);
       onMutated();
     } catch (err) {
-      const { title: t, description } = handleApiError(err);
-      showError(t, description);
+      showApiError(err);
     } finally {
       setIsDeleting(false);
     }

@@ -1,14 +1,14 @@
 import React from 'react';
 import { useToken } from '@chakra-ui/react';
 import type { TrackerGroupWeb } from '../types/projectDashboard.types';
-import { PLN, PROG, DATE, DAYS } from '../utils/formatters';
+import { PROG, DATE, DAYS } from '../utils/formatters';
 import { Accordion } from './shared/Accordion';
 import { FinancialStatusBadge } from './shared/FinancialStatusBadge';
 import { TimelineStatusBadge } from './shared/TimelineStatusBadge';
 import { KpiCard } from './shared/KpiCard';
+import { NetGrossAmount } from './shared/NetGrossAmount';
 import { Badge } from './shared/Badge';
 import { WorkItemAccordion } from './WorkItemAccordion';
-import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
 
 export interface GroupAccordionProps {
   group: TrackerGroupWeb;
@@ -29,7 +29,6 @@ export function GroupAccordion({
   onRefetch,
   showCosts = true,
 }: GroupAccordionProps): React.ReactElement {
-  const currencySymbol = useDashboardCurrency();
   const [
     neutral400, orange50, orange600, orange800, neutral600, neutral50, amber50, amber600, neutral200,
   ] = useToken('colors', [
@@ -51,11 +50,15 @@ export function GroupAccordion({
         />
       )}
       <TimelineStatusBadge status={group.timelineStatus} small />
-      <span style={{ fontSize: "xs", color: neutral600 }}>{PLN(group.budgetNet, currencySymbol)}</span>
+      <NetGrossAmount net={group.budgetNet} gross={group.budgetGross} size="sm" align="left" />
       <span style={{ fontSize: "xs", color: neutral400 }}>/</span>
-      <span style={{ fontSize: "xs", fontWeight: "medium", color: group.costsNet != null && group.costsNet > 0 ? orange600 : neutral600 }}>
-        {PLN(group.costsNet, currencySymbol)}
-      </span>
+      <NetGrossAmount
+        net={group.costsNet}
+        gross={group.costsGross}
+        size="sm"
+        align="left"
+        accentColor={group.costsNet != null && group.costsNet > 0 ? orange600 : neutral600}
+      />
       <FinancialStatusBadge status={group.financialStatus} small />
     </div>
   );
@@ -65,8 +68,8 @@ export function GroupAccordion({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* KPI finansowe */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          <KpiCard label="Budżet" value={PLN(group.budgetNet, currencySymbol)} small />
-          <KpiCard label="Koszty" value={PLN(group.costsNet, currencySymbol)} small />
+          <KpiCard label="Budżet" netValue={group.budgetNet} grossValue={group.budgetGross} small />
+          <KpiCard label="Koszty" netValue={group.costsNet} grossValue={group.costsGross} small />
           <KpiCard label="Pokrycie grupy" value={PROG(group.coveredPercent)} small />
           <KpiCard
             label="Poz. bez kosztów"
@@ -129,7 +132,13 @@ export function GroupAccordion({
               marginTop: 4,
             }}
           >
-            Koszty dodatkowe grupy: {PLN(group.additionalCosts.totalNet, currencySymbol)}{' '}
+            Koszty dodatkowe grupy:{' '}
+            <NetGrossAmount
+              net={group.additionalCosts.totalNet}
+              gross={group.additionalCosts.totalGross}
+              size="sm"
+              align="left"
+            />{' '}
             <span style={{ color: neutral400 }}>
               ({group.additionalCosts?.costsCount ?? 0} pozycji)
             </span>
@@ -148,8 +157,10 @@ export function GroupAccordion({
           }}
         >
           <span>Suma grupy — budżet / koszty:</span>
-          <span style={{ fontWeight: "medium" }}>
-            {PLN(group.budgetNet, currencySymbol)} / {PLN(group.costsNet, currencySymbol)}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: "medium" }}>
+            <NetGrossAmount net={group.budgetNet} gross={group.budgetGross} size="sm" align="right" />
+            <span style={{ color: neutral400 }}>/</span>
+            <NetGrossAmount net={group.costsNet} gross={group.costsGross} size="sm" align="right" />
           </span>
         </div>
       </div>

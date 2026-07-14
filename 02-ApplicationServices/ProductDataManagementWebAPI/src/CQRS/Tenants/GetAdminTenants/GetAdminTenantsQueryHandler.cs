@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Tenants;
 using Entities.Models.Tenants;
 using MediatR;
@@ -26,8 +25,8 @@ namespace CQRS.Tenants.GetAdminTenants
             IEnumerable<TenantMember> adminMemberships = await tenantMemberRepo.GetBySearch(
                 m => m.UserId == currentUser.Id
                     && m.IsActive
-                    && m.MemberRole!.Code == RoleCodes.TenantAdmin,
-                include => include.Include(m => m.Tenant).Include(m => m.MemberRole)
+                    && m.IsAdmin,
+                include => include.Include(m => m.Tenant)
             );
 
             return adminMemberships
@@ -37,7 +36,7 @@ namespace CQRS.Tenants.GetAdminTenants
                     Name = m.Tenant.Name,
                     CreatedAt = m.Tenant.CreatedAt,
                     IsActive = m.Tenant.IsActive,
-                    RoleCode = RoleCodes.TenantAdmin
+                    IsAdmin = true
                 })
                 .OrderBy(t => t.Name)
                 .ToList();

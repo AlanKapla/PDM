@@ -9,7 +9,7 @@ namespace CQRS.CostTrackers.GetCostLinkOptions
         public required Guid TenantId { get; init; }
         public required Guid ProjectId { get; init; }
 
-        public string PermissionCode => PermissionCodes.ProjectView;
+        public string PermissionCode => PermissionCodes.ProjectDashboardTracker;
         public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
     }
 }

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -6,20 +6,20 @@ import {
   HStack,
   Text,
   Icon,
-  Button,
   useColorModeValue,
 } from "@chakra-ui/react";
-import { ArrowLeft, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import { BackToProjectButton, LoadingSpinner } from "../components/common";
 import { useAuth } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { useProjectDetails } from "../hooks/queries";
-import { LoadingSpinner } from "../components/common";
 import CurrencySelector from "../components/ProjectParameters/CurrencySelector";
+import UnitManager from "../components/ProjectParameters/UnitManager";
+import { CostCategoryManager } from "../components/ProjectParameters/CostCategoryManager";
 
 export default function ProjectParameters() {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const permissions = useProjectPermissions(projectId);
 
@@ -59,15 +59,7 @@ export default function ProjectParameters() {
   return (
     <MainLayout>
       <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh">
-        <Button
-          leftIcon={<ArrowLeft size={16} />}
-          variant="ghost"
-          size="sm"
-          mb={4}
-          onClick={() => navigate(`/projects/${projectId}`)}
-        >
-          Powrót do projektu
-        </Button>
+        <BackToProjectButton />
 
         <HStack justify="space-between" mb={{ base: 6, md: 8 }} flexWrap="wrap" gap={{ base: 2, md: 4 }}>
           <HStack spacing={{ base: 2, md: 3 }}>
@@ -98,6 +90,42 @@ export default function ProjectParameters() {
                 tenantId={user.activeTenantId}
                 projectId={projectId}
                 currentCurrency={project?.currency}
+                canEdit={permissions.canEdit}
+              />
+            )}
+          </Box>
+
+          <Box
+            bg={cardBg}
+            p={{ base: 4, md: 6 }}
+            rounded="lg"
+            borderWidth="1px"
+            borderColor={borderColor}
+            shadow="sm"
+          >
+            <Heading size="sm" mb={4}>Jednostki miary</Heading>
+            {user?.activeTenantId && projectId && (
+              <UnitManager
+                tenantId={user.activeTenantId}
+                projectId={projectId}
+                canEdit={permissions.canEdit}
+              />
+            )}
+          </Box>
+
+          <Box
+            bg={cardBg}
+            p={{ base: 4, md: 6 }}
+            rounded="lg"
+            borderWidth="1px"
+            borderColor={borderColor}
+            shadow="sm"
+          >
+            <Heading size="sm" mb={4}>Kategorie kosztów</Heading>
+            {user?.activeTenantId && projectId && (
+              <CostCategoryManager
+                tenantId={user.activeTenantId}
+                projectId={projectId}
                 canEdit={permissions.canEdit}
               />
             )}

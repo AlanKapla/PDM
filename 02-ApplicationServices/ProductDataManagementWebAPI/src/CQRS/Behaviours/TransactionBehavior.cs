@@ -27,6 +27,15 @@ namespace CQRS.Behaviours
         {
             if (request is IRequestCommand<TResponse>)
             {
+                // If a transaction is already active (e.g. from an outer TransactionBehavior),
+                // execute within the existing transaction instead of creating a nested one.
+                if (appDbContext.Database.CurrentTransaction is not null)
+                {
+                    TResponse innerResponse = await next();
+                    await appDbContext.SaveChangesAsync(ct);
+                    return innerResponse;
+                }
+
                 IExecutionStrategy strategy = appDbContext.Database.CreateExecutionStrategy();
 
                 TResponse response = await strategy.ExecuteAsync(async () =>

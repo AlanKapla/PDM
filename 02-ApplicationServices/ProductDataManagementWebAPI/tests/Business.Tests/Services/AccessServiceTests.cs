@@ -46,7 +46,7 @@ public class AccessServiceTests
         ResourceRef resource = new ResourceRef(TenantId: Guid.NewGuid());
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectSettings, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -55,9 +55,8 @@ public class AccessServiceTests
     // ─── Global scope ─────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(PermissionCodes.TenantListAvailable)]
-    [InlineData(PermissionCodes.TenantAdminListAvailable)]
-    [InlineData(PermissionCodes.RoleList)]
+    [InlineData(PermissionCodes.TenantContextList)]
+    [InlineData(PermissionCodes.TenantContextAdminList)]
     public async Task AuthorizeAsync_GlobalScopePermission_AuthenticatedUser_ReturnsTrue(string permissionCode)
     {
         // Arrange
@@ -81,7 +80,7 @@ public class AccessServiceTests
         ResourceRef resource = new ResourceRef(TenantId: Guid.Empty);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantSettingsView, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -97,7 +96,7 @@ public class AccessServiceTests
         ResourceRef resource = new ResourceRef(TenantId: otherTenantId);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantSettingsView, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -114,7 +113,7 @@ public class AccessServiceTests
         ResourceRef resource = new ResourceRef(TenantId: tenantId);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantSettingsView, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -128,16 +127,14 @@ public class AccessServiceTests
         Mock<ICurrentUser> user = AuthenticatedUser(activeTenantId: tenantId);
         TenantCtxSnapshot snapshot = new TenantCtxSnapshot(
             TenantId: tenantId,
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: new HashSet<string> { PermissionCodes.TenantView },
-            IsTenantAdmin: false,
+            IsAdmin: false,
             IsActive: true);
         user.Setup(u => u.GetTenantSnapshotAsync(tenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(snapshot);
         ResourceRef resource = new ResourceRef(TenantId: tenantId);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantSettingsView, resource);
 
         // Assert
         result.Should().BeTrue();
@@ -151,16 +148,14 @@ public class AccessServiceTests
         Mock<ICurrentUser> user = AuthenticatedUser(activeTenantId: tenantId, isSuperAdmin: false);
         TenantCtxSnapshot snapshot = new TenantCtxSnapshot(
             TenantId: tenantId,
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: new HashSet<string> { PermissionCodes.TenantView },
-            IsTenantAdmin: false,
+            IsAdmin: false,
             IsActive: false);
         user.Setup(u => u.GetTenantSnapshotAsync(tenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(snapshot);
         ResourceRef resource = new ResourceRef(TenantId: tenantId);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantSettingsView, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -174,16 +169,14 @@ public class AccessServiceTests
         Mock<ICurrentUser> user = AuthenticatedUser(activeTenantId: tenantId, isSuperAdmin: false);
         TenantCtxSnapshot snapshot = new TenantCtxSnapshot(
             TenantId: tenantId,
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: new HashSet<string> { PermissionCodes.TenantView },
-            IsTenantAdmin: true,
+            IsAdmin: true,
             IsActive: false);
         user.Setup(u => u.GetTenantSnapshotAsync(tenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(snapshot);
         ResourceRef resource = new ResourceRef(TenantId: tenantId);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantSettingsView, resource);
 
         // Assert
         result.Should().BeTrue();
@@ -197,16 +190,14 @@ public class AccessServiceTests
         Mock<ICurrentUser> user = AuthenticatedUser(activeTenantId: tenantId);
         TenantCtxSnapshot snapshot = new TenantCtxSnapshot(
             TenantId: tenantId,
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: new HashSet<string>(), // no permissions
-            IsTenantAdmin: false,
+            IsAdmin: false,
             IsActive: true);
         user.Setup(u => u.GetTenantSnapshotAsync(tenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(snapshot);
         ResourceRef resource = new ResourceRef(TenantId: tenantId);
 
-        // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantView, resource);
+        // Act — non-admin trying admin-only permission
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.TenantSettingsEdit, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -223,7 +214,7 @@ public class AccessServiceTests
         ResourceRef resource = new ResourceRef(TenantId: tenantId, ProjectId: null);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectSettings, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -241,7 +232,7 @@ public class AccessServiceTests
         ResourceRef resource = new ResourceRef(TenantId: tenantId, ProjectId: projectId);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectSettings, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -257,8 +248,7 @@ public class AccessServiceTests
         ProjectCtxSnapshot snapshot = new ProjectCtxSnapshot(
             ProjectId: projectId,
             TenantId: tenantId,
-            ProjectRoleId: Guid.NewGuid(),
-            ProjectPermissionCodes: new HashSet<string> { PermissionCodes.ProjectView },
+            ProjectPermissionCodes: new HashSet<string> { PermissionCodes.ProjectSettings },
             IsProjectAdmin: false,
             IsActive: true);
         user.Setup(u => u.GetProjectSnapshotAsync(projectId, It.IsAny<CancellationToken>()))
@@ -266,7 +256,7 @@ public class AccessServiceTests
         ResourceRef resource = new ResourceRef(TenantId: tenantId, ProjectId: projectId);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectSettings, resource);
 
         // Assert
         result.Should().BeTrue();
@@ -282,7 +272,6 @@ public class AccessServiceTests
         ProjectCtxSnapshot snapshot = new ProjectCtxSnapshot(
             ProjectId: projectId,
             TenantId: tenantId,
-            ProjectRoleId: Guid.NewGuid(),
             ProjectPermissionCodes: new HashSet<string>(), // no permissions
             IsProjectAdmin: false,
             IsActive: true);
@@ -291,7 +280,7 @@ public class AccessServiceTests
         ResourceRef resource = new ResourceRef(TenantId: tenantId, ProjectId: projectId);
 
         // Act
-        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectView, resource);
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectSettings, resource);
 
         // Assert
         result.Should().BeFalse();
@@ -300,9 +289,8 @@ public class AccessServiceTests
     // ─── Cross-tenant scope ────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(PermissionCodes.TenantEdit)]
+    [InlineData(PermissionCodes.TenantSettingsEdit)]
     [InlineData(PermissionCodes.TenantMembersManage)]
-    [InlineData(PermissionCodes.TenantStatusManage)]
     public async Task AuthorizeAsync_CrossTenantPermission_DifferentTenant_ReachesSnapshotCheck(string permissionCode)
     {
         // Arrange — user's active tenant differs from resource tenant
@@ -319,5 +307,58 @@ public class AccessServiceTests
         // Assert
         result.Should().BeFalse();
         user.Verify(u => u.GetTenantSnapshotAsync(resourceTenantId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // ─── ProjectMembers — admin-only permission ────────────────────────────────
+    // NOTE: The admin enforcement for PROJECT.MEMBERS is in CurrentUser.BuildProjectSnapshotAsync,
+    // not in AccessService. Only project admins receive this permission in their snapshot.
+    // AccessService trusts the snapshot — if the code is present, access is granted.
+
+    [Fact]
+    public async Task AuthorizeAsync_ProjectMembers_WithPermission_ReturnsTrue()
+    {
+        // Arrange — AccessService trusts the snapshot; snapshot building enforces admin-only
+        Guid tenantId = Guid.NewGuid();
+        Guid projectId = Guid.NewGuid();
+        Mock<ICurrentUser> user = AuthenticatedUser(activeTenantId: tenantId);
+        ProjectCtxSnapshot snapshot = new ProjectCtxSnapshot(
+            ProjectId: projectId,
+            TenantId: tenantId,
+            ProjectPermissionCodes: new HashSet<string> { PermissionCodes.ProjectMembers },
+            IsProjectAdmin: true,
+            IsActive: true);
+        user.Setup(u => u.GetProjectSnapshotAsync(projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(snapshot);
+        ResourceRef resource = new ResourceRef(TenantId: tenantId, ProjectId: projectId);
+
+        // Act
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectMembers, resource);
+
+        // Assert
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AuthorizeAsync_ProjectMembers_MissingPermission_ReturnsFalse()
+    {
+        // Arrange — non-admin does not receive ProjectMembers in snapshot (enforced in CurrentUser)
+        Guid tenantId = Guid.NewGuid();
+        Guid projectId = Guid.NewGuid();
+        Mock<ICurrentUser> user = AuthenticatedUser(activeTenantId: tenantId);
+        ProjectCtxSnapshot snapshot = new ProjectCtxSnapshot(
+            ProjectId: projectId,
+            TenantId: tenantId,
+            ProjectPermissionCodes: new HashSet<string>(), // no ProjectMembers
+            IsProjectAdmin: false,
+            IsActive: true);
+        user.Setup(u => u.GetProjectSnapshotAsync(projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(snapshot);
+        ResourceRef resource = new ResourceRef(TenantId: tenantId, ProjectId: projectId);
+
+        // Act
+        bool result = await _sut.AuthorizeAsync(user.Object, PermissionCodes.ProjectMembers, resource);
+
+        // Assert
+        result.Should().BeFalse();
     }
 }

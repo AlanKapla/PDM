@@ -2,17 +2,9 @@ using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
+using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -23,9 +15,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
     {
         private readonly IRepository<CostEstimateGroup> groupRepository;
         private readonly IRepository<CostEstimateItem> itemRepository;
-        private readonly IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository;
-        private readonly IRepository<CostEstimateItemFieldValue> itemFieldValueRepository;
-        private readonly IRepository<CostEstimateFieldFile> fieldFileRepository;
+        private readonly IRepository<CostEstimateItemFile> itemFileRepository;
         private readonly IRepository<WorkScheduleStage> stageRepository;
         private readonly IRepository<WorkScheduleStageWork> stageWorkRepository;
         private readonly IRepository<TrackedCost> trackedCostRepository;
@@ -37,9 +27,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
         public DeleteCostEstimateGroupCommandHandler(
             IRepository<CostEstimateGroup> groupRepository,
             IRepository<CostEstimateItem> itemRepository,
-            IRepository<CostEstimateGroupFieldValue> groupFieldValueRepository,
-            IRepository<CostEstimateItemFieldValue> itemFieldValueRepository,
-            IRepository<CostEstimateFieldFile> fieldFileRepository,
+            IRepository<CostEstimateItemFile> itemFileRepository,
             IRepository<WorkScheduleStage> stageRepository,
             IRepository<WorkScheduleStageWork> stageWorkRepository,
             IRepository<TrackedCost> trackedCostRepository,
@@ -50,9 +38,7 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
         {
             this.groupRepository = groupRepository;
             this.itemRepository = itemRepository;
-            this.groupFieldValueRepository = groupFieldValueRepository;
-            this.itemFieldValueRepository = itemFieldValueRepository;
-            this.fieldFileRepository = fieldFileRepository;
+            this.itemFileRepository = itemFileRepository;
             this.stageRepository = stageRepository;
             this.stageWorkRepository = stageWorkRepository;
             this.trackedCostRepository = trackedCostRepository;
@@ -64,29 +50,16 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 
         public async Task<Unit> Handle(DeleteCostEstimateGroupCommand request, CancellationToken cancellationToken)
         {
-            var costEstimate = await cacheService.GetCostEstimateAsync(
+            CostEstimate costEstimate = await cacheService.GetCostEstimateAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken)
                 ?? throw new NotFoundApiException(nameof(CostEstimate), request.CostEstimateId.ToString());
 
             CostEstimateAccessLevel accessLevel = await ceAccessService.GetAccessLevelAsync(
                 currentUser, request.TenantId, request.ProjectId, request.CostEstimateId, cancellationToken);
 
-            if (accessLevel == CostEstimateAccessLevel.None)
-            {
-                throw new ForbiddenApiException("Access to this cost estimate is not allowed.");
-            }
+            accessLevel.EnsureCanModifyStructure();
 
-            if (accessLevel == CostEstimateAccessLevel.Restricted)
-            {
-                throw new ForbiddenApiException("Shared users cannot modify the cost estimate structure.");
-            }
-
-            if (accessLevel == CostEstimateAccessLevel.ReadOnly)
-            {
-                throw new ForbiddenApiException("Read-only access does not allow modifying the cost estimate structure.");
-            }
-
-            var groupsDict = await cacheService.GetGroupsDictionaryAsync(
+            Dictionary<Guid, CostEstimateGroup> groupsDict = await cacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             if (!groupsDict.ContainsKey(request.GroupId))
@@ -96,12 +69,10 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 
             DateTime now = DateTime.UtcNow;
 
-            // Collect all descendant group IDs from cached dictionary
             HashSet<Guid> allGroupIds = CollectDescendantGroupIds(groupsDict, request.GroupId);
             allGroupIds.Add(request.GroupId);
 
-            // Collect item IDs from cache
-            var itemsDict = await cacheService.GetItemsDictionaryAsync(
+            Dictionary<Guid, CostEstimateItem> itemsDict = await cacheService.GetItemsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
 
             HashSet<Guid> allItemIds = itemsDict.Values
@@ -109,57 +80,73 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
                 .Select(i => i.Id)
                 .ToHashSet();
 
-            // Delete files + blobs (before DB changes)
-            if (allItemIds.Count > 0)
+            await SoftDeleteItemFilesAsync(request.CostEstimateId, allItemIds, now, cancellationToken);
+            await SoftDeleteItemsAsync(allItemIds, now, cancellationToken);
+            await SoftDeleteGroupsAsync(allGroupIds, now, cancellationToken);
+            await NullifyWorkScheduleReferencesAsync(allGroupIds, allItemIds, cancellationToken);
+
+            await cacheService.InvalidateCostEstimateAsync(
+                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+
+            return Unit.Value;
+        }
+
+        private async Task SoftDeleteItemFilesAsync(
+            Guid costEstimateId,
+            HashSet<Guid> allItemIds,
+            DateTime now,
+            CancellationToken cancellationToken)
+        {
+            if (allItemIds.Count == 0)
             {
-                List<CostEstimateFieldFile> filesToDelete = (await fieldFileRepository.GetBySearch(
-                    f => f.CostEstimateId == request.CostEstimateId &&
-                         allItemIds.Contains(f.FieldValue.ItemId))).ToList();
-
-                if (filesToDelete.Count > 0)
-                {
-                    // Soft-delete przez ExecuteUpdateAsync (nie EF tracking) — unikamy CASCADE conflict
-                    HashSet<Guid> fileIds = filesToDelete.Select(f => f.Id).ToHashSet();
-                    await fieldFileRepository.ExecuteUpdateAsync(
-                        f => fileIds.Contains(f.Id),
-                        f => f.SetProperty(p => p.IsDeleted, true)
-                              .SetProperty(p => p.DeletedAt, DateTime.UtcNow),
-                        cancellationToken);
-
-                    logger.LogInformation(
-                        "Soft-deleted {FileCount} files for deleted groups in cost estimate {CostEstimateId}",
-                        filesToDelete.Count, request.CostEstimateId);
-                }
-
-                // Delete item field values (hard delete — no IsDeleted column)
-                await itemFieldValueRepository.ExecuteDeleteAsync(
-                    fv => allItemIds.Contains(fv.ItemId), cancellationToken);
+                return;
             }
 
-            // Delete group field values (hard delete — no IsDeleted column)
-            await groupFieldValueRepository.ExecuteDeleteAsync(
-                fv => allGroupIds.Contains(fv.GroupId), cancellationToken);
+            List<CostEstimateItemFile> filesToDelete = (await itemFileRepository.GetBySearch(
+                f => f.CostEstimateId == costEstimateId && allItemIds.Contains(f.ItemId) && !f.IsDeleted)).ToList();
 
-            // Soft-delete items
-            if (allItemIds.Count > 0)
+            if (filesToDelete.Count == 0)
             {
-                List<CostEstimateItem> itemsToDelete = (await itemRepository.GetBySearch(
-                    i => allItemIds.Contains(i.Id))).ToList();
-
-                foreach (var item in itemsToDelete)
-                {
-                    item.IsDeleted = true;
-                    item.DeletedAt = now;
-                }
-
-                await itemRepository.UpdateRange(itemsToDelete);
+                return;
             }
 
-            // Soft-delete groups
+            HashSet<Guid> fileIds = filesToDelete.Select(f => f.Id).ToHashSet();
+            await itemFileRepository.ExecuteUpdateAsync(
+                f => fileIds.Contains(f.Id),
+                f => f.SetProperty(p => p.IsDeleted, true)
+                      .SetProperty(p => p.DeletedAt, now),
+                cancellationToken);
+
+            logger.LogInformation(
+                "Soft-deleted {FileCount} files for deleted groups in cost estimate {CostEstimateId}",
+                filesToDelete.Count, costEstimateId);
+        }
+
+        private async Task SoftDeleteItemsAsync(HashSet<Guid> allItemIds, DateTime now, CancellationToken cancellationToken)
+        {
+            if (allItemIds.Count == 0)
+            {
+                return;
+            }
+
+            List<CostEstimateItem> itemsToDelete = (await itemRepository.GetBySearch(
+                i => allItemIds.Contains(i.Id))).ToList();
+
+            foreach (CostEstimateItem item in itemsToDelete)
+            {
+                item.IsDeleted = true;
+                item.DeletedAt = now;
+            }
+
+            await itemRepository.UpdateRange(itemsToDelete);
+        }
+
+        private async Task SoftDeleteGroupsAsync(HashSet<Guid> allGroupIds, DateTime now, CancellationToken cancellationToken)
+        {
             List<CostEstimateGroup> groupsToDelete = (await groupRepository.GetBySearch(
                 g => allGroupIds.Contains(g.Id))).ToList();
 
-            foreach (var g in groupsToDelete)
+            foreach (CostEstimateGroup g in groupsToDelete)
             {
                 g.IsDeleted = true;
                 g.DeletedAt = now;
@@ -167,31 +154,32 @@ namespace CQRS.CostEstimates.DeleteCostEstimateGroup
 
             await groupRepository.UpdateRange(groupsToDelete);
             await groupRepository.SaveChangesAsync(cancellationToken);
+        }
 
-            // Null out WorkScheduleStage.CostEstimateGroupId for deleted groups
+        private async Task NullifyWorkScheduleReferencesAsync(
+            HashSet<Guid> allGroupIds,
+            HashSet<Guid> allItemIds,
+            CancellationToken cancellationToken)
+        {
             await stageRepository.ExecuteUpdateAsync(
                 s => allGroupIds.Contains(s.CostEstimateGroupId!.Value),
                 s => s.SetProperty(st => st.CostEstimateGroupId, (Guid?)null),
                 cancellationToken);
 
-            if (allItemIds.Count > 0)
+            if (allItemIds.Count == 0)
             {
-                await stageWorkRepository.ExecuteUpdateAsync(
-                    w => allItemIds.Contains(w.CostEstimateItemId!.Value),
-                    s => s.SetProperty(w => w.CostEstimateItemId, (Guid?)null),
-                    cancellationToken);
-
-                await trackedCostRepository.ExecuteUpdateAsync(
-                    tc => allItemIds.Contains(tc.CostEstimateItemId!.Value),
-                    s => s.SetProperty(tc => tc.CostEstimateItemId, (Guid?)null),
-                    cancellationToken);
+                return;
             }
 
-            // Invalidate cache
-            await cacheService.InvalidateCostEstimateAsync(
-                request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
+            await stageWorkRepository.ExecuteUpdateAsync(
+                w => allItemIds.Contains(w.CostEstimateItemId!.Value),
+                s => s.SetProperty(w => w.CostEstimateItemId, (Guid?)null),
+                cancellationToken);
 
-            return Unit.Value;
+            await trackedCostRepository.ExecuteUpdateAsync(
+                tc => allItemIds.Contains(tc.CostEstimateItemId!.Value),
+                s => s.SetProperty(tc => tc.CostEstimateItemId, (Guid?)null),
+                cancellationToken);
         }
 
         private static HashSet<Guid> CollectDescendantGroupIds(

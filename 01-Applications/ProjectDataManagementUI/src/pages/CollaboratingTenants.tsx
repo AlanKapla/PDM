@@ -14,18 +14,18 @@ import {
 } from "@chakra-ui/react";
 import { Building2, CheckCircle2 } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
+import { formatDateShort } from "../utils/formatters";
 import { useAuth } from "../context/AuthContext";
 import { changeActiveTenant } from "../services/tenantService";
 import { useMyTenants, tenantKeys } from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { handleApiError } from "../utils/handleApiError";
 import type { UserTenant } from "../types/auth.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
+import { getTenantRoleName, getTenantRoleColor } from "../constants/roleCodes";
 
 export default function CollaboratingTenants() {
   const { user, refreshUser } = useAuth();
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const {showSuccess, showError, showApiSuccess, showApiError } = useToastNotification();
   const queryClient = useQueryClient();
   const { data: tenants = [], isLoading: loading } = useMyTenants();
   const [activeTenantId, setActiveTenantId] = useState<string>("");
@@ -53,8 +53,7 @@ export default function CollaboratingTenants() {
       await refreshUser();
       showApiSuccess('tenantSwitched');
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setChangingTenant(false);
     }
@@ -112,10 +111,10 @@ export default function CollaboratingTenants() {
                                 </Text>
                                 <Stack direction={{ base: "column", sm: "row" }} spacing={2}>
                                   <Text fontSize="xs" color="neutral.500">
-                                    Utworzono: {new Date(tenant.createdAt).toLocaleDateString('pl-PL')}
+                                    Utworzono: {formatDateShort(tenant.createdAt)}
                                   </Text>
-                                  <Badge colorScheme={getRoleColor(tenant.roleCode)} fontSize="xs">
-                                    {getRoleName(tenant.roleCode)}
+                                  <Badge colorScheme={getTenantRoleColor(tenant.isAdmin)} fontSize="xs">
+                                    {getTenantRoleName(tenant.isAdmin)}
                                   </Badge>
                                 </Stack>
                               </VStack>

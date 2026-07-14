@@ -108,16 +108,13 @@ public class InMemoryUserContextCacheTests : IDisposable
     private static TenantCtxSnapshot BuildTenantCtx(Guid tenantId) =>
         new TenantCtxSnapshot(
             TenantId: tenantId,
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: new HashSet<string> { "TENANT.VIEW" },
-            IsTenantAdmin: false,
+            IsAdmin: false,
             IsActive: true);
 
     private static ProjectCtxSnapshot BuildProjectCtx(Guid projectId, Guid tenantId) =>
         new ProjectCtxSnapshot(
             ProjectId: projectId,
             TenantId: tenantId,
-            ProjectRoleId: Guid.NewGuid(),
             ProjectPermissionCodes: new HashSet<string> { "PROJECT.VIEW" },
             IsProjectAdmin: false,
             IsActive: true);

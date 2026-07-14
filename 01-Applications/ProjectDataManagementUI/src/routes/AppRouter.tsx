@@ -8,23 +8,20 @@ import TenantDetails from "../pages/TenantDetails";
 import CollaboratingTenants from "../pages/CollaboratingTenants";
 import ManagedTenants from "../pages/ManagedTenants";
 import ActiveInvitations from "../pages/ActiveInvitations";
+import AcceptInvitationPage from "../pages/AcceptInvitationPage";
 import AuthCallback from "../pages/AuthCallback";
 import LoggedOut from "../pages/LoggedOut";
 import Projects from "../pages/Projects";
 import ProjectDetails from "../pages/ProjectDetails";
 import WorkScheduleView from "../pages/WorkScheduleView";
 import AssignedWorks from "../pages/AssignedWorks";
-import CostEstimateTemplates from "../pages/CostEstimateTemplates";
-// TemplateVersionHistory removed - versioning no longer supported
-import CostEstimateTemplateEditor from "../pages/CostEstimateTemplateEditor";
-import CostEstimateTemplateNew from "../pages/CostEstimateTemplateNew";
-import CostEstimateTemplateSelector from "../pages/CostEstimateTemplateSelector";
 import ProjectMembers from "../pages/ProjectMembers";
 import ProjectSchedules from "../pages/ProjectSchedules";
 import ProjectFiles from "../pages/ProjectFiles";
 import ProjectParameters from "../pages/ProjectParameters";
 import ProjectCosts from "../pages/ProjectCosts";
 import ProjectSimpleCosts from "../pages/ProjectSimpleCosts";
+import AICostReviewPage from "../pages/AICostReviewPage";
 import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 import ChatPage from "../pages/ChatPage";
 import ProjectBudgetPage from "../pages/ProjectBudgetPage";
@@ -101,6 +98,15 @@ export default function AppRouter() {
       />
 
       <Route
+        path="/invitations/accept"
+        element={
+          <ProtectedRoute>
+            <AcceptInvitationPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/tenants/collaborating"
         element={
           <ProtectedRoute>
@@ -146,48 +152,28 @@ export default function AppRouter() {
       />
 
       <Route
-        path="/cost-estimate-templates"
-        element={
-          <ProtectedRoute>
-            <CostEstimateTemplates />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/cost-estimate-templates/new"
-        element={
-          <ProtectedRoute>
-            <CostEstimateTemplateNew />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/cost-estimate-templates/select"
-        element={
-          <ProtectedRoute>
-            <CostEstimateTemplateSelector />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/cost-estimate-templates/:templateId/edit"
-        element={
-          <ProtectedRoute>
-            <CostEstimateTemplateEditor />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Template version history removed - versioning no longer supported */}
-
-      <Route
         path="/projects/:projectId/costs"
         element={
           <ProtectedRoute>
             <ProjectSimpleCosts />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/costs/ai-review"
+        element={
+          <ProtectedRoute>
+            <AICostReviewPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/dashboard/ai-review"
+        element={
+          <ProtectedRoute>
+            <AICostReviewPage />
           </ProtectedRoute>
         }
       />

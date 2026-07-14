@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Model;
+﻿using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Models.Projects;
 using MediatR;
@@ -29,7 +28,7 @@ namespace CQRS.Projects.GetTenantProjects
             // STEP 1: Determine user's role in tenant
             TenantCtxSnapshot? tenantSnapshot = await currentUser.GetTenantSnapshotAsync(request.TenantId, cancellationToken);
             bool isSuperAdmin = currentUser.IsSuperAdmin;
-            bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
+            bool isTenantAdmin = tenantSnapshot?.IsAdmin ?? false;
 
             // STEP 2: Load all projects with creator info in a single query
             IEnumerable<Project> allProjects = await projectRepo.GetBySearch(
@@ -41,8 +40,8 @@ namespace CQRS.Projects.GetTenantProjects
 
             // Load ALL project members in single query (for memberships + counts)
             IEnumerable<ProjectMember> allProjectMembers = await projectMemberRepo.GetBySearch(
-                pm => projectIds.Contains(pm.ProjectId) && pm.TenantId == request.TenantId,
-                include => include.Include(pm => pm.MemberRole));
+                pm => projectIds.Contains(pm.ProjectId) && pm.TenantId == request.TenantId && pm.IsActive,
+                include => include.Include(pm => pm.ModulePermissions));
 
             Dictionary<Guid, ProjectMember> membershipDict = allProjectMembers
                 .Where(pm => pm.UserId == currentUser.Id)
@@ -58,7 +57,7 @@ namespace CQRS.Projects.GetTenantProjects
             foreach (Project project in allProjects)
             {
                 bool hasProjectMembership = membershipDict.TryGetValue(project.Id, out ProjectMember? membership);
-                bool isProjectAdmin = hasProjectMembership && membership!.MemberRole?.Code == RoleCodes.ProjectAdmin;
+                bool isProjectAdmin = hasProjectMembership && membership!.IsAdmin;
 
                 // Visibility rules:
                 // - SuperAdmin → all projects
@@ -75,25 +74,6 @@ namespace CQRS.Projects.GetTenantProjects
                     continue;
                 }
 
-                string userRoleCode;
-                if (hasProjectMembership)
-                {
-                    userRoleCode = membership!.MemberRole?.Code ?? RoleCodes.ProjectViewer;
-                }
-                else if (isTenantAdmin)
-                {
-                    userRoleCode = RoleCodes.TenantAdmin;
-                }
-                else if (isSuperAdmin)
-                {
-                    userRoleCode = RoleCodes.SystemSuperAdmin;
-                }
-                else
-                {
-                    // Should not happen due to visibility rules above
-                    continue;
-                }
-
                 // NOTE: N+1 — per-project snapshot lookup. See PROJ-04 BLOKER report:
                 // batch API on ICurrentUser/IUserContextCache is required to fix.
                 HashSet<string> userPermissions = new HashSet<string>();
@@ -101,6 +81,21 @@ namespace CQRS.Projects.GetTenantProjects
                 if (projectSnapshot is not null)
                 {
                     userPermissions = projectSnapshot.ProjectPermissionCodes;
+                }
+
+                bool isAdmin;
+                if (isTenantAdmin || isSuperAdmin)
+                {
+                    isAdmin = true;
+                }
+                else if (hasProjectMembership)
+                {
+                    isAdmin = membership!.IsAdmin;
+                }
+                else
+                {
+                    // Should not happen due to visibility rules above
+                    continue;
                 }
 
                 int membersCount = membersCountDict.TryGetValue(project.Id, out int count) ? count : 0;
@@ -116,7 +111,8 @@ namespace CQRS.Projects.GetTenantProjects
                     CreatedByUserName = project.CreatedBy?.User is not null
                         ? $"{project.CreatedBy.User.FirstName} {project.CreatedBy.User.LastName}".Trim()
                         : "Unknown",
-                    UserRoleCode = userRoleCode,
+                    IsAdmin = isAdmin,
+                    CanViewAllResources = isAdmin || isTenantAdmin || isSuperAdmin,
                     MembersCount = membersCount,
                     UserPermissions = userPermissions,
                     Currency = null

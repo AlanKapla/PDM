@@ -14,10 +14,12 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { User as UserIcon, RefreshCw, Building2 } from "lucide-react";
+import { User as UserIcon, RefreshCw, Building2, Home } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import NotificationBell from "./NotificationBell";
+import DemoModeMenuItem from "./DemoModeMenuItem";
 import { useMyTenants } from "../hooks/queries";
+import { hasActiveTenant } from "../utils/tenantUtils";
 
 interface HeaderProps {
   onMenuOpen?: () => void;
@@ -37,6 +39,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
   const { data: tenants } = useMyTenants(isAuthenticated);
   const activeTenantName =
     tenants?.find((t) => t.id === user?.activeTenantId)?.name ?? null;
+  const showHomeLink = isAuthenticated && user && !hasActiveTenant(user.activeTenantId);
 
   return (
     <Box
@@ -144,18 +147,30 @@ export default function Header({ onMenuOpen }: HeaderProps) {
               </MenuButton>
 
               <MenuList zIndex={1001}>
+                {showHomeLink && (
+                  <MenuItem icon={<Home size={16} />} onClick={() => navigate("/dashboard")}>
+                    Strona główna
+                  </MenuItem>
+                )}
+
                 <MenuItem icon={<UserIcon size={16} />} onClick={() => navigate("/profile")}>
                   Ustawienia profilu
                 </MenuItem>
 
-                <MenuDivider />
+                {hasActiveTenant(user.activeTenantId) && (
+                  <>
+                    <MenuDivider />
 
-                <MenuItem
-                  icon={<RefreshCw size={16} />}
-                  onClick={() => navigate("/tenants/collaborating")}
-                >
-                  Zmień aktywnego tenanta
-                </MenuItem>
+                    <MenuItem
+                      icon={<RefreshCw size={16} />}
+                      onClick={() => navigate("/tenants/collaborating")}
+                    >
+                      Zmień aktywnego tenanta
+                    </MenuItem>
+                  </>
+                )}
+
+                <DemoModeMenuItem />
 
                 <MenuDivider />
 

@@ -13,11 +13,6 @@
         /// <summary>
         /// Tenant-level role (e.g., TENANT.ADMIN, TENANT.MEMBER)
         /// </summary>
-        Tenant = 1,
-        
-        /// <summary>
-        /// Project-level role (e.g., PROJECT.ADMIN, PROJECT.EDITOR, PROJECT.COLLABORATOR, PROJECT.VIEWER)
-        /// </summary>
-        Project = 2
+        Tenant = 1
     }
 }

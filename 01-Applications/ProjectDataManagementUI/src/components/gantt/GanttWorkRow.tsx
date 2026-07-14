@@ -33,6 +33,7 @@ import { Trash2, GripVertical, MessageSquare, UserPlus } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useGantt } from "./GanttContext";
 import GanttBar from "./GanttBar";
+import { GanttTruncatedName } from "./GanttTruncatedName";
 import { makeDateColMap } from "./ganttRowUtils";
 import GanttCommentPopover from "./GanttCommentPopover";
 import type { WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
@@ -343,17 +344,16 @@ export default function GanttWorkRow({
                   isDisabled={isRenaming}
                 />
               ) : (
-                <Text
+                <GanttTruncatedName
+                  label={work.name}
                   fontSize="sm"
-                  noOfLines={1}
-                  onClick={handleClick}
+                  color={work.isClosed ? "gray.500" : undefined}
                   textDecoration={work.isClosed ? "line-through" : "none"}
-                  color={work.isClosed ? "gray.500" : "inherit"}
                   cursor={isEditing ? "text" : "default"}
-                  title={isEditing ? "Kliknij aby zmienić nazwę" : work.name}
-                >
-                  {work.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
-                </Text>
+                  onClick={handleClick}
+                  isEditingMode={isEditing}
+                  editHint="Kliknij aby zmienić nazwę"
+                />
               )}
             </Box>
 

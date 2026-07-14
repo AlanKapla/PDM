@@ -1,5 +1,4 @@
 import { ArrowRight } from 'lucide-react'
-import BrowserMockup from './BrowserMockup'
 import { useScrollTo } from '../hooks/useScrollTo'
 import './Hero.css'
 
@@ -7,70 +6,76 @@ export default function Hero() {
   const scrollTo = useScrollTo()
 
   return (
-    <section className="hero">
-      {/* Animated cobalt background */}
-      <div className="hero__bg">
-        <div className="hero__blob hero__blob--1" />
-        <div className="hero__blob hero__blob--2" />
-        <div className="hero__blob hero__blob--3" />
-        <div className="hero__grid" />
-      </div>
-
+    <section id="about" className="hero">
       <div className="container hero__container">
-        <div className="hero__content">
-          <div className="hero__badge">
-            <span className="hero__badge-dot" />
-            Koniec z chaosem na budowie. Zacznij widzieć liczby.
-          </div>
+        <span className="hero__badge">Zintegrowana platforma budowlana</span>
 
-          <h1 className="hero__title">
-            Wiesz ile kosztuje<br />
-            <span className="hero__title-accent">ta budowa?</span>
-          </h1>
+        <h1 className="hero__title">
+          Kompleksowe zarządzanie<br />
+          <span className="hero__title-accent">każdą inwestycją</span>
+        </h1>
 
-          <p className="hero__subtitle">
-            Brickly zestawia kosztorys z rzeczywistymi wydatkami na bieżąco.
-            Widzisz odchylenia zanim przekroczysz budżet — nie tydzień później.
-          </p>
+        <p className="hero__subtitle">
+          Brickly to zintegrowana platforma łącząca dokumentację projektową, kontrolę kosztów,
+          harmonogramowanie i komunikację zespołową — zapewniająca pełny obraz finansowy
+          każdej inwestycji w czasie rzeczywistym, bez konieczności korzystania z wielu niezależnych narzędzi.
+        </p>
 
-          <div className="hero__stats">
-            <div className="hero__stat">
-              <span className="hero__stat-value">87%</span>
-              <span className="hero__stat-label">budów przekracza budżet</span>
-            </div>
-            <div className="hero__stat-divider" />
-            <div className="hero__stat">
-              <span className="hero__stat-value">3×</span>
-              <span className="hero__stat-label">mniej czasu na raporty</span>
-            </div>
-            <div className="hero__stat-divider" />
-            <div className="hero__stat">
-              <span className="hero__stat-value">1</span>
-              <span className="hero__stat-label">miejsce dla całego projektu</span>
-            </div>
-          </div>
-
-          <div className="hero__actions">
-            <a
-              href="https://app.brickly.pro"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn hero__cta"
-            >
-              Wypróbuj za darmo
-              <ArrowRight size={18} />
-            </a>
-            <a href="#about" className="btn hero__cta-secondary" onClick={e => { e.preventDefault(); scrollTo('#about') }}>
-              Zobacz jak działa
-            </a>
-          </div>
+        <div className="hero__actions">
+          <a
+            href="https://app.brickly.pro"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn hero__cta"
+          >
+            Rozpocznij bezpłatnie
+            <ArrowRight size={18} aria-hidden="true" />
+          </a>
+          <a href="#modules" className="btn hero__cta-secondary" onClick={e => { e.preventDefault(); scrollTo('#modules') }}>
+            Poznaj możliwości
+          </a>
         </div>
 
-        <div className="hero__visual">
-          <BrowserMockup />
+        <div className="hero__stats">
+          <div className="hero__stat">
+            <span className="hero__stat-value">8</span>
+            <span className="hero__stat-label">zintegrowanych modułów</span>
+          </div>
+          <div className="hero__stat-divider" aria-hidden="true" />
+          <div className="hero__stat">
+            <span className="hero__stat-value">100%</span>
+            <span className="hero__stat-label">bezpłatny dostęp</span>
+          </div>
+          <div className="hero__stat-divider" aria-hidden="true" />
+          <div className="hero__stat">
+            <span className="hero__stat-value">1</span>
+            <span className="hero__stat-label">platforma dla całego projektu</span>
+          </div>
         </div>
       </div>
 
+      <div className="container hero__visual-wrap">
+        <div className="hero__visual">
+          <img
+            src="/images/hero-chat.png"
+            alt="Komunikacja zespołu w projekcie"
+            className="hero__visual-img hero__visual-img--chat"
+            loading="eager"
+          />
+          <img
+            src="/images/hero-cost.png"
+            alt="Kosztorys budowlany"
+            className="hero__visual-img hero__visual-img--cost"
+            loading="eager"
+          />
+          <img
+            src="/images/hero-dashboard.png"
+            alt="Dashboard finansowo-czasowy projektu"
+            className="hero__visual-img hero__visual-img--main"
+            loading="eager"
+          />
+        </div>
+      </div>
     </section>
   )
 }

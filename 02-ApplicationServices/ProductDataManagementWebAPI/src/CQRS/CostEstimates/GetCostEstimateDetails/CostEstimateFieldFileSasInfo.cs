@@ -1,4 +1,4 @@
-﻿namespace CQRS.CostEstimates.GetCostEstimateDetails
+namespace CQRS.CostEstimates.GetCostEstimateDetails
 {
     /// <summary>
     /// Cache model for SAS URIs per file.

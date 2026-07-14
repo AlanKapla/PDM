@@ -1,7 +1,6 @@
 ﻿import {
   Badge,
   Box,
-  Checkbox,
   HStack,
   IconButton,
   Text,
@@ -18,13 +17,10 @@ interface ExpenseCardProps {
   canEdit?: boolean;
   canDelete?: boolean;
   canManageShare?: boolean;
-  canToggleAccepted?: boolean;
-  isTogglingAccepted?: boolean;
   isDeleting?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
   onManageShare?: () => void;
-  onToggleAccepted?: () => void;
 }
 
 export default function ExpenseCard({
@@ -33,13 +29,10 @@ export default function ExpenseCard({
   canEdit = false,
   canDelete = false,
   canManageShare = false,
-  canToggleAccepted = false,
-  isTogglingAccepted = false,
   isDeleting = false,
   onEdit,
   onDelete,
   onManageShare,
-  onToggleAccepted,
 }: ExpenseCardProps) {
   const borderColor = useColorModeValue("gray.200", "gray.600");
   const bg = useColorModeValue("white", "gray.800");
@@ -86,16 +79,19 @@ export default function ExpenseCard({
       {/* Wiersz 3: Badges + ikony akcji */}
       <HStack justify="space-between" align="center" flexWrap="wrap" gap={1}>
         <HStack spacing={2} flexWrap="wrap">
-          {/* Checkbox Zaakceptowane */}
-          <Checkbox
-            isChecked={cost.isAccepted}
-            onChange={canToggleAccepted && !isTogglingAccepted ? onToggleAccepted : undefined}
-            colorScheme="green"
-            isDisabled={!canToggleAccepted || isTogglingAccepted}
-            size="sm"
+          {/* Status akceptacji */}
+          <Badge
+            colorScheme={
+              cost.approvalStatus === 'Approved' ? 'green' :
+              cost.approvalStatus === 'PendingApproval' ? 'orange' :
+              'gray'
+            }
+            fontSize="xs"
           >
-            <Text fontSize="xs">{cost.isAccepted ? "Zaakceptowane" : "Niezaakceptowane"}</Text>
-          </Checkbox>
+            {cost.approvalStatus === 'Approved' ? 'Zaakceptowane' :
+             cost.approvalStatus === 'PendingApproval' ? 'Oczekuje' :
+             'Szkic'}
+          </Badge>
 
           {/* Chip dokumentu */}
           {cost.hasDocument && cost.previewSasUrl && (

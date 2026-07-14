@@ -3,8 +3,10 @@ import { Skeleton, VStack, HStack } from "@chakra-ui/react";
 import { useGantt } from "./GanttContext";
 import GanttLeftPanel from "./GanttLeftPanel";
 import GanttRightGrid from "./GanttRightGrid";
-import { buildFlatRows, isTodayDate } from "./ganttRowUtils";
+import { GanttTimelineNavigation } from "./GanttTimelineNavigation";
+import { buildFlatRows, filterStagesBySearch, isTodayDate } from "./ganttRowUtils";
 import { G } from "./ganttTokens";
+import { useGanttTimelinePanZoom } from "../../hooks/useGanttTimelinePanZoom";
 import type { DateGroup, TimeScale } from "../../hooks/useTimelineData";
 
 interface GanttLayoutProps {
@@ -14,10 +16,13 @@ interface GanttLayoutProps {
   columnWidth: number;
   hideWeekends: boolean;
   scrollContainerRef?: RefObject<HTMLDivElement>;
+  setZoomFactor: (value: number) => void;
   /** Wysokość kontenera Gantt — domyślnie "calc(100vh - 140px)" */
   height?: string;
   /** Automatyczny scroll do dzisiejszej kolumny po zamontowaniu */
   autoScrollToToday?: boolean;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
 }
 
 const SKELETON_ROWS = 6;
@@ -28,13 +33,21 @@ export default function GanttLayout({
   timeScale,
   columnWidth,
   scrollContainerRef: scrollContainerRefFromProps,
+  setZoomFactor,
   height = "calc(100vh - 140px)",
   autoScrollToToday = false,
+  onNavigatePrev,
+  onNavigateNext,
 }: GanttLayoutProps) {
-  const { isLoading, schedule, expandedStages, collapsedWorks, mode, isMutating } = useGantt();
+  const { isLoading, schedule, expandedStages, collapsedWorks, mode, isMutating, searchQuery } = useGantt();
 
   const internalScrollRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = scrollContainerRefFromProps ?? internalScrollRef;
+
+  const { isPanning } = useGanttTimelinePanZoom({
+    scrollContainerRef,
+    setZoomFactor,
+  });
 
   // Auto-scroll do dzisiaj po zamontowaniu — używane w widoku "Moje prace"
   useEffect(() => {
@@ -91,9 +104,43 @@ export default function GanttLayout({
     }
   }, [isMutating, scrollContainerRef]);
 
+  const filteredStages = useMemo(
+    () => filterStagesBySearch(schedule?.stages ?? [], searchQuery),
+    [schedule?.stages, searchQuery],
+  );
+
   const flatRows = useMemo(
-    () => buildFlatRows(schedule?.stages ?? [], expandedStages, mode, collapsedWorks),
-    [schedule, expandedStages, mode, collapsedWorks],
+    () => buildFlatRows(filteredStages, expandedStages, mode, collapsedWorks),
+    [filteredStages, expandedStages, mode, collapsedWorks],
+  );
+
+  // Rzeczywiste wysokości wierszy zmierzone w lewym panelu (nazwy zawijają się
+  // w wielu liniach). Prawa siatka musi używać tych samych wysokości, aby
+  // synchronizacja pionowego scrolla działała poprawnie.
+  const [measuredHeights, setMeasuredHeights] = useState<Map<string, number>>(new Map());
+
+  const handleRowsMeasured = useCallback((heights: Map<string, number>) => {
+    setMeasuredHeights((prev) => {
+      let changed = prev.size !== heights.size;
+      if (!changed) {
+        for (const [id, h] of heights) {
+          if (Math.abs((prev.get(id) ?? 0) - h) > 0.5) {
+            changed = true;
+            break;
+          }
+        }
+      }
+      return changed ? new Map(heights) : prev;
+    });
+  }, []);
+
+  const effectiveRows = useMemo(
+    () =>
+      flatRows.map((row) => {
+        const measured = measuredHeights.get(row.id);
+        return measured && measured > row.height ? { ...row, height: measured } : row;
+      }),
+    [flatRows, measuredHeights],
   );
 
   /** Synchronizuje pozycję pionową lewego panelu z prawym */
@@ -143,19 +190,26 @@ export default function GanttLayout({
           zIndex: 10,
         }}
       >
-        <GanttLeftPanel flatRows={flatRows} leftBodyRef={leftBodyRef} scrollbarH={scrollbarH} />
+        <GanttLeftPanel flatRows={effectiveRows} leftBodyRef={leftBodyRef} scrollbarH={scrollbarH} onRowsMeasured={handleRowsMeasured} />
       </div>
 
       {/* Prawy panel — przewijana siatka */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden", position: "relative" }}>
+        {onNavigatePrev && onNavigateNext && (
+          <GanttTimelineNavigation
+            onNavigatePrev={onNavigatePrev}
+            onNavigateNext={onNavigateNext}
+          />
+        )}
         <GanttRightGrid
-          flatRows={flatRows}
+          flatRows={effectiveRows}
           dates={dates}
           dateGroups={dateGroups}
           timeScale={timeScale}
           columnWidth={columnWidth}
           scrollRef={scrollContainerRef}
           onScroll={onRightScroll}
+          isPanning={isPanning}
         />
       </div>
     </div>

@@ -1,24 +1,28 @@
 {
-  "name": "Brickly",
+  "name": "Brickly – Aplikacja do zarządzania projektami budowlanymi",
   "short_name": "Brickly",
-  "description": "Brickly Application",
+  "description": "Kosztorysy, harmonogramy, pliki i komunikacja w jednym miejscu.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3182ce",
-  "orientation": "portrait-primary",
+  "background_color": "#FFF5EE",
+  "theme_color": "#1B4FD8",
+  "lang": "pl",
   "icons": [
     {
       "src": "/favicon.png",
-      "sizes": "32x32",
-      "type": "image/png",
-      "purpose": "any"
+      "sizes": "any",
+      "type": "image/png"
     },
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
     }
   ]
 }

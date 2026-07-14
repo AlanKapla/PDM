@@ -55,17 +55,48 @@ public sealed class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProj
             ownerIds,
             cancellationToken);
 
-        List<ProjectFilePackageWeb> result = new List<ProjectFilePackageWeb>();
+        Dictionary<Guid, ProjectFilePackageWeb> webNodesById = accessiblePackages.ToDictionary(
+            kvp => kvp.Key,
+            kvp => MapToPackageWeb(kvp.Value, userDict, fileCountDict.GetValueOrDefault(kvp.Key, 0)));
 
-        foreach ((Guid packageId, ProjectFilePackageDto package) in accessiblePackages)
+        HashSet<Guid> attachedAsChild = new HashSet<Guid>();
+
+        foreach (ProjectFilePackageWeb node in webNodesById.Values)
         {
-            int totalFiles = fileCountDict.GetValueOrDefault(packageId, 0);
-            result.Add(MapToPackageWeb(package, userDict, totalFiles));
+            if (node.ParentId.HasValue && webNodesById.TryGetValue(node.ParentId.Value, out ProjectFilePackageWeb? parent))
+            {
+                parent.SubCatalogs.Add(node);
+                attachedAsChild.Add(node.Id);
+            }
         }
 
-        result.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+        List<ProjectFilePackageWeb> rootNodes = webNodesById.Values
+            .Where(n => !attachedAsChild.Contains(n.Id))
+            .OrderByDescending(n => n.CreatedAt)
+            .ToList();
 
-        return result;
+        // Propagate file counts upwards so each node shows total for itself + all descendants
+        foreach (ProjectFilePackageWeb root in rootNodes)
+        {
+            AddDescendantFileCounts(root);
+        }
+
+        return rootNodes;
+    }
+
+    /// <summary>
+    /// Recursively sums TotalFiles from all descendants into each ancestor node.
+    /// Returns the total (own + all descendants) for the given node.
+    /// </summary>
+    private static int AddDescendantFileCounts(ProjectFilePackageWeb node)
+    {
+        int sum = node.TotalFiles;
+        foreach (ProjectFilePackageWeb child in node.SubCatalogs)
+        {
+            sum += AddDescendantFileCounts(child);
+        }
+        node.TotalFiles = sum;
+        return sum;
     }
 
     private static ProjectFilePackageWeb MapToPackageWeb(
@@ -81,7 +112,8 @@ public sealed class GetProjectFilePackagesQueryHandler : IRequestHandler<GetProj
             OwnerId = package.OwnerId,
             OwnerName = ProjectMemberNameResolver.ResolveUserName(userDict, package.OwnerId),
             Files = new List<ProjectFileWeb>(),
-            TotalFiles = totalFiles
+            TotalFiles = totalFiles,
+            ParentId = package.ParentId
         };
     }
 }

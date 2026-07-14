@@ -1,9 +1,11 @@
 /**
  * Role and Permission codes matching backend
- * 
+ *
  * Backend sources:
  * - src/Business/Interfaces/Constants/RoleCodes.cs
  * - src/Business/Interfaces/Constants/PermissionCodes.cs
+ * - src/Entities/Enums/ProjectModule.cs
+ * - src/Entities/Enums/ModuleAccessLevel.cs
  */
 
 // ===== ROLE CODES =====
@@ -11,12 +13,10 @@
 export const RoleCodes = {
   // System roles
   SYSTEM_SUPERADMIN: "SYSTEM.SUPERADMIN",
-  
-  // Tenant roles
-  TENANT_ADMIN: "TENANT.ADMIN",
-  TENANT_MEMBER: "TENANT.MEMBER",
-  
-  // Project roles
+
+  // Tenant roles replaced by IsAdmin boolean
+
+  // Project roles (derived labels — not stored in DB)
   PROJECT_ADMIN: "PROJECT.ADMIN",
   PROJECT_EDITOR: "PROJECT.EDITOR",
   PROJECT_VIEWER: "PROJECT.VIEWER",
@@ -27,44 +27,32 @@ export type RoleCode = typeof RoleCodes[keyof typeof RoleCodes];
 // ===== PERMISSION CODES =====
 
 export const PermissionCodes = {
-  // Tenant list/context permissions
-  TENANT_LIST_AVAILABLE: "TENANT.LIST.AVAILABLE",
-  TENANT_ADMIN_LIST_AVAILABLE: "TENANT.ADMIN.LIST.AVAILABLE",
-  
-  // Tenant permissions
-  TENANT_VIEW: "TENANT.VIEW",
-  TENANT_EDIT: "TENANT.EDIT",
-  TENANT_MEMBERS_MANAGE: "TENANT.MEMBERS.MANAGE",
-  TENANT_PROJECT_CREATE: "TENANT.PROJECT.CREATE",
-  TENANT_STATUS_MANAGE: "TENANT.STATUS.MANAGE",
-  
-  // Project permissions
-  PROJECT_VIEW: "PROJECT.VIEW",
-  PROJECT_EDIT: "PROJECT.EDIT",
-  PROJECT_MEMBERS_VIEW: "PROJECT.MEMBERS.VIEW",
-  PROJECT_MEMBERS_MANAGE: "PROJECT.MEMBERS.MANAGE",
-  PROJECT_STATUS_MANAGE: "PROJECT.STATUS.MANAGE",
-  
-  // Project resources (files, costs, schedules, estimates) - własne i udostępnione
-  PROJECT_RESOURCES_READ: "PROJECT.RESOURCES.READ",
-  PROJECT_RESOURCES_WRITE: "PROJECT.RESOURCES.WRITE",
-  PROJECT_RESOURCES_READ_SHARED: "PROJECT.RESOURCES.READ_SHARED",
-  PROJECT_RESOURCES_WRITE_SHARED: "PROJECT.RESOURCES.WRITE_SHARED",
-  
-  // Project resources - all (only for ProjectAdmin)
-  PROJECT_RESOURCES_READ_ALL: "PROJECT.RESOURCES.READ_ALL",
-  PROJECT_RESOURCES_WRITE_ALL: "PROJECT.RESOURCES.WRITE_ALL",
-  
-  // Project resources - sharing
-  PROJECT_RESOURCES_SHARE: "PROJECT.RESOURCES.SHARE",
-  
-  // Project messages/chat
-  PROJECT_MESSAGES_READ: "PROJECT.MESSAGES.READ",
-  PROJECT_MESSAGES_WRITE: "PROJECT.MESSAGES.WRITE",
-  PROJECT_MESSAGES_DELETE: "PROJECT.MESSAGES.DELETE",
-  
-  // Role management
-  ROLE_LIST: "ROLE.LIST",
+  // TENANT – CONTEXT
+  TenantContextList: "TENANT.CONTEXT.LIST",
+  TenantContextAdminList: "TENANT.CONTEXT.ADMIN_LIST",
+
+  // ROLE
+  RoleList: "ROLE.LIST",
+
+  // TENANT – BASE ACCESS
+  TenantView: "TENANT.VIEW",
+
+  // TENANT – SETTINGS
+  TenantSettingsView: "TENANT.SETTINGS.VIEW",
+  TenantSettingsEdit: "TENANT.SETTINGS.EDIT",
+  TenantMembersManage: "TENANT.MEMBERS.MANAGE",
+  TenantProjectsCreate: "TENANT.PROJECTS.CREATE",
+
+  // PROJECT – BASE
+  ProjectView: "PROJECT.VIEW",
+
+  // PROJECT – MODULES (one per module)
+  ProjectSettings: "PROJECT.SETTINGS",
+  ProjectFiles: "PROJECT.FILES",
+  ProjectEstimates: "PROJECT.ESTIMATES",
+  ProjectCosts: "PROJECT.COSTS",
+  ProjectSchedule: "PROJECT.SCHEDULE",
+  ProjectDashboardTracker: "PROJECT.DASHBOARD_TRACKER",
 } as const;
 
 export type PermissionCode = typeof PermissionCodes[keyof typeof PermissionCodes];
@@ -77,9 +65,6 @@ export type PermissionCode = typeof PermissionCodes[keyof typeof PermissionCodes
 export const getRoleName = (roleCode: string): string => {
   const roleNames: Record<string, string> = {
     [RoleCodes.SYSTEM_SUPERADMIN]: 'SuperAdmin',
-    
-    [RoleCodes.TENANT_ADMIN]: 'Administrator',
-    [RoleCodes.TENANT_MEMBER]: 'Członek',
     
     [RoleCodes.PROJECT_ADMIN]: 'Administrator',
     [RoleCodes.PROJECT_EDITOR]: 'Edytor',
@@ -95,9 +80,6 @@ export const getRoleName = (roleCode: string): string => {
 export const getRoleColor = (roleCode: string): string => {
   const roleColors: Record<string, string> = {
     [RoleCodes.SYSTEM_SUPERADMIN]: 'red',
-
-    [RoleCodes.TENANT_ADMIN]: 'level2',
-    [RoleCodes.TENANT_MEMBER]: 'gray',
 
     [RoleCodes.PROJECT_ADMIN]:   'level2',
     [RoleCodes.PROJECT_EDITOR]:  'primary',
@@ -148,15 +130,22 @@ export const isSuperAdminRole = (roleCode: string): boolean => {
 };
 
 /**
- * Check if role code is tenant admin
- */
-export const isTenantAdminRole = (roleCode: string): boolean => {
-  return roleCode === RoleCodes.TENANT_ADMIN;
-};
-
-/**
  * Check if role code is project admin
  */
 export const isProjectAdminRole = (roleCode: string): boolean => {
   return roleCode === RoleCodes.PROJECT_ADMIN;
+};
+
+/**
+ * Get Polish display name for tenant admin status
+ */
+export const getTenantRoleName = (isAdmin: boolean): string => {
+  return isAdmin ? 'Administrator' : 'Członek';
+};
+
+/**
+ * Get badge color for tenant admin status
+ */
+export const getTenantRoleColor = (isAdmin: boolean): string => {
+  return isAdmin ? 'level2' : 'gray';
 };

@@ -28,4 +28,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="**\*.DISABLED.cs" />
+  </ItemGroup>
+
 </Project>

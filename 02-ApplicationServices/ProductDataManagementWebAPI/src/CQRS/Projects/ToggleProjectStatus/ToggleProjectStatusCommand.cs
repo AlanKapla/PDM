@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using MediatR;
 
@@ -13,7 +13,7 @@ public sealed record ToggleProjectStatusCommand : IRequestCommand<Unit>, IAuthor
     public required Guid ProjectId { get; init; }
     public required bool IsActive { get; init; }
 
-    public string PermissionCode => PermissionCodes.ProjectStatusManage;
+    public string PermissionCode => PermissionCodes.ProjectSettings;
 
     public ResourceRef GetResource() => new(TenantId: TenantId, ProjectId: ProjectId);
 }

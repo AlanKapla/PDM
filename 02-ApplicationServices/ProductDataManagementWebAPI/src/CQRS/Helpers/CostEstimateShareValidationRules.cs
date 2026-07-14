@@ -3,7 +3,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -42,6 +41,7 @@ namespace CQRS.Helpers
             int matchCount = await repository.CountAsync(
                 pm => pm.ProjectId == projectId &&
                       pm.TenantId == tenantId &&
+                      pm.IsActive &&
                       requestedIds.Contains(pm.UserId), ct);
 
             return matchCount == requestedIds.Count;

@@ -15,5 +15,6 @@ namespace Business.Interfaces.WebModels.ProjectDashboard
         public required List<ScheduleSummaryWeb> ScheduleSummaries { get; init; }
         public required ProjectAdditionalCostsWeb ProjectAdditionalCosts { get; init; }
         public required List<TrackedCostWeb> AllCosts { get; init; }
+        public required List<CostByCategoryWeb> CostByCategory { get; init; }
     }
 }

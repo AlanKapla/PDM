@@ -1,3 +1,4 @@
+using Business.Implementation.Utilities;
 using System.Text.Json;
 using Business.Interfaces.WebModels.Notifications;
 using Entities.Models.Notifications;
@@ -21,7 +22,7 @@ namespace CQRS.Notifications
                 Type = MapType(notification.Type),
                 Title = notification.Title,
                 Message = notification.Message,
-                CreatedAt = notification.CreatedAt,
+                CreatedAt = UtcDateTimeHelper.ToUtcOffset(notification.CreatedAt),
                 IsRead = notification.IsRead,
                 Metadata = DeserializeMetadata(notification.MetadataJson)
             };

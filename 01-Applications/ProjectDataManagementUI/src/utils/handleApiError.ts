@@ -1,21 +1,39 @@
 import { AxiosError } from "axios";
-import { 
-  defaultErrorMessage, 
+import type { ApiErrorResult, ApiExceptionResponse } from "../types/apiError.types";
+import {
+  defaultErrorMessage,
   apiExceptionReasonMessages,
-  httpStatusMessages 
+  httpStatusMessages,
+  extractValidationErrorMessages,
+  resolveKnownApiMessage,
 } from "./errorMessages";
 
-// Struktura ApiException z backendu
-interface ApiExceptionResponse {
-  error: string; // ApiExceptionReason (ValidationError, NotFound, etc.)
-  message: string;
-  objectType?: string;
-  objectId?: string;
+export type { ApiErrorResult } from "../types/apiError.types";
+
+function resolveApiMessageDetails(message: string): Pick<ApiErrorResult, "title" | "description" | "toastStatus"> | null {
+  const errorTexts = extractValidationErrorMessages(message);
+
+  for (const text of errorTexts) {
+    const resolved = resolveKnownApiMessage(text);
+    if (resolved) {
+      return {
+        title: resolved.title,
+        description: resolved.description,
+        toastStatus: resolved.toastStatus,
+      };
+    }
+  }
+
+  return null;
 }
 
-export interface ApiErrorResult {
-  title: string;
-  description?: string;
+function formatValidationDescription(message: string): string | undefined {
+  const errors = extractValidationErrorMessages(message);
+  if (errors.length === 0) {
+    return message || undefined;
+  }
+
+  return errors.join(" ");
 }
 
 /**
@@ -26,7 +44,7 @@ export const handleApiError = (error: unknown): ApiErrorResult => {
   if (!(error instanceof AxiosError)) {
     return {
       title: "Błąd",
-      description: defaultErrorMessage
+      description: defaultErrorMessage,
     };
   }
 
@@ -34,34 +52,42 @@ export const handleApiError = (error: unknown): ApiErrorResult => {
   if (!response) {
     return {
       title: "Brak połączenia",
-      description: "Nie udało się połączyć z serwerem"
+      description: "Nie udało się połączyć z serwerem",
     };
   }
 
   const data = response.data as ApiExceptionResponse | null;
 
-  // Obsługa struktury ApiException z backendu
-  if (data && 'error' in data && typeof data.error === 'string') {
+  if (data && "error" in data && typeof data.error === "string") {
     const { error: errorCode, message } = data;
-    
-    // Tytuł z kategorii błędu, opis ze szczegółowego message
+
+    if (message) {
+      const resolved = resolveApiMessageDetails(message);
+      if (resolved) {
+        return resolved;
+      }
+    }
+
     const title = apiExceptionReasonMessages[errorCode] || errorCode;
+    const description = errorCode === "ValidationError" && message
+      ? formatValidationDescription(message)
+      : message || undefined;
+
     return {
       title,
-      description: message || undefined
+      description,
+      toastStatus: "error",
     };
   }
 
-  // Fallback na kod HTTP
   if (httpStatusMessages[response.status]) {
     return {
-      title: httpStatusMessages[response.status]
+      title: httpStatusMessages[response.status],
     };
   }
 
-  // Ostateczny fallback
   return {
     title: "Błąd",
-    description: defaultErrorMessage
+    description: defaultErrorMessage,
   };
 };

@@ -1,4 +1,3 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.Chats;
 using Chat.CQRS.Shared;
 using CQRS;
@@ -11,5 +10,4 @@ namespace Chat.CQRS.Conversations.GetAvailableMembers;
 /// </summary>
 public sealed record GetAvailableMembersQuery : ChatScopedRequestBase, IRequestQuery<List<AvailableMemberWeb>>
 {
-    public override string PermissionCode => PermissionCodes.ChatMembersManage;
 }

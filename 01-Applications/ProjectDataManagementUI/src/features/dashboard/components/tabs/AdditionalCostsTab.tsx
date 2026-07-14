@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { useToken } from '@chakra-ui/react';
+import { useToken, Box, Text } from '@chakra-ui/react';
+import { Sparkles } from 'lucide-react';
 import type { ProjectAdditionalCostsWeb, ProjectFinancialSummaryWeb, TrackedCostWeb } from '../../types/projectDashboard.types';
-import { PLN, PROG } from '../../utils/formatters';
+import type { ParsedCostDto } from '../../../../types/ai.types';
+import { PROG } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
 import { MiniProgressBar } from '../shared/MiniProgressBar';
 import { CostTable } from '../shared/CostTable';
 import { CostModal } from '../CostModal';
 import AppModal from '../../../../components/ui/AppModal';
-import { useDashboardCurrency } from '../../context/DashboardCurrencyContext';
+import { AICostImportModal } from '../../../../components/CostTracker/AICostImportModal';
+import { CostSourcesDonut } from '../charts/CostSourcesDonut';
 
 export interface AdditionalCostsTabProps {
   data: ProjectAdditionalCostsWeb;
@@ -29,21 +32,25 @@ export function AdditionalCostsTab({
   onRefetch,
 }: AdditionalCostsTabProps): React.ReactElement {
   const [createModal, setCreateModal] = useState(false);
+  const [aiImportModal, setAiImportModal] = useState(false);
+  const [aiPrefillData, setAiPrefillData] = useState<{ parsedData: ParsedCostDto; file: File } | null>(null);
   const [editingCost, setEditingCost] = useState<TrackedCostWeb | null>(null);
   const [confirmDeleteCost, setConfirmDeleteCost] = useState<TrackedCostWeb | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const currencySymbol = useDashboardCurrency();
   const [neutral400, level1700, red600, amber400, action50, neutral200, level1500] = useToken('colors', [
     'neutral.400', 'level1.700', 'red.600', 'amber.400', 'action.50', 'neutral.200', 'level1.500',
   ]);
 
   const reserveNet = financialSummary.projectReserveBudgetNet;
+  const reserveGross = financialSummary.projectReserveBudgetGross;
   const additionalNet = data.totalNet ?? 0;
-  const remainingReserve = reserveNet != null ? reserveNet - additionalNet : null;
+  const additionalGross = data.totalGross ?? 0;
+  const remainingReserveNet = reserveNet != null ? reserveNet - additionalNet : null;
+  const remainingReserveGross = reserveGross != null ? reserveGross - additionalGross : null;
   const remainingColor =
-    remainingReserve == null
+    remainingReserveNet == null
       ? neutral400
-      : remainingReserve >= 0
+      : remainingReserveNet >= 0
       ? level1700
       : red600;
 
@@ -70,11 +77,12 @@ export function AdditionalCostsTab({
   return (
     <div>
       <div className="dashboard-kpi-3col">
-        <KpiCard label="Budżet główny" value={PLN(reserveNet, currencySymbol)} />
-        <KpiCard label="Koszty główne" value={PLN(data.totalNet, currencySymbol)} accent={amber400} />
+        <KpiCard label="Budżet główny" netValue={reserveNet} grossValue={reserveGross} />
+        <KpiCard label="Koszty główne" netValue={data.totalNet} grossValue={data.totalGross} accent={amber400} />
         <KpiCard
           label="Pozostały budżet główny"
-          value={PLN(remainingReserve, currencySymbol)}
+          netValue={remainingReserveNet}
+          grossValue={remainingReserveGross}
           accent={remainingColor}
         />
       </div>
@@ -89,6 +97,14 @@ export function AdditionalCostsTab({
         {PROG(coveragePercent)} wykorzystania budżetu głównego
       </div>
 
+      <Box mb={4} maxW="400px">
+        <CostSourcesDonut
+          title="Budżet główny vs koszty główne"
+          reserveBudget={reserveNet}
+          additionalCosts={data.totalNet}
+        />
+      </Box>
+
       <div
         style={{
           background: '#fff',
@@ -98,6 +114,45 @@ export function AdditionalCostsTab({
           marginBottom: 12,
         }}
       >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Lista kosztów</span>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              onClick={() => setAiImportModal(true)}
+              style={{
+                fontSize: '0.75rem',
+                padding: '6px 12px',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontWeight: 500,
+                boxShadow: '0 1px 4px rgba(124, 58, 237, 0.35)',
+              }}
+            >
+              <Sparkles size={12} />
+              Importuj z AI
+            </button>
+            <button
+              onClick={() => setCreateModal(true)}
+              style={{
+                fontSize: '0.75rem',
+                padding: '6px 12px',
+                background: action50,
+                color: level1700,
+                border: `0.5px solid ${level1500}`,
+                borderRadius: 6,
+                cursor: 'pointer',
+              }}
+            >
+              + Dodaj koszt główny
+            </button>
+          </div>
+        </div>
         <div className="dashboard-table-wrap">
           <CostTable
             costs={data.costs}
@@ -107,20 +162,20 @@ export function AdditionalCostsTab({
         </div>
       </div>
 
-      <button
-        onClick={() => setCreateModal(true)}
-        style={{
-          fontSize: "xs",
-          padding: '7px 14px',
-          background: action50,
-          color: level1700,
-          border: `0.5px solid ${level1500}`,
-          borderRadius: 6,
-          cursor: 'pointer',
-        }}
-      >
-        + Dodaj koszt główny
-      </button>
+      {aiImportModal && (
+        <AICostImportModal
+          isOpen
+          onClose={() => setAiImportModal(false)}
+          tenantId={tenantId}
+          projectId={projectId}
+          costType="TrackedCost"
+          onParsed={(data, file) => {
+            setAiPrefillData({ parsedData: data, file });
+            setAiImportModal(false);
+            setCreateModal(true);
+          }}
+        />
+      )}
 
       {createModal && (
         <CostModal
@@ -128,8 +183,9 @@ export function AdditionalCostsTab({
           tenantId={tenantId}
           projectId={projectId}
           mode="create"
-          onSuccess={() => { onRefetch(); setCreateModal(false); }}
-          onClose={() => setCreateModal(false)}
+          aiPrefill={aiPrefillData ?? undefined}
+          onSuccess={() => { onRefetch(); setCreateModal(false); setAiPrefillData(null); }}
+          onClose={() => { setCreateModal(false); setAiPrefillData(null); }}
         />
       )}
 

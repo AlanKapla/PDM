@@ -1,28 +1,24 @@
 ﻿import { useContext } from "react";
 import { useParams } from "react-router-dom";
-import { Alert, AlertIcon, Box, Spinner, Text } from "@chakra-ui/react";
+import { Box, Spinner, Text } from "@chakra-ui/react";
 import MainLayout from "../layout/MainLayout";
+import { BackToProjectButton } from "../components/common";
 import { ProjectDashboard } from "../features/dashboard/components/ProjectDashboard";
 import { AuthContext } from "../context/AuthContext";
 import { useProjectPermissions } from "../hooks/useProjectPermissions";
-import { RoleCodes } from "../constants/roleCodes";
 import { useProjectDetails } from "../hooks/queries";
-
-const ADMIN_ROLE_CODES = [
-  RoleCodes.PROJECT_ADMIN,
-  RoleCodes.TENANT_ADMIN,
-  RoleCodes.SYSTEM_SUPERADMIN,
-] as const;
 
 export default function ProjectBudgetPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const { user } = useContext(AuthContext);
-  const { roleCode, loading: permissionsLoading } = useProjectPermissions(projectId);
+  const { loading: permissionsLoading } = useProjectPermissions(projectId);
 
   const tenantId = user?.activeTenantId;
 
-  const { data: projectData } = useProjectDetails(tenantId ?? undefined, projectId);
-  const projectName = projectData?.name ?? '';
+  const { data: projectData, isLoading: projectLoading } = useProjectDetails(
+    tenantId ?? undefined,
+    projectId
+  );
 
   if (!tenantId || !projectId) {
     return (
@@ -34,7 +30,7 @@ export default function ProjectBudgetPage() {
     );
   }
 
-  if (permissionsLoading) {
+  if (permissionsLoading || projectLoading) {
     return (
       <MainLayout>
         <Box display="flex" justifyContent="center" alignItems="center" h="50vh">
@@ -44,25 +40,15 @@ export default function ProjectBudgetPage() {
     );
   }
 
-  const isAdmin = !!roleCode && ADMIN_ROLE_CODES.includes(roleCode as typeof ADMIN_ROLE_CODES[number]);
-
-  if (!isAdmin) {
-    return (
-      <MainLayout>
-        <Box p={8}>
-          <Alert status="warning">
-            <AlertIcon />
-            Ta strona jest dostępna tylko dla administratorów projektu.
-          </Alert>
-        </Box>
-      </MainLayout>
-    );
-  }
-
   return (
     <MainLayout>
-      <Box>
-        <ProjectDashboard tenantId={tenantId} projectId={projectId} projectName={projectName} />
+      <Box p={{ base: 3, sm: 4, md: 10 }} minH="100vh" w="100%" maxW="100%">
+        <BackToProjectButton />
+        <ProjectDashboard
+          tenantId={tenantId}
+          projectId={projectId}
+          projectName={projectData?.name}
+        />
       </Box>
     </MainLayout>
   );

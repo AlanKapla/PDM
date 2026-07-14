@@ -57,16 +57,12 @@ namespace WebApi.Tests.Controllers
         }
 
         [Fact]
-        public async Task GetMyAssignedWorks_ReturnsOk_WithRouteParams()
+        public async Task GetMyAssignedWorks_ReturnsOk_AndSendsQuery()
         {
-            Guid tenantId = Guid.NewGuid();
-            Guid projectId = Guid.NewGuid();
-
-            IActionResult result = await sut.GetMyAssignedWorks(tenantId, projectId);
+            IActionResult result = await sut.GetMyAssignedWorks();
 
             result.Should().BeOfType<OkObjectResult>();
-            VerifyMediatorCalledOnce<GetUserAssignedWorksQuery>(q =>
-                q.TenantId == tenantId && q.ProjectId == projectId);
+            VerifyMediatorCalledOnce<GetUserAssignedWorksQuery>();
         }
     }
 }

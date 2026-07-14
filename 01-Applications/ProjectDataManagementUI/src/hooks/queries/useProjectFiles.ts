@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectApi, ResourceScope } from '../../api/projectApi';
 import type {
   ProjectFilePackageWeb,
@@ -114,5 +114,27 @@ export function useVersionComments(
       return response.data;
     },
     enabled: Boolean(tenantId && projectId && fileId && versionId) && enabled,
+  });
+}
+
+export function useCreateDirectory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      tenantId,
+      projectId,
+      directoryName,
+      parentId,
+    }: {
+      tenantId: string;
+      projectId: string;
+      directoryName: string;
+      parentId?: string | null;
+    }) => projectApi.createDirectory(tenantId, projectId, directoryName, parentId),
+
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: fileKeys.all });
+    },
   });
 }

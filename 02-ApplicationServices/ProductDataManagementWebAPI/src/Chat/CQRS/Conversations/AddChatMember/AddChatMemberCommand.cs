@@ -1,4 +1,3 @@
-﻿using Business.Interfaces.Constants;
 using Chat.CQRS.Shared;
 using CQRS;
 using MediatR;
@@ -14,6 +13,4 @@ namespace Chat.CQRS.Conversations.AddChatMember;
 public sealed record AddChatMemberCommand : ChatScopedRequestBase, IRequestCommand<Unit>
 {
     public required Guid UserId { get; init; }
-
-    public override string PermissionCode => PermissionCodes.ChatMembersManage;
 }

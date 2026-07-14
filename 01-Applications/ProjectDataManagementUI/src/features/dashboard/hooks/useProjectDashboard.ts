@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProjectDashboardWeb } from '../types/projectDashboard.types';
+import { getApiErrorMessage } from '../../../utils/apiErrorUtils';
 import { getProjectDashboard } from '../services/dashboardApi';
 
 export interface UseProjectDashboardResult {
@@ -37,7 +38,7 @@ export function useProjectDashboard(
       }
     } catch (err) {
       if (!controller.signal.aborted) {
-        setError(err instanceof Error ? err.message : 'Błąd ładowania dashboardu');
+        setError(getApiErrorMessage(err));
       }
     } finally {
       if (!controller.signal.aborted) {

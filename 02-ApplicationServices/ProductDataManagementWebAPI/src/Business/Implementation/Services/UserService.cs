@@ -4,7 +4,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -51,10 +50,10 @@ namespace Business.Implementation.Services
                     var members = (await projectMemberRepository.GetBySearch(
                         pm => pm.TenantId == tenantId &&
                               pm.ProjectId == projectId &&
+                              pm.IsActive &&
                               pm.TenantMember.IsActive,
                         q => q.Include(pm => pm.TenantMember)
-                                  .ThenInclude(tm => tm.User),
-                        q => q.Include(pm => pm.MemberRole))).ToList();
+                                  .ThenInclude(tm => tm.User))).ToList();
 
                     return members.Select(pm => new ProjectMemberUserInfo
                     {
@@ -63,7 +62,6 @@ namespace Business.Implementation.Services
                         LastName = pm.TenantMember.User.LastName,
                         Email = pm.TenantMember.User.Email,
                         AzureAdB2CObjectId = pm.TenantMember.User.AzureAdB2CObjectId,
-                        RoleCode = pm.MemberRole?.Code,
                         JoinedAt = pm.JoinedAt
                     }).ToList();
                 },

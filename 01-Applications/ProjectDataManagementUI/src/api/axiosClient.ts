@@ -2,6 +2,7 @@ import axios from "axios";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
+import { setupMockInterceptors, isDemoModeActive } from "./mock";
 
 // Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
 function requireEnvVar(key: string): string {
@@ -16,16 +17,35 @@ function requireEnvVar(key: string): string {
 
 const API_BASE_URL = requireEnvVar("VITE_API_BASE_URL");
 
+// Zapobiega wielokrotnym równoległym wywołaniom loginRedirect.
+// Bez tego kilka równoczesnych żądań API może zawiesić flagę MSAL
+// `interaction_in_progress` w localStorage i trwale zablokować aplikację
+// na ekranie "Sprawdzanie sesji...".
+let interactiveRedirectTriggered = false;
+
 export const axiosClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   withCredentials: false, // Changed to false - using Bearer tokens instead of cookies
 });
+
+// ---- Demo Mode — mock interceptors ----
+// Rejestrujemy NAJPIERW, aby mock interceptor działał jako OSTATNI w łańcuchu
+// (Axios odwraca kolejność rejestracji). Dzięki temu żaden inny interceptor
+// nie może odrzucić requestu po ustawieniu mock adaptera.
+setupMockInterceptors(axiosClient);
 
 // Request interceptor to add access token
 // Follows MSAL best practice: acquireTokenSilent first, then fallback to interactive
 // See: https://learn.microsoft.com/en-us/entra/identity-platform/scenario-spa-acquire-token
 axiosClient.interceptors.request.use(
   async (config) => {
+    // W demo mode nie potrzebujemy tokena — wszystkie requesty są mockowane.
+    // Token interceptor odpala się PRZED mock interceptorem (bo jest zarejestrowany później),
+    // więc musimy go pominąć, aby nie odrzucił requestu przed ustawieniem mock adaptera.
+    if (isDemoModeActive()) {
+      return config;
+    }
+
     const accounts = msalInstance.getAllAccounts();
     
     if (accounts.length > 0) {
@@ -44,7 +64,10 @@ axiosClient.interceptors.request.use(
         // Tylko InteractionRequiredAuthError oznacza, że użytkownik musi się zalogować interaktywnie.
         // Inne błędy (np. sieciowe) nie powinny wymuszać przekierowania do logowania.
         if (error instanceof InteractionRequiredAuthError) {
-          await msalInstance.loginRedirect(silentRequest);
+          if (!interactiveRedirectTriggered) {
+            interactiveRedirectTriggered = true;
+            await msalInstance.loginRedirect(silentRequest);
+          }
           return Promise.reject(new Error("Token acquisition required - redirecting to login"));
         }
         // Dla innych błędów odrzuć żądanie bez przekierowania

@@ -1,48 +1,89 @@
 ﻿import React from 'react';
-import { Box, HStack, Text, Badge } from '@chakra-ui/react';
+import { Box, SimpleGrid, Text } from '@chakra-ui/react';
 import type { ProjectDashboardWeb } from '../types/projectDashboard.types';
-import { PLN, DATE } from '../utils/formatters';
-import { FinancialStatusBadge } from './shared/FinancialStatusBadge';
-import { TimelineStatusBadge } from './shared/TimelineStatusBadge';
-import { useDashboardCurrency } from '../context/DashboardCurrencyContext';
+import { NetGrossAmount } from './shared/NetGrossAmount';
+import { DashboardSummaryCard } from './shared/DashboardSummaryCard';
+import { FINANCIAL_STATUS_CONFIG, TIMELINE_STATUS_CONFIG, PROG } from '../utils/formatters';
 
 export interface DashboardHeaderProps {
   data: ProjectDashboardWeb;
-  projectName: string;
 }
 
-/**
- * Nagłówek dashboardu z nazwą projektu, datą referencyjną i podsumowaniem budżetu.
- * Źródło danych: ProjectDashboardWeb.
- */
-export function DashboardHeader({ data, projectName }: DashboardHeaderProps): React.ReactElement {
+export function DashboardHeader({ data }: DashboardHeaderProps): React.ReactElement {
   const { financialSummary, timelineSummary } = data;
-  const additionalNet = financialSummary.additionalCostsNet;
-  const currencySymbol = useDashboardCurrency();
+
+  const financialStatus = FINANCIAL_STATUS_CONFIG(financialSummary.financialStatus);
+  const timelineStatus = TIMELINE_STATUS_CONFIG(timelineSummary.overallStatus);
 
   return (
-    <Box mb={5}>
-      <Text fontSize={{ base: 'md', md: 'lg' }} fontWeight="semibold" color="neutral.800" mb={1}>
-        {projectName}
-      </Text>
-      <Text fontSize="xs" color="neutral.400" mb={3}>
-        Dashboard · data ref: {DATE(data.referenceDate)} · wygenerowano: {DATE(data.generatedAt)}
-      </Text>
-      <HStack wrap="wrap" spacing={2} gap={1} align="center">
-        <Badge colorScheme="gray" px={2} py={1} borderRadius="full" fontSize="xs" fontWeight="normal">
-          Budżet: <strong>{PLN(financialSummary.totalBudgetNet, currencySymbol)}</strong>
-        </Badge>
-        <Badge colorScheme="gray" px={2} py={1} borderRadius="full" fontSize="xs" fontWeight="normal">
-          Koszty: <strong>{PLN(financialSummary.totalCostsNet, currencySymbol)}</strong>
-        </Badge>
-        {additionalNet != null && additionalNet > 0 && (
-          <Badge colorScheme="orange" px={2} py={1} borderRadius="full" fontSize="xs" fontWeight="normal">
-            Dodatkowe: <strong>{PLN(additionalNet, currencySymbol)}</strong>
-          </Badge>
-        )}
-        <FinancialStatusBadge status={financialSummary.financialStatus} small />
-        <TimelineStatusBadge status={timelineSummary.overallStatus} small />
-      </HStack>
+    <Box as="header" mb={6} w="100%">
+      <SimpleGrid
+        className="dashboard-summary-grid"
+        columns={{ base: 1, sm: 2, lg: 5 }}
+        spacing={3}
+        w="100%"
+      >
+        <DashboardSummaryCard label="Budżet łączny" accentColor="primary.500">
+          <NetGrossAmount
+            net={financialSummary.totalBudgetNet}
+            gross={financialSummary.totalBudgetGross}
+            size="md"
+            align="left"
+            accentColor="primary.700"
+          />
+        </DashboardSummaryCard>
+
+        <DashboardSummaryCard label="Koszty łączne" accentColor="orange.500">
+          <NetGrossAmount
+            net={financialSummary.totalCostsNet}
+            gross={financialSummary.totalCostsGross}
+            size="md"
+            align="left"
+            accentColor="orange.700"
+          />
+        </DashboardSummaryCard>
+
+        <DashboardSummaryCard label="Postęp prac" accentColor="level1.500">
+          <Text fontSize={{ base: 'lg', md: 'xl' }} fontWeight="semibold" color="level1.700">
+            {PROG(timelineSummary.progressPercent)}
+          </Text>
+          <Text fontSize="xs" color="neutral.600" mt={1}>
+            {timelineSummary.completedCount} z {timelineSummary.totalWorkCount} zakończone
+          </Text>
+        </DashboardSummaryCard>
+
+        <DashboardSummaryCard label="Status finansowy" accentColor={financialStatus.color}>
+          <Box
+            display="inline-flex"
+            alignItems="center"
+            px={3}
+            py={1.5}
+            borderRadius="md"
+            bg={financialStatus.bg}
+            alignSelf="flex-start"
+          >
+            <Text fontSize="md" fontWeight="semibold" color={financialStatus.color}>
+              {financialStatus.label}
+            </Text>
+          </Box>
+        </DashboardSummaryCard>
+
+        <DashboardSummaryCard label="Status harmonogramu" accentColor={timelineStatus.color}>
+          <Box
+            display="inline-flex"
+            alignItems="center"
+            px={3}
+            py={1.5}
+            borderRadius="md"
+            bg={timelineStatus.bg}
+            alignSelf="flex-start"
+          >
+            <Text fontSize="md" fontWeight="semibold" color={timelineStatus.color}>
+              {timelineStatus.label}
+            </Text>
+          </Box>
+        </DashboardSummaryCard>
+      </SimpleGrid>
     </Box>
   );
 }

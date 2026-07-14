@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Configurations;
+using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Model;
@@ -8,7 +8,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -619,7 +618,8 @@ public sealed class ProjectFilesService : IProjectFilesService
                         Name = p.Name,
                         CreatedAt = p.CreatedAt,
                         CreatedByUserId = p.CreatedByUserId,
-                        IsDeleted = p.IsDeleted
+                        IsDeleted = p.IsDeleted,
+                        ParentId = p.ParentId
                     });
 
                 return dictionary;
@@ -1199,10 +1199,10 @@ public sealed class ProjectFilesService : IProjectFilesService
 
         string permissionCode = resourceScope switch
         {
-            ResourceScope.All => PermissionCodes.ProjectResourcesReadAll,
-            ResourceScope.Mine => PermissionCodes.ProjectResourcesRead,
-            ResourceScope.Shared => PermissionCodes.ProjectResourcesReadShared,
-            _ => PermissionCodes.ProjectResourcesRead
+            ResourceScope.All => PermissionCodes.ProjectFiles,
+            ResourceScope.Mine => PermissionCodes.ProjectFiles,
+            ResourceScope.Shared => PermissionCodes.ProjectFiles,
+            _ => PermissionCodes.ProjectFiles
         };
 
         bool hasAccess = await accessService.AuthorizeAsync(

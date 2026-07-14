@@ -1,38 +1,70 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Projects;
-using Entities.Enums;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using MediatR;
 using Repositories.Repository.Interfaces;
+using System.Linq;
 
 namespace CQRS.Projects.CreateProject
 {
     public sealed class CreateProjectCommandHandler : IRequestHandler<CreateProjectCommand, ProjectDetailsWeb>
     {
+        private static readonly (string Code, string Name, string? Symbol)[] DefaultUnits = new[]
+        {
+            ("szt",  "Sztuka",               (string?)null),
+            ("m",    "Metr",                 (string?)null),
+            ("m²",   "Metr kwadratowy",      (string?)"m²"),
+            ("m³",   "Metr sześcienny",      (string?)"m³"),
+            ("kg",   "Kilogram",             (string?)null),
+            ("mb",   "Metr bieżący",         (string?)null),
+            ("godz", "Godzina",              (string?)null),
+            ("kpl",  "Komplet",              (string?)null),
+            ("t",    "Tona",                 (string?)null),
+            ("km",   "Kilometr",             (string?)null),
+            ("l",    "Litr",                 (string?)null),
+            ("opak", "Opakowanie",           (string?)null),
+            ("r-g",  "Roboczogodzina",       (string?)null),
+        };
+
+        private static readonly (string Code, string Name)[] DefaultCostCategories = new[]
+        {
+            ("mat", "Materiały budowlane"),
+            ("rob", "Robocizna"),
+            ("sprzet", "Sprzęt i maszyny"),
+            ("transport", "Transport i logistyka"),
+            ("uslugi", "Usługi zewnętrzne"),
+            ("admin", "Administracja i biuro"),
+            ("media", "Energia i media"),
+            ("podwyk", "Podwykonawcy"),
+            ("narz", "Narzędzia i wyposażenie"),
+            ("inne", "Inne"),
+        };
+
         private readonly IReadRepository<Project> projectRepo;
         private readonly IRepository<ProjectMember> projectMemberRepo;
-        private readonly IReadRepository<Role> roleRepo;
         private readonly IRepository<ProjectCurrency> currencyRepo;
+        private readonly IRepository<ProjectUnit> projectUnitRepo;
+        private readonly IRepository<ProjectCostCategory> projectCostCategoryRepo;
         private readonly IPermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
         public CreateProjectCommandHandler(
             IReadRepository<Project> projectRepo,
             IRepository<ProjectMember> projectMemberRepo,
-            IReadRepository<Role> roleRepo,
             IRepository<ProjectCurrency> currencyRepo,
+            IRepository<ProjectUnit> projectUnitRepo,
+            IRepository<ProjectCostCategory> projectCostCategoryRepo,
             IPermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
             this.projectRepo = projectRepo;
             this.projectMemberRepo = projectMemberRepo;
-            this.roleRepo = roleRepo;
             this.currencyRepo = currencyRepo;
+            this.projectUnitRepo = projectUnitRepo;
+            this.projectCostCategoryRepo = projectCostCategoryRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
         }
@@ -63,18 +95,40 @@ namespace CQRS.Projects.CreateProject
             await currencyRepo.Insert(defaultCurrency);
             await currencyRepo.SaveChangesAsync(cancellationToken);
 
-            // Get PROJECT.ADMIN role
-            Role adminRole = await roleRepo.GetFirstBySearch(
-                r => r.Scope == RoleScope.Project && r.Code == RoleCodes.ProjectAdmin,
-                cancellationToken)
-                ?? throw new NotFoundApiException(nameof(Role), RoleCodes.ProjectAdmin);
+            int unitOrder = 1;
+            foreach ((string code, string name, string? symbol) in DefaultUnits)
+            {
+                await projectUnitRepo.Insert(new ProjectUnit
+                {
+                    ProjectId = project.Id,
+                    Code = code,
+                    Name = name,
+                    Symbol = symbol,
+                    Order = unitOrder++
+                });
+            }
+            await projectUnitRepo.SaveChangesAsync(cancellationToken);
+
+            int categoryOrder = 1;
+            foreach ((string code, string name) in DefaultCostCategories)
+            {
+                await projectCostCategoryRepo.Insert(new ProjectCostCategory
+                {
+                    ProjectId = project.Id,
+                    Code = code,
+                    Name = name,
+                    Order = categoryOrder++
+                });
+            }
+            await projectCostCategoryRepo.SaveChangesAsync(cancellationToken);
 
             ProjectMember projectMember = new ProjectMember
             {
                 TenantId = tenantId,
                 ProjectId = project.Id,
                 UserId = currentUser.Id,
-                RoleId = adminRole.Id,
+                IsAdmin = true,
+                IsActive = true,
                 JoinedAt = DateTime.UtcNow
             };
 
@@ -103,7 +157,8 @@ namespace CQRS.Projects.CreateProject
                 CreatedAt = project.CreatedAt,
                 CreatedByUserId = project.CreatedByUserId,
                 CreatedByUserName = createdByUserName,
-                UserRoleCode = RoleCodes.ProjectAdmin,
+                IsAdmin = true,
+                CanViewAllResources = true,
                 MembersCount = 1,
                 UserPermissions = userPermissions,
                 Currency = new ProjectCurrencyWeb { Code = "PLN", Name = "Polski złoty", Symbol = "zł" }

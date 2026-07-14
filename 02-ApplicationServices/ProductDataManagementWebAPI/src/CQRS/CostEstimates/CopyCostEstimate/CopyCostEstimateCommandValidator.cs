@@ -1,8 +1,7 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 using CQRS.Extensions;
 using Entities.Models.CostEstimates;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repository.Interfaces;
@@ -72,7 +71,7 @@ namespace CQRS.CostEstimates.CopyCostEstimate
 
                     // Check if user is tenant admin
                     var tenantSnapshot = await currentUser.GetActiveTenantSnapshotAsync(cancellationToken);
-                    bool isTenantAdmin = tenantSnapshot?.IsTenantAdmin ?? false;
+                    bool isTenantAdmin = tenantSnapshot?.IsAdmin ?? false;
 
                     if (isTenantAdmin)
                     {
@@ -91,8 +90,9 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                     var userProjectMemberships = await projectMemberRepo.GetBySearch(
                         pm => pm.TenantId == command.TenantId
                             && command.TargetProjectIds.Contains(pm.ProjectId)
-                            && pm.UserId == currentUser.Id,
-                        q => q.Include(pm => pm.Project).Include(pm => pm.MemberRole));
+                            && pm.UserId == currentUser.Id
+                            && pm.IsActive,
+                        q => q.Include(pm => pm.Project).Include(pm => pm.ModulePermissions));
 
                     var membershipsList = userProjectMemberships.ToList();
 
@@ -110,15 +110,15 @@ namespace CQRS.CostEstimates.CopyCostEstimate
                         if (!project.IsActive)
                         {
                             // Inactive project - only project admin can copy
-                            if (membership.MemberRole?.Code.IsProjectAdmin() != true)
+                            if (!membership.IsAdmin)
                             {
                                 return false;
                             }
                         }
                         else
                         {
-                            // Active project - editor or admin can copy
-                            if (membership.MemberRole?.Code.IsProjectAdminOrEditor() != true)
+                            // Active project - any member (admin or has module permissions) can copy
+                            if (!membership.IsAdmin && !membership.ModulePermissions.Any())
                             {
                                 return false;
                             }

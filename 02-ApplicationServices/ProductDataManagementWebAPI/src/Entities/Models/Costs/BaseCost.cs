@@ -21,8 +21,11 @@ namespace Entities.Models.Costs
         public DateTime? UpdatedAt { get; set; }
         public Guid? CostEstimateItemId { get; set; }
         public Guid? WorkScheduleStageWorkId { get; set; }
+        public Guid? CategoryId { get; set; }
+        public string? SourceFileHashSha256 { get; set; }
 
         public virtual Contractor? Contractor { get; set; }
+        public virtual ProjectCostCategory? Category { get; set; }
         public virtual CostEstimateItem? CostEstimateItem { get; set; }
         public virtual WorkScheduleStageWork? WorkScheduleStageWork { get; set; }
         public virtual Project Project { get; set; } = default!;

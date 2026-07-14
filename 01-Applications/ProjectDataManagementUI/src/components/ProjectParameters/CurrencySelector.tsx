@@ -13,7 +13,6 @@ import {
 import { useCurrencies } from "../../hooks/queries/useCurrencies";
 import { useUpdateProjectCurrency } from "../../hooks/queries/useUpdateProjectCurrency";
 import { useToastNotification } from "../../hooks/useToastNotification";
-import { handleApiError } from "../../utils/handleApiError";
 import type { ProjectCurrencyWeb } from "../../types/project.types";
 
 export interface CurrencySelectorProps {
@@ -31,7 +30,7 @@ export default function CurrencySelector({
 }: CurrencySelectorProps) {
   const { data: currencies, isLoading: isLoadingCurrencies } = useCurrencies();
   const updateMutation = useUpdateProjectCurrency(tenantId, projectId);
-  const { showSuccess, showError } = useToastNotification();
+  const { showSuccess, showError, showApiError } = useToastNotification();
 
   const [selectedCode, setSelectedCode] = useState<string>(currentCurrency?.code ?? "");
 
@@ -83,8 +82,7 @@ export default function CurrencySelector({
       });
       showSuccess("Sukces", "Waluta projektu została zapisana");
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title ?? "Błąd", description ?? "Nie udało się zapisać waluty");
+      showApiError(error);
     }
   };
 

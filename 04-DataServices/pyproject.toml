@@ -1,0 +1,29 @@
+[project]
+name = "pdm-data-services"
+version = "0.1.0"
+description = "Python data services and LLM learning projects for PDM"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.68.0",
+    "python-dotenv>=1.0.1",
+    "tiktoken>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "ruff>=0.9.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["llm-fundamentals/tests"]
+pythonpath = ["llm-fundamentals/src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[build-system]
+requires = ["setuptools>=75.0.0"]
+build-backend = "setuptools.build_meta"

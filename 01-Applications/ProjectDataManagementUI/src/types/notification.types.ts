@@ -7,6 +7,14 @@
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
+export interface NotificationMetadata {
+  route?: string;
+  batchId?: string;
+  pendingCount?: number;
+  errorCount?: number;
+  duplicateCount?: number;
+}
+
 export interface NotificationWeb {
   id: string;
   tenantId: string;
@@ -19,7 +27,7 @@ export interface NotificationWeb {
   message: string;
   createdAt: string;
   isRead: boolean;
-  metadata?: Record<string, any> | null;
+  metadata?: NotificationMetadata | null;
 }
 
 export interface NotificationPayloadDto {

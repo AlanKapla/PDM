@@ -7,7 +7,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -26,6 +25,7 @@ namespace CQRS.CostTrackers.Shared
         protected readonly ICostTrackerTimelineService? timelineService;
         protected readonly IContractorService contractorService;
         private Dictionary<Guid, string> contractorNamesCache = new Dictionary<Guid, string>();
+        private Dictionary<Guid, (string Name, string? Color)> categoryInfoCache = new Dictionary<Guid, (string Name, string? Color)>();
 
         protected CostTrackerHandlerBase(
             ICurrentUser currentUser,
@@ -64,27 +64,15 @@ namespace CQRS.CostTrackers.Shared
 
         protected async Task ValidateAccessAsync(Guid tenantId, Guid projectId, CancellationToken cancellationToken)
         {
-            if (!await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken))
+            bool isAdmin = await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken);
+            if (!isAdmin)
             {
-                throw new ForbiddenApiException("User does not have access to this resource.");
+                throw new ForbiddenApiException("You do not have access to this resource.");
             }
         }
 
-        protected async Task<TrackedCost> GetAndValidateTrackedCostAsync(
-            Guid costId, Guid tenantId, Guid projectId, CancellationToken cancellationToken)
-        {
-            if (!await currentUser.IsTenantOrProjectAdminAsync(tenantId, projectId, cancellationToken))
-            {
-                throw new ForbiddenApiException("User does not have access to this resource.");
-            }
-
-            return await trackedCostRepository.GetFirstBySearch(
-                tc => tc.Id == costId && tc.TenantId == tenantId && tc.ProjectId == projectId)
-                ?? throw new NotFoundApiException(nameof(TrackedCost), costId.ToString());
-        }
-
-        protected TrackedCostWeb MapTrackedCostToWeb(
-            TrackedCost cost,
+        protected TrackedCostWeb MapCostToWeb(
+            BaseCost cost,
             IEnumerable<BaseCostAttachment> attachments)
         {
             List<TrackedCostAttachmentWeb> attachmentWebs = attachments
@@ -115,6 +103,13 @@ namespace CQRS.CostTrackers.Shared
                 ContractorName = cost.ContractorId.HasValue
                     ? contractorNamesCache.GetValueOrDefault(cost.ContractorId.Value)
                     : null,
+                CategoryId = cost.CategoryId,
+                CategoryName = cost.CategoryId.HasValue
+                    ? categoryInfoCache.GetValueOrDefault(cost.CategoryId.Value).Name
+                    : null,
+                CategoryColor = cost.CategoryId.HasValue
+                    ? categoryInfoCache.GetValueOrDefault(cost.CategoryId.Value).Color
+                    : null,
                 Date = cost.Date,
                 CreatedAt = cost.CreatedAt,
                 UpdatedAt = cost.UpdatedAt,
@@ -144,9 +139,40 @@ namespace CQRS.CostTrackers.Shared
             contractorNamesCache = names;
         }
 
+        protected async Task LoadCategoryInfoAsync(
+            IEnumerable<BaseCost> costs,
+            Guid projectId,
+            IReadRepository<ProjectCostCategory> categoryRepo,
+            CancellationToken cancellationToken)
+        {
+            List<Guid> ids = costs
+                .Where(c => c.CategoryId.HasValue)
+                .Select(c => c.CategoryId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0)
+            {
+                categoryInfoCache = new Dictionary<Guid, (string Name, string? Color)>();
+                return;
+            }
+
+            IEnumerable<ProjectCostCategory> categories = await categoryRepo.GetBySearch(
+                c => c.ProjectId == projectId && ids.Contains(c.Id));
+
+            categoryInfoCache = categories.ToDictionary(
+                c => c.Id,
+                c => (c.Name, c.Color));
+        }
+
+        protected void SetCategoryInfo(Dictionary<Guid, (string Name, string? Color)> info)
+        {
+            categoryInfoCache = info;
+        }
+
         protected WorkItemLinkWeb BuildWorkItemLinkWebFromStageWork(
-            Entities.Models.WorkSchedules.WorkScheduleStageWork work,
-            List<TrackedCost> costs,
+            WorkScheduleStageWork work,
+            List<BaseCost> costs,
             ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             CostEstimateItem? linkedItem,
             bool isWorkClosed,
@@ -166,7 +192,7 @@ namespace CQRS.CostTrackers.Shared
             WorkItemType workItemType = linkedItem is not null ? WorkItemType.LinkedWorkItem : WorkItemType.ScheduleWorkItem;
 
             List<TrackedCostWeb> costWebs = costs
-                .Select(c => MapTrackedCostToWeb(c, attachmentsByCostId[c.Id]))
+                .Select(c => MapCostToWeb(c, attachmentsByCostId[c.Id]))
                 .ToList();
 
             return new WorkItemLinkWeb
@@ -259,8 +285,8 @@ namespace CQRS.CostTrackers.Shared
         protected CostEstimateSummaryWeb BuildEstimateSummary(
             CostEstimate costEstimate,
             Dictionary<Guid, CostEstimateItem> itemsDict,
-            ILookup<Guid, TrackedCost> costsByItemId,
-            List<TrackedCost> additionalCostsList,
+            ILookup<Guid, BaseCost> costsByItemId,
+            List<BaseCost> additionalCostsList,
             List<TrackerGroupWeb> groups,
             List<TrackedCostWeb> additionalCostWebs,
             DateTime referenceDate,
@@ -314,7 +340,7 @@ namespace CQRS.CostTrackers.Shared
         protected List<TrackerGroupWeb> BuildTrackerGroups(
             Dictionary<Guid, CostEstimateGroup> groupsDict,
             Dictionary<Guid, CostEstimateItem> itemsDict,
-            ILookup<Guid, TrackedCost> costsByItemId,
+            ILookup<Guid, BaseCost> costsByItemId,
             ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             ILookup<Guid, Entities.Models.WorkSchedules.WorkScheduleStageWork> stageWorksByItemId,
             HashSet<Guid> closedWorkIds,
@@ -350,7 +376,7 @@ namespace CQRS.CostTrackers.Shared
             List<CostEstimateGroup> currentLevelGroups,
             Dictionary<Guid, List<CostEstimateGroup>> childGroupsByParentId,
             Dictionary<Guid, List<CostEstimateItem>> mainItemsByGroupId,
-            ILookup<Guid, TrackedCost> costsByItemId,
+            ILookup<Guid, BaseCost> costsByItemId,
             ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             ILookup<Guid, Entities.Models.WorkSchedules.WorkScheduleStageWork> stageWorksByItemId,
             HashSet<Guid> closedWorkIds,
@@ -368,7 +394,7 @@ namespace CQRS.CostTrackers.Shared
             CostEstimateGroup group,
             Dictionary<Guid, List<CostEstimateGroup>> childGroupsByParentId,
             Dictionary<Guid, List<CostEstimateItem>> mainItemsByGroupId,
-            ILookup<Guid, TrackedCost> costsByItemId,
+            ILookup<Guid, BaseCost> costsByItemId,
             ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             ILookup<Guid, Entities.Models.WorkSchedules.WorkScheduleStageWork> stageWorksByItemId,
             HashSet<Guid> closedWorkIds,
@@ -468,12 +494,12 @@ namespace CQRS.CostTrackers.Shared
             CostEstimateItem item,
             ILookup<Guid, Entities.Models.WorkSchedules.WorkScheduleStageWork> stageWorksByItemId,
             HashSet<Guid> closedWorkIds,
-            ILookup<Guid, TrackedCost> costsByItemId,
+            ILookup<Guid, BaseCost> costsByItemId,
             ILookup<Guid, BaseCostAttachment> attachmentsByCostId,
             DateTime referenceDate)
         {
             Entities.Models.WorkSchedules.WorkScheduleStageWork? stageWork = stageWorksByItemId[item.Id].FirstOrDefault();
-            List<TrackedCost> costs = costsByItemId[item.Id].ToList();
+            List<BaseCost> costs = costsByItemId[item.Id].ToList();
 
             decimal? costsNet = costs.Any(c => c.Net.HasValue) ? costs.Sum(c => c.Net ?? 0) : null;
             decimal? costsGross = costs.Any(c => c.Gross.HasValue) ? costs.Sum(c => c.Gross ?? 0) : null;
@@ -488,7 +514,7 @@ namespace CQRS.CostTrackers.Shared
                 : null;
 
             List<TrackedCostWeb> costWebs = costs
-                .Select(c => MapTrackedCostToWeb(c, attachmentsByCostId[c.Id]))
+                .Select(c => MapCostToWeb(c, attachmentsByCostId[c.Id]))
                 .ToList();
 
             return new WorkItemLinkWeb
@@ -521,7 +547,7 @@ namespace CQRS.CostTrackers.Shared
             };
         }
 
-        protected static CostSourceType ResolveSourceType(TrackedCost cost)
+        protected static CostSourceType ResolveSourceType(BaseCost cost)
         {
             if (cost.CostEstimateItemId.HasValue && cost.WorkScheduleStageWorkId.HasValue)
             {
@@ -539,45 +565,6 @@ namespace CQRS.CostTrackers.Shared
             }
 
             return CostSourceType.ProjectAdditional;
-        }
-
-        protected TrackedCostWeb MapProjectCostToWeb(
-            ProjectCost cost,
-            IEnumerable<BaseCostAttachment> attachments)
-        {
-            List<TrackedCostAttachmentWeb> attachmentWebs = attachments
-                .Select(a => new TrackedCostAttachmentWeb
-                {
-                    Id = a.Id,
-                    OriginalFileName = a.OriginalFileName,
-                    FileUrl = attachmentService.GenerateFileUrl(a),
-                    ContentType = a.ContentType,
-                    FileSize = a.FileSize,
-                    CreatedAt = a.CreatedAt
-                })
-                .ToList();
-
-            return new TrackedCostWeb
-            {
-                Id = cost.Id,
-                CostEstimateItemId = null,
-                WorkScheduleStageWorkId = null,
-                IsAdditional = true,
-                SourceType = CostSourceType.ProjectAdditional,
-                Name = cost.Name,
-                Number = cost.Number,
-                Description = cost.Description,
-                Net = cost.Net,
-                Gross = cost.Gross,
-                ContractorId = cost.ContractorId,
-                ContractorName = cost.ContractorId.HasValue
-                    ? contractorNamesCache.GetValueOrDefault(cost.ContractorId.Value)
-                    : null,
-                Date = cost.Date,
-                CreatedAt = cost.CreatedAt,
-                UpdatedAt = cost.UpdatedAt,
-                Attachments = attachmentWebs
-            };
         }
 
         private static decimal? CombineNullable(decimal? a, decimal? b)

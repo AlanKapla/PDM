@@ -105,6 +105,8 @@ namespace CQRS.CostTrackers.GetCostLinkOptions
                             : opt)
                         .ToList();
 
+                    HashSet<Guid> validItemIds = estimateItems.Select(e => e.ItemId).ToHashSet();
+
                     workItems = allWorks
                         .Select(work =>
                         {
@@ -113,7 +115,9 @@ namespace CQRS.CostTrackers.GetCostLinkOptions
                             {
                                 WorkId = work.Id,
                                 Path = BuildWorkPath(work, stagesById, scheduleNamesById, scheduleId),
-                                LinkedItemId = work.CostEstimateItemId
+                                LinkedItemId = work.CostEstimateItemId.HasValue && validItemIds.Contains(work.CostEstimateItemId.Value)
+                                    ? work.CostEstimateItemId
+                                    : null
                             };
                         })
                         .ToList();

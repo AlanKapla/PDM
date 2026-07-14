@@ -21,7 +21,6 @@ import {
 } from "@chakra-ui/react";
 import { Upload, FileText } from "lucide-react";
 import { projectApi } from "../api/projectApi";
-import { handleApiError } from "../utils/handleApiError";
 import type { ProjectFileWeb } from "../types/project.types";
 import { useToastNotification } from "../hooks/useToastNotification";
 
@@ -46,7 +45,7 @@ export default function UploadNewVersionModal({
   const [comment, setComment] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { showSuccess, showError, showWarning, showInfo, toast } = useToastNotification();
+  const { showSuccess, showError, showWarning, showInfo, showApiError } = useToastNotification();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -56,13 +55,7 @@ export default function UploadNewVersionModal({
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      toast({
-        title: "Błąd",
-        description: "Wybierz plik do przesłania",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+      showError("Błąd", "Wybierz plik do przesłania");
       return;
     }
 
@@ -77,25 +70,12 @@ export default function UploadNewVersionModal({
         comment || undefined
       );
 
-      toast({
-        title: "Sukces",
-        description: "Nowa wersja pliku została przesłana",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
+      showSuccess("Sukces", "Nowa wersja pliku została przesłana");
 
       onVersionUploaded();
       handleClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      toast({
-        title,
-        description,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      showApiError(error);
     } finally {
       setUploading(false);
     }

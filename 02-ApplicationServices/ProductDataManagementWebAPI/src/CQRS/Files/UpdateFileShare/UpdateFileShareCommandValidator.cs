@@ -29,7 +29,8 @@ namespace CQRS.Files.UpdateFileShare
                     IEnumerable<ProjectMember> members = await projectMemberRepo.GetBySearch(
                         pm => pm.ProjectId == command.ProjectId
                             && pm.TenantId == command.TenantId
-                            && targetIds.Contains(pm.UserId));
+                            && targetIds.Contains(pm.UserId)
+                            && pm.IsActive);
 
                     HashSet<Guid> memberIds = members.Select(m => m.UserId).ToHashSet();
                     return targetIds.All(memberIds.Contains);

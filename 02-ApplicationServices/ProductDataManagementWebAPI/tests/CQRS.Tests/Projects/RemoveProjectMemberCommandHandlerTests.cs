@@ -20,6 +20,7 @@ public sealed class RemoveProjectMemberCommandHandlerTests
     private readonly Mock<INotificationSender> _notificationSenderMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly Mock<IUserService> _userServiceMock = new();
+    private readonly Mock<IPermissionsVersionService> _permissionsVersionServiceMock = new();
     private readonly RemoveProjectMemberCommandHandler _handler;
 
     public RemoveProjectMemberCommandHandlerTests()
@@ -42,13 +43,18 @@ public sealed class RemoveProjectMemberCommandHandlerTests
                 It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        _permissionsVersionServiceMock
+            .Setup(s => s.BumpVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _handler = new RemoveProjectMemberCommandHandler(
             _projectRepoMock.Object,
             _projectMemberRepoMock.Object,
             _notificationSenderMock.Object,
             _currentUserMock.Object,
             _notificationRepoMock.Object,
-            _userServiceMock.Object);
+            _userServiceMock.Object,
+            _permissionsVersionServiceMock.Object);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -73,12 +79,13 @@ public sealed class RemoveProjectMemberCommandHandlerTests
     // ─── Handle ───────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_WhenProjectAndMemberExist_DeletesMemberAndReturnsUnit()
+    public async Task Handle_WhenProjectAndMemberExist_DeactivatesMemberAndReturnsUnit()
     {
         // Arrange
         RemoveProjectMemberCommand command = ValidCommand();
         Project project = BuildProject(command.ProjectId, command.TenantId);
         ProjectMember member = BuildMember(command.ProjectId, command.TenantId, command.UserId);
+        member.IsActive = true;
 
         _projectRepoMock
             .Setup(r => r.GetFirstBySearch(It.IsAny<Expression<Func<Project, bool>>>()))
@@ -93,9 +100,13 @@ public sealed class RemoveProjectMemberCommandHandlerTests
 
         // Assert
         result.Should().Be(Unit.Value);
-        _projectMemberRepoMock.Verify(r => r.Delete(member), Times.Once);
+        member.IsActive.Should().BeFalse();
+        _projectMemberRepoMock.Verify(r => r.Update(member), Times.Once);
         _userServiceMock.Verify(
             s => s.InvalidateProjectMembersCacheAsync(command.TenantId, command.ProjectId, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _permissionsVersionServiceMock.Verify(
+            s => s.BumpVersionAsync(command.UserId, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

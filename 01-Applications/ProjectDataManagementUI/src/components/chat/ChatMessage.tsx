@@ -13,6 +13,7 @@ import {
 } from "@chakra-ui/react";
 import { MoreVertical, Pencil, Trash2, CornerUpLeft } from "lucide-react";
 import type { MessageWeb } from "../../types/chat.types";
+import { formatTime } from "../../utils/formatters";
 
 interface ChatMessageProps {
   message: MessageWeb;
@@ -37,10 +38,7 @@ export default function ChatMessage({
   const replyBg = useColorModeValue("blackAlpha.100", "whiteAlpha.100");
 
   const senderName = `${message.senderFirstName} ${message.senderLastName}`;
-  const sentAt = new Date(message.sentAt).toLocaleTimeString("pl-PL", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const sentAt = formatTime(message.sentAt);
 
   // Wiadomość usunięta — placeholder
   if (message.isDeleted) {

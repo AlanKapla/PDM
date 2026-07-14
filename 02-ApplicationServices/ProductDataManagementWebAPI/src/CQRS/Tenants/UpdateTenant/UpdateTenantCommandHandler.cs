@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.WebModels.Tenants;
 using Entities.Models.Tenants;
 using MediatR;
@@ -30,7 +29,7 @@ namespace CQRS.Tenants.UpdateTenant
                 Name = tenant.Name,
                 CreatedAt = tenant.CreatedAt,
                 IsActive = tenant.IsActive,
-                RoleCode = RoleCodes.TenantAdmin
+                IsAdmin = true
             };
         }
     }

@@ -1,4 +1,5 @@
 import React, { useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -36,21 +37,44 @@ import {
   AlertDialogHeader,
   AlertDialogContent,
   AlertDialogOverlay,
+  Alert,
+  AlertIcon,
+  Image,
+  Divider,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverBody,
+  Checkbox,
 } from '@chakra-ui/react';
 import {
   ArrowLeft,
   Pencil,
-  Maximize2,
-  Minimize2,
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
+  Upload,
+  FileText,
+  Download,
+  Eye,
+  Trash2,
+  Paperclip,
+  ImageIcon,
+  Columns3,
+  Lock,
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import MainLayout from '../layout/MainLayout';
-import { CostEstimateTableView } from '../components/CostEstimate/CostEstimateTableView';
-import type { CostEstimateTableHandle } from '../components/CostEstimate/CostEstimateTableView';
+import {
+  CostEstimateModernView,
+  type CostEstimateModernViewHandle,
+  type CostEstimateViewMode,
+} from '../components/CostEstimate/CostEstimateModernView';
 import CostEstimateToolbar from '../components/CostEstimateToolbar';
+import { BASE_COLUMNS, isAlwaysVisibleColumn, loadVisibleCols, saveVisibleCols, VISIBLE_COLS_KEY } from '../components/CostEstimate/TreeView/CostEstimateTreeView';
+import { resolveTreeViewSchemaColumns } from '../utils/costEstimateFieldSchema';
+import { SchemaManagerModal } from '../components/CostEstimate/SchemaManager/SchemaManagerModal';
 import { costEstimateApi } from '../api/costEstimateApi';
 import { projectApi } from '../api/projectApi';
 import WorkScheduleFormModal from '../components/WorkScheduleFormModal';
@@ -58,22 +82,47 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ShareCostEstimateModal from '../components/ShareCostEstimateModal';
 import { useToastNotification } from '../hooks/useToastNotification';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useFieldAutosave } from '../hooks/useFieldAutosave';
 import { useResourcePermissions } from '../hooks/useResourcePermissions';
+import {
+  useCostEstimateDetails,
+  useReorderCostEstimateItems,
+  useReorderCostEstimateItemChildren,
+  useReorderCostEstimateGroups,
+  costEstimateKeys,
+  invalidateCostEstimateLists,
+} from '../hooks/queries';
 import { recalculateCostEstimateDetails } from '../utils/recalculateCostEstimateDetails';
+import {
+  isInProgressNumericInput,
+  isPartialNumericInput,
+  parseNumericInput,
+  parseVatPercentInput,
+  roundToDecimals,
+} from '../utils/numericInputUtils';
+import { removeItemFromCostEstimateTree } from '../utils/costEstimateUtils';
+import { upsertAdditionalFieldValue, resolveAdditionalFieldType, cloneAdditionalFieldValues } from '../utils/additionalFieldHelpers';
 import type {
   CostEstimateDetailsWeb,
   CostEstimateGroupWeb,
   CostEstimateItemWeb,
+  CostEstimateItemFileWeb,
   CostEstimateFieldValueWeb,
+  CostEstimateAdditionalFieldValueWeb,
+  CostEstimateAdditionalFieldWeb,
   AddGroupRequestDto,
   AddItemRequestDto,
 } from '../types/costEstimate.types.new';
 import {
   CostEstimateStatus,
   CostEstimateAccessLevel,
+  AdditionalFieldType,
   convertGroupWebToDto,
 } from '../types/costEstimate.types.new';
+import { addAdditionalField, updateAdditionalField, uploadItemFiles, deleteItemFile, setItemIsSelected } from '../api/costEstimateApi';
+import { getFieldDefByType, FieldType } from '../utils/schemaHelpers';
+import { formatTime } from '../utils/formatters';
 
 // ---------------------------------------------------------------------------
 // Helpery
@@ -88,10 +137,6 @@ const formatCurrency = (value: number | undefined, symbol: string): string => {
   })} ${symbol}`;
 };
 
-/** Formatuj godzinę z daty */
-const formatTime = (date: Date): string =>
-  date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-
 /**
  * Tworzy domyślne fieldValues dla nowo dodanej pozycji/komponentu/opcji.
  * Odzwierciedla logikę backendową (CostEstimateService.CreateDefaultItemFieldValues).
@@ -100,27 +145,177 @@ const formatTime = (date: Date): string =>
  *   - pozycja (relationType=0) i komponent (relationType=2): boolValue = true  (zaznaczone)
  *   - opcja (relationType=1):                                boolValue = false (odznaczone)
  */
-const FIELD_TYPE_SELECTED = 104; // FieldType.ItemSystemSelected
 const FIELD_SCOPE_ITEM_SYSTEM = 1; // FieldScope.ItemSystem
 
 function buildDefaultItemFieldValues(
-  templateStructure: CostEstimateDetailsWeb['templateStructure'],
+  schema: CostEstimateDetailsWeb['schema'],
   relationType: 0 | 1 | 2
 ): CostEstimateFieldValueWeb[] {
-  const selectedFieldDef = (templateStructure?.systemFields as any[])?.find(
-    (f: any) => (f.fieldType ?? f.fieldTypeConfig?.fieldType) === FIELD_TYPE_SELECTED
-  );
+  if (!schema) return [];
+  const selectedFieldDef = getFieldDefByType(schema, FieldType.ItemSystemSelected);
 
   if (!selectedFieldDef) return [];
 
   return [{
     id: `temp_default_sel_${selectedFieldDef.id}`,
     fieldDefinitionId: selectedFieldDef.id,
-    fieldType: FIELD_TYPE_SELECTED,
+    fieldType: FieldType.ItemSystemSelected,
     fieldScope: FIELD_SCOPE_ITEM_SYSTEM,
     boolValue: relationType !== 1, // opcje domyślnie odznaczone; reszta zaznaczona
   }];
 }
+
+/** Formatuj rozmiar pliku */
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+/** Rekurencyjnie znajdź pozycję (item/option/component) po ID w drzewie grup */
+function findItemInTree(
+  groups: CostEstimateGroupWeb[],
+  itemId: string
+): CostEstimateItemWeb | null {
+  for (const group of groups) {
+    for (const item of group.items) {
+      const found = findItemRecursive(item, itemId);
+      if (found) return found;
+    }
+    if (group.childGroups?.length) {
+      const found = findItemInTree(group.childGroups, itemId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findItemRecursive(
+  item: CostEstimateItemWeb,
+  itemId: string
+): CostEstimateItemWeb | null {
+  if (item.id === itemId) return item;
+
+  for (const children of [item.options ?? [], item.components ?? []]) {
+    for (const child of children) {
+      if (child.id === itemId) return child;
+      // Sprawdź głębiej (option → component, component → option)
+      for (const deeper of [child.options ?? [], child.components ?? []]) {
+        for (const d of deeper) {
+          if (d.id === itemId) return d;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Popover widoczności kolumn (w toolbarze, zawsze dostępny)
+// ---------------------------------------------------------------------------
+
+interface ColumnVisibilityPopoverProps {
+  visibleColIds: Set<string>;
+  onToggleColVisibility: (fieldId: string) => void;
+  fieldSchemas: CostEstimateDetailsWeb['fieldSchemas'];
+  additionalFields: CostEstimateAdditionalFieldWeb[];
+}
+
+const ColumnVisibilityPopover: React.FC<ColumnVisibilityPopoverProps> = ({
+  visibleColIds,
+  onToggleColVisibility,
+  fieldSchemas,
+  additionalFields,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const schemaColumns = useMemo(
+    () => resolveTreeViewSchemaColumns({ fieldSchemas, additionalFields }, BASE_COLUMNS),
+    [fieldSchemas, additionalFields]
+  );
+
+  return (
+    <Popover isOpen={isOpen} onClose={() => setIsOpen(false)} placement="bottom-end" closeOnBlur>
+      <PopoverTrigger>
+        <Button
+          leftIcon={<Columns3 size={14} />}
+          size="sm"
+          variant="outline"
+          colorScheme="gray"
+          fontWeight="600"
+          fontSize="12.5px"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label="Widoczność kolumn"
+        >
+          Kolumny
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        w="260px"
+        borderRadius="14px"
+        boxShadow="0 18px 50px rgba(20,33,47,0.16), 0 4px 14px rgba(20,33,47,0.08)"
+        border="1px solid"
+        borderColor="neutral.200"
+        maxH="420px"
+        overflowY="auto"
+      >
+        <PopoverHeader borderBottom="none" pt={4} pb={2}>
+          <Text fontSize="15px" fontWeight="800" letterSpacing="-0.01em">
+            Widoczność kolumn
+          </Text>
+          <Text fontSize="12.5px" color="neutral.500" mt={1}>
+            Pokaż lub ukryj kolumny w widoku drzewa
+          </Text>
+        </PopoverHeader>
+        <PopoverBody pb={4}>
+          <VStack align="stretch" spacing={0.5}>
+            {schemaColumns.map((col) => {
+              const isAlwaysVisible = isAlwaysVisibleColumn(col);
+              const isVisible = visibleColIds.has(col.id);
+              return (
+                <HStack
+                  key={col.id}
+                  spacing={2}
+                  px={1.5}
+                  py={1.5}
+                  borderRadius="8px"
+                  _hover={{ bg: 'neutral.50' }}
+                  opacity={isAlwaysVisible ? 0.6 : 1}
+                >
+                  <Checkbox
+                    isChecked={isVisible}
+                    isDisabled={isAlwaysVisible}
+                    onChange={() => {
+                      if (!isAlwaysVisible) {
+                        onToggleColVisibility(col.id);
+                      }
+                    }}
+                    size="sm"
+                    colorScheme="primary"
+                    aria-label={`Pokaż/ukryj kolumnę ${col.label}`}
+                  />
+                  <Text flex={1} fontSize="13px" fontWeight="500" noOfLines={1}>
+                    {col.label}
+                  </Text>
+                  {col.isAdditional && (
+                    <Badge colorScheme="blue" fontSize="9px">
+                      dodatkowe
+                    </Badge>
+                  )}
+                  {isAlwaysVisible && (
+                    <Box as="span" aria-label="Zawsze widoczne" title="Kolumna zawsze widoczna">
+                      <Lock size={11} color="var(--chakra-colors-neutral-400)" aria-hidden="true" />
+                    </Box>
+                  )}
+                </HStack>
+              );
+            })}
+          </VStack>
+        </PopoverBody>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Komponent strony
@@ -133,23 +328,138 @@ export const CostEstimateEditPage: React.FC = () => {
   }>();
 
   const { user } = useContext(AuthContext);
+  const userId = user?.id ?? 'anonymous';
   const navigate = useNavigate();
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const queryClient = useQueryClient();
+  const { showSuccess, showError, showApiSuccess, showApiError } = useToastNotification();
 
   // ---- Uprawnienia do zasobu ----
-  const resourcePerms = useResourcePermissions(projectId);
+  const resourcePerms = useResourcePermissions(projectId, "estimates");
+
+  // ---- Mutacje reorder ----
+  const reorderItemsMutation = useReorderCostEstimateItems(
+    user?.activeTenantId ?? '',
+    projectId ?? '',
+    estimateId ?? ''
+  );
+  const reorderItemChildrenMutation = useReorderCostEstimateItemChildren(
+    user?.activeTenantId ?? '',
+    projectId ?? '',
+    estimateId ?? ''
+  );
+  const reorderGroupsMutation = useReorderCostEstimateGroups(
+    user?.activeTenantId ?? '',
+    projectId ?? '',
+    estimateId ?? ''
+  );
+
+  // ---- React Query: pobieranie szczegółów kosztorysu ----
+  const { data: fetchedDetails, isPending, isFetching, refetch } = useCostEstimateDetails(
+    user?.activeTenantId ?? undefined,
+    projectId,
+    estimateId
+  );
 
   // ---- Stan ----
-  const [loading, setLoading] = useState(true);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [details, setDetails] = useState<CostEstimateDetailsWeb | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  
+  const [viewMode, setViewMode] = useState<CostEstimateViewMode>('tree');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [visibleColIds, setVisibleColIds] = useState<Set<string>>(
+    () => new Set(BASE_COLUMNS.map((c) => c.id))
+  );
+
+  const editPermissions = useMemo(() => {
+    if (!details) {
+      return {
+        canFullEdit: false,
+        canRestrictedEdit: false,
+        canAnyEdit: false,
+      };
+    }
+    const canFullEdit =
+      details.accessLevel === CostEstimateAccessLevel.Full &&
+      (resourcePerms.mine.canEdit || resourcePerms.all.canEdit);
+    const canRestrictedEdit =
+      details.accessLevel === CostEstimateAccessLevel.Restricted &&
+      resourcePerms.shared.canEdit;
+    return {
+      canFullEdit,
+      canRestrictedEdit,
+      canAnyEdit: canFullEdit || canRestrictedEdit,
+    };
+  }, [details, resourcePerms]);
+
+  const { canFullEdit, canAnyEdit } = editPermissions;
+
+  const handleToggleColVisibility = useCallback((fieldId: string) => {
+    const schemaColumnsForToggle = resolveTreeViewSchemaColumns(
+      details ?? { fieldSchemas: [], additionalFields: [] },
+      BASE_COLUMNS
+    );
+    const col = schemaColumnsForToggle.find((c) => c.id === fieldId);
+    if (col && isAlwaysVisibleColumn(col)) {
+      return;
+    }
+    setVisibleColIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(fieldId)) next.delete(fieldId);
+      else next.add(fieldId);
+      if (estimateId) {
+        saveVisibleCols(userId, estimateId, next);
+      }
+      return next;
+    });
+  }, [userId, estimateId, details]);
+
+  // Przetwarzaj dane z React Query (recalculacja + backup) gdy się zmienią
+  useEffect(() => {
+    setDetails(null);
+    setHasChanges(false);
+  }, [estimateId]);
+
+  useEffect(() => {
+    if (fetchedDetails) {
+      prePopulateBackups(fetchedDetails);
+      const recalculated = recalculateCostEstimateDetails(fetchedDetails);
+      setDetails(recalculated);
+      // Synchronizuj widoczność kolumn z sessionStorage
+      if (estimateId) {
+        const columns = resolveTreeViewSchemaColumns(recalculated, BASE_COLUMNS);
+        const saved = loadVisibleCols(userId, estimateId, columns);
+        if (saved.size > 0) {
+          setVisibleColIds(saved);
+        }
+      }
+      setHasChanges(false);
+      // Członkowie projektu potrzebni do modala tworzenia harmonogramu (tylko Full)
+      if (fetchedDetails.accessLevel === CostEstimateAccessLevel.Full) {
+        fetchProjectMembers();
+      }
+    }
+  }, [fetchedDetails, estimateId, userId]);
+
   // Ref do timeout auto-recalculate (2s po ostatnim zapisie)
   const autoRecalcTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modernViewRef = useRef<CostEstimateModernViewHandle>(null);
+  const isMobile = useIsMobile();
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  // Backup oryginalnych wartości pozycji nadrzędnej przed wyborem opcji
+  // Klucz: itemId pozycji nadrzędnej, wartość: pola finansowe przed nadpisaniem
+  const parentValuesBackupRef = useRef<Map<string, {
+    quantity?: number;
+    unit?: string;
+    unitPriceNet?: number;
+    vatRate?: number;
+    unitPriceGross?: number;
+    netValue?: number;
+    grossValue?: number;
+    vatValue?: number;
+    additionalFieldValues?: CostEstimateAdditionalFieldValueWeb[];
+  }>>(new Map());
 
   // ---- Modal harmonogramu ----
   const { isOpen: isScheduleModalOpen, onOpen: onScheduleModalOpen, onClose: onScheduleModalClose } = useDisclosure();
@@ -161,6 +471,9 @@ export const CostEstimateEditPage: React.FC = () => {
   // ---- Modal udostępniania ----
   const { isOpen: isShareModalOpen, onOpen: onShareModalOpen, onClose: onShareModalClose } = useDisclosure();
 
+  // ---- Modal zarządzania schematem ----
+  const { isOpen: isSchemaModalOpen, onOpen: onSchemaModalOpen, onClose: onSchemaModalClose } = useDisclosure();
+
   // ---- Dialog usuwania grupy ----
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] =
@@ -169,6 +482,12 @@ export const CostEstimateEditPage: React.FC = () => {
     useState<{ groupId: string; itemId: string; optionId: string } | null>(null);
   const [componentToDelete, setComponentToDelete] =
     useState<{ groupId: string; itemId: string; componentId: string } | null>(null);
+
+  // ---- File upload modal ----
+  const [uploadItemId, setUploadItemId] = useState<string | null>(null);
+  const { isOpen: isUploadModalOpen, onOpen: onUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
+  const { isOpen: isPreviewOpen, onOpen: onPreviewOpen, onClose: onPreviewClose } = useDisclosure();
+  const [previewFile, setPreviewFile] = useState<CostEstimateItemFileWeb | null>(null);
 
   // ---- Modal edycji nazwy/opisu ----
   const { isOpen: isEditMetaOpen, onOpen: onEditMetaOpen, onClose: onEditMetaClose } = useDisclosure();
@@ -181,9 +500,7 @@ export const CostEstimateEditPage: React.FC = () => {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [isBackNavigation, setIsBackNavigation] = useState(false);
   const [editDescription, setEditDescription] = useState('');
-
-  // ---- Ref do kontroli expand/collapse tabeli ----
-  const tableControlsRef = useRef<CostEstimateTableHandle | null>(null);
+  const [isSavingMeta, setIsSavingMeta] = useState(false);
 
   // ---- Kolory (dark mode ready) ----
   const toolbarBg = useColorModeValue('white', 'gray.800');
@@ -242,34 +559,59 @@ export const CostEstimateEditPage: React.FC = () => {
   }, [details, onEditMetaOpen]);
 
   /** Zapisuje zmiany nazwy/opisu */
-  const handleSaveMetaChanges = useCallback(() => {
-    if (!details) return;
+  const handleSaveMetaChanges = useCallback(async () => {
+    if (!details || !user?.activeTenantId || !projectId || !estimateId) return;
     const trimmedName = editName.trim();
     if (!trimmedName) {
       setEditNameError('Nazwa kosztorysu nie może być pusta');
       return;
     }
-    setEditNameError('');
-    setDetails({
-      ...details,
-      name: trimmedName,
-      description: editDescription.trim() || undefined,
-    });
-    setHasChanges(true);
-    showApiSuccess('nameUpdated');
-    onEditMetaClose();
-  }, [details, editName, editDescription, onEditMetaClose, showSuccess]);
 
-  // ========== BEFOREUNLOAD (zamykanie karty / odświeżanie) ==========
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasChangesRef.current) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+    const trimmedDescription = editDescription.trim();
+    setEditNameError('');
+    setIsSavingMeta(true);
+
+    try {
+      await costEstimateApi.updateCostEstimate(
+        user.activeTenantId,
+        projectId,
+        estimateId,
+        {
+          name: trimmedName,
+          description: trimmedDescription || undefined,
+        }
+      );
+
+      setDetails({
+        ...details,
+        name: trimmedName,
+        description: trimmedDescription || undefined,
+      });
+
+      void queryClient.invalidateQueries({
+        queryKey: costEstimateKeys.detail(user.activeTenantId, projectId, estimateId),
+      });
+      void invalidateCostEstimateLists(queryClient, user.activeTenantId, projectId);
+
+      showApiSuccess('nameUpdated');
+      onEditMetaClose();
+    } catch (err) {
+      showApiError(err);
+    } finally {
+      setIsSavingMeta(false);
+    }
+  }, [
+    details,
+    editName,
+    editDescription,
+    user?.activeTenantId,
+    projectId,
+    estimateId,
+    queryClient,
+    onEditMetaClose,
+    showApiSuccess,
+    showApiError,
+  ]);
 
   // ========== POPSTATE (przycisk wstecz/dalej przeglądarki) ==========
   useEffect(() => {
@@ -313,31 +655,38 @@ export const CostEstimateEditPage: React.FC = () => {
     }
   };
 
-  const loadCostEstimate = async () => {
-    if (!user?.activeTenantId || !projectId || !estimateId) return;
-    try {
-      setLoading(true);
-      const data = await costEstimateApi.getCostEstimateDetails(
-        user.activeTenantId,
-        projectId,
-        estimateId,
-      );
-      const recalculated = recalculateCostEstimateDetails(data);
-      setDetails(recalculated);
-      setHasChanges(false);
-      // Członkowie projektu potrzebni do modala tworzenia harmonogramu (tylko Full)
-      if (data.accessLevel === CostEstimateAccessLevel.Full) {
-        fetchProjectMembers();
+  /**
+   * Przy ładowaniu danych z API, pre-populuje parentValuesBackupRef dla pozycji,
+   * które mają już zaznaczoną opcję. Dzięki temu odznaczenie opcji (pierwszy raz w sesji)
+   * przywróci oryginalne wartości pozycji zamiast używać wartości z opcji.
+   */
+  const prePopulateBackups = useCallback((details: CostEstimateDetailsWeb) => {
+    const traverseGroups = (groups: CostEstimateGroupWeb[]) => {
+      for (const group of groups) {
+        for (const item of group.items) {
+          if (item.options?.some((o) => o.isSelected) && !parentValuesBackupRef.current.has(item.id)) {
+            parentValuesBackupRef.current.set(item.id, {
+              quantity: item.quantity ?? undefined,
+              unit: item.unit,
+              unitPriceNet: item.unitPriceNet,
+              vatRate: item.vatRate,
+              unitPriceGross: item.unitPriceGross,
+              netValue: item.netValue,
+              grossValue: item.grossValue,
+              vatValue: item.vatValue,
+              additionalFieldValues: cloneAdditionalFieldValues(item.additionalFieldValues),
+            });
+          }
+        }
+        traverseGroups(group.childGroups);
       }
-    } catch (err) {
-      showError(
-        'Błąd ładowania',
-        err instanceof Error ? err.message : 'Nie udało się załadować kosztorysu',
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    traverseGroups(details.rootGroups);
+  }, []);
+
+  const loadCostEstimate = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   // ========== AUTO-RECALCULATE W TLE ==========
   
@@ -360,6 +709,8 @@ export const CostEstimateEditPage: React.FC = () => {
         projectId,
         estimateId,
       );
+
+      void invalidateCostEstimateLists(queryClient, user.activeTenantId, projectId);
       
       setHasChanges(false);
       setLastSavedAt(new Date());
@@ -368,7 +719,7 @@ export const CostEstimateEditPage: React.FC = () => {
     } finally {
       setIsRecalculating(false);
     }
-  }, [user?.activeTenantId, projectId, estimateId]);
+  }, [user?.activeTenantId, projectId, estimateId, queryClient]);
   
   /**
    * Planuje auto-recalculate z debounce.
@@ -403,57 +754,41 @@ export const CostEstimateEditPage: React.FC = () => {
       ? { tenantId: user.activeTenantId, projectId, costEstimateId: estimateId }
       : null,
     onSaveSuccess: (fieldInfo, savedFieldValueId, savedValue) => {
-      // Gdy pole było nowe (fieldValueId === null), zaktualizuj lokalny stan o nowe ID oraz wartość.
-      // Optimistic update tworzy wpis z id: 'temp_XXXXX'. Musimy go zastąpić prawdziwym ID.
-      // Gdybyśmy dodali nowy wpis, w tablicy byłyby dwa wpisy dla tego samego fieldDefinitionId,
-      // a kolejna edycja trafiałaby na temp_ → wysyłała fieldValueId: null → wyjątek z backendu.
-      if (fieldInfo.fieldValueId === null) {
-        // Zbuduj entry z właściwą wartością (ten sam mapping co createUpsertDto w hooku)
-        const buildEntry = (): Omit<CostEstimateFieldValueWeb, 'id'> => ({
-          fieldDefinitionId: fieldInfo.fieldDefinitionId,
-          fieldType: fieldInfo.fieldType,
-          fieldScope: 0,
-          ...(savedValue !== undefined && savedValue !== '' && {
-            ...(fieldInfo.valueType === 'numeric'
-              ? { decimalValue: parseFloat(savedValue.replace(',', '.')) || undefined }
-              : fieldInfo.valueType === 'boolean'
-              ? { boolValue: savedValue === 'true' || savedValue === '1' }
-              : fieldInfo.valueType === 'date'
-              ? { dateTimeValue: savedValue }
-              : { stringValue: savedValue }),
-          }),
-        });
-
-        // Zastąp istniejący temp entry prawdziwym ID, lub dodaj jeśli nie istnieje
-        const upsertFieldValue = (fieldValues: CostEstimateFieldValueWeb[]): CostEstimateFieldValueWeb[] => {
-          const idx = fieldValues.findIndex(fv => fv.fieldDefinitionId === fieldInfo.fieldDefinitionId);
-          if (idx >= 0) {
-            // Zastąp istniejący (temp lub stary) — zachowaj dane pola, nadpisz id i wartość
-            const updated = [...fieldValues];
-            updated[idx] = { ...updated[idx], ...buildEntry(), id: savedFieldValueId };
-            return updated;
-          }
-          return [...fieldValues, { ...buildEntry(), id: savedFieldValueId }];
-        };
-
+      // Gdy pole dodatkowe było nowe (fieldValueId === null) i mamy ID z backendu,
+      // zaktualizuj lokalny stan zastępując optimistic ID prawdziwym ID z API.
+      if (
+        fieldInfo.fieldType === 'additional' &&
+        fieldInfo.fieldValueId === null &&
+        savedFieldValueId &&
+        fieldInfo.additionalFieldId
+      ) {
+        const additionalFieldId = fieldInfo.additionalFieldId;
         setDetails(prev => {
           if (!prev) return prev;
+
+          const updateAdditionalValues = (
+            values: CostEstimateAdditionalFieldValueWeb[],
+          ) =>
+            values.map(fv =>
+              fv.additionalFieldId === additionalFieldId && fv.id.startsWith('temp_')
+                ? { ...fv, id: savedFieldValueId }
+                : fv,
+            );
 
           if (fieldInfo.entityType === 'group') {
             const updateGroups = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
               groups.map(g => {
                 if (g.id === fieldInfo.entityId) {
-                  return { ...g, fieldValues: upsertFieldValue(g.fieldValues) };
+                  return { ...g, additionalFieldValues: updateAdditionalValues(g.additionalFieldValues) };
                 }
                 return { ...g, childGroups: updateGroups(g.childGroups || []) };
               });
             return { ...prev, rootGroups: updateGroups(prev.rootGroups) };
           } else {
-            // item – może być pozycją, opcją lub komponentem (dowolna głębokość)
             const updateItems = (items: CostEstimateItemWeb[]): CostEstimateItemWeb[] =>
               items.map(item => {
                 if (item.id === fieldInfo.entityId) {
-                  return { ...item, fieldValues: upsertFieldValue(item.fieldValues) };
+                  return { ...item, additionalFieldValues: updateAdditionalValues(item.additionalFieldValues) };
                 }
                 return {
                   ...item,
@@ -461,26 +796,27 @@ export const CostEstimateEditPage: React.FC = () => {
                   components: item.components ? updateItems(item.components) : item.components,
                 };
               });
-
             const updateGroups = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
               groups.map(g => ({
                 ...g,
                 items: updateItems(g.items || []),
                 childGroups: updateGroups(g.childGroups || []),
               }));
-
             return { ...prev, rootGroups: updateGroups(prev.rootGroups) };
           }
         });
       }
 
+      // Supresuj unused variable warning — savedValue może być potrzebne w przyszłości
+      void savedValue;
+
       // Po udanym zapisie pola - zaplanuj auto-recalculate
       scheduleAutoRecalculate();
     },
     onSaveError: (_fieldInfo, error) => {
-      showError('Błąd zapisu', 'Nie udało się zapisać zmiany pola');
+      showApiError(error);
     },
-    enabled: isEditMode,
+    enabled: canAnyEdit,
   });
 
   /**
@@ -492,8 +828,8 @@ export const CostEstimateEditPage: React.FC = () => {
       setIsSyncing(true);
       await projectApi.syncWorkScheduleWithEstimate(user.activeTenantId, projectId, details.workScheduleId);
       showApiSuccess('syncDone');
-    } catch {
-      showError('Błąd synchronizacji', 'Nie udało się zsynchronizować harmonogramu');
+    } catch (error) {
+      showApiError(error);
     } finally {
       setIsSyncing(false);
     }
@@ -518,38 +854,53 @@ export const CostEstimateEditPage: React.FC = () => {
         projectId,
         estimateId,
       );
+
+      void invalidateCostEstimateLists(queryClient, user.activeTenantId, projectId);
       
       // Pobierz aktualne dane z bazy
       await loadCostEstimate();
       setHasChanges(false);
       setLastSavedAt(new Date());
     } catch (err) {
-      showError(
-        'Błąd przeliczania',
-        'Nie udało się przeliczyć kosztorysu. Spróbuj ponownie.'
-      );
+      showApiError(err);
     } finally {
       setIsRecalculating(false);
     }
-  }, [user?.activeTenantId, projectId, estimateId, flushPendingChanges]);
+  }, [user?.activeTenantId, projectId, estimateId, flushPendingChanges, queryClient, loadCostEstimate, showApiError]);
 
   // Handler dla autosave wywoływany z tabeli
   const handleFieldAutosave = useCallback((params: {
     entityType: 'group' | 'item';
     entityId: string;
-    fieldValueId: string | null;
-    fieldDefinitionId: string;
-    fieldType: number;
+    fieldValueId?: string | null;
+    /** @deprecated Używaj additionalFieldId */
+    fieldDefinitionId?: string;
+    /** @deprecated Nie używany w nowym API */
+    fieldType?: number;
+    /** Dla pól dodatkowych: ID definicji pola dodatkowego */
+    additionalFieldId?: string;
+    /** Dla pól bazowych: nazwa pola (name, quantity, unit, unitPriceNet, vatRate) */
+    fieldName?: string;
+    /** 'base' = pole systemowe, 'additional' = pole dodatkowe */
+    fieldKind?: 'base' | 'additional';
     valueType: 'string' | 'numeric' | 'boolean' | 'date';
     value: string | undefined;
   }) => {
+    const fieldKind = params.fieldKind ?? 'additional';
+    // Obsługa backward compat: stare komponenty wysyłają fieldDefinitionId zamiast additionalFieldId
+    const resolvedAdditionalFieldId =
+      params.additionalFieldId ?? params.fieldDefinitionId ?? '';
+    const resolvedFieldName =
+      params.fieldName ?? params.additionalFieldId ?? params.fieldDefinitionId ?? '';
+
     scheduleFieldSave(
       {
         entityType: params.entityType,
         entityId: params.entityId,
-        fieldValueId: params.fieldValueId,
-        fieldDefinitionId: params.fieldDefinitionId,
-        fieldType: params.fieldType,
+        fieldType: fieldKind,
+        name: fieldKind === 'base' ? resolvedFieldName : resolvedAdditionalFieldId,
+        additionalFieldId: fieldKind === 'additional' ? resolvedAdditionalFieldId : undefined,
+        fieldValueId: params.fieldValueId ?? null,
         valueType: params.valueType,
       },
       params.value
@@ -563,7 +914,7 @@ export const CostEstimateEditPage: React.FC = () => {
       // Ctrl+S / Cmd+S → Przelicz i pobierz aktualne dane
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (isEditMode && details && !isRecalculating) {
+        if (canAnyEdit && details && !isRecalculating) {
           // Anuluj zaplanowane auto-recalculate
           if (autoRecalcTimeoutRef.current) {
             clearTimeout(autoRecalcTimeoutRef.current);
@@ -579,7 +930,7 @@ export const CostEstimateEditPage: React.FC = () => {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [isEditMode, details, isFullscreen, isRecalculating, handleRefresh]);
+  }, [canAnyEdit, details, isFullscreen, isRecalculating, handleRefresh]);
 
   // ========== MUTACJE DANYCH ==========
 
@@ -602,6 +953,8 @@ export const CostEstimateEditPage: React.FC = () => {
       parentGroupId: undefined,
       level: 0,
       order: details.rootGroups.length,
+      name: '',
+      additionalFieldValues: [],
       fieldValues: [],
       totalNet: 0,
       totalGross: 0,
@@ -645,10 +998,10 @@ export const CostEstimateEditPage: React.FC = () => {
     } catch (err) {
       // Usuń tymczasową grupę przy błędzie
       setDetails(prev => prev ? { ...prev, rootGroups: prev.rootGroups.filter(g => g.id !== tempId) } : prev);
-      showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać etapu');
+      showApiError(err);
       return undefined;
     }
-  }, [user?.activeTenantId, projectId, estimateId, details, showError]);
+  }, [user?.activeTenantId, projectId, estimateId, details, showApiError]);
 
   const handleDeleteGroup = useCallback((groupId: string) => {
     setGroupToDelete(groupId);
@@ -679,16 +1032,17 @@ export const CostEstimateEditPage: React.FC = () => {
     } catch (err) {
       // Przywróć stan przed usunięciem gdy API zwróci błąd
       setDetails(prevDetails);
-      showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć etapu');
+      showApiError(err);
     }
-  }, [user?.activeTenantId, projectId, estimateId, details, groupToDelete, showError]);
+  }, [user?.activeTenantId, projectId, estimateId, details, groupToDelete, showApiError]);
 
   const handleAddSubGroup = useCallback(
     async (parentGroupId: string): Promise<string | undefined> => {
       if (!user?.activeTenantId || !projectId || !estimateId || !details) return undefined;
 
-      // Sprawdź limit zagnieżdżenia z szablonu
-      const maxLevel = details.templateStructure?.maxGroupLevel;
+      // Sprawdź limit zagnieżdżenia (currently not enforced in schema-based structure)
+      // Note: maxGroupLevel is no longer part of schema - removed from backend
+      const maxLevel = undefined; // Schema-based structure doesn't enforce max level
       let parentLevel: number | undefined;
       if (maxLevel != null) {
         const findGroupLevel = (groups: CostEstimateGroupWeb[]): number | undefined => {
@@ -733,6 +1087,8 @@ export const CostEstimateEditPage: React.FC = () => {
                   parentGroupId,
                   level: newLevel,
                   order: childOrder,
+                  name: '',
+                  additionalFieldValues: [],
                   fieldValues: [],
                   totalNet: 0,
                   totalGross: 0,
@@ -742,7 +1098,7 @@ export const CostEstimateEditPage: React.FC = () => {
                   items: [],
                   createdAt: new Date().toISOString(),
                   updatedAt: undefined,
-                },
+                } as CostEstimateGroupWeb,
               ],
             };
           }
@@ -784,11 +1140,11 @@ export const CostEstimateEditPage: React.FC = () => {
             .map(g => ({ ...g, childGroups: removeTempGroup(g.childGroups || []) }));
         
         setDetails(prev => prev ? { ...prev, rootGroups: removeTempGroup(prev.rootGroups) } : prev);
-        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać podetapu');
+        showApiError(err);
         return undefined;
       }
     },
-    [user?.activeTenantId, projectId, estimateId, details, showError],
+    [user?.activeTenantId, projectId, estimateId, details, showApiError],
   );
 
   const handleAddItem = useCallback(
@@ -820,8 +1176,14 @@ export const CostEstimateEditPage: React.FC = () => {
                   id: tempId,
                   groupId,
                   parentItemId: undefined,
+                  relationType: 0,
                   order: itemOrder,
-                  fieldValues: buildDefaultItemFieldValues(details.templateStructure, 0),
+                  name: '',
+                  quantity: 1,
+                  isSelected: true,
+                  isStageWork: true,
+                  additionalFieldValues: [],
+                  fieldValues: buildDefaultItemFieldValues(details.schema, 0),
                   options: [],
                   createdAt: new Date().toISOString(),
                   updatedAt: undefined,
@@ -880,30 +1242,33 @@ export const CostEstimateEditPage: React.FC = () => {
           });
         
         setDetails(prev => prev ? { ...prev, rootGroups: removeTempItem(prev.rootGroups) } : prev);
-        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać pozycji');
+        showApiError(err);
         return undefined;
       }
     },
-    [user?.activeTenantId, projectId, estimateId, details, showError],
+    [user?.activeTenantId, projectId, estimateId, details, showApiError],
   );
 
   const handleDeleteItem = useCallback(
     async (groupId: string, itemId: string) => {
-      if (!user?.activeTenantId || !projectId || !estimateId || !details) return;
+      if (!user?.activeTenantId || !projectId || !estimateId) return;
 
-      // Optimistic: usuń pozycję natychmiast z UI (działa też dla opcji/komponentów wywołanych z TableView).
-      // Dla opcji/komponentów filtr na g.items nic nie znajdzie (są zagnieżdżone głębiej),
-      // więc UI-remove był już wykonany przez removeOptionFromItem/removeComponentFromItem.
-      const del = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] =>
-        groups.map((g) => {
-          if (g.id === groupId) {
-            return { ...g, items: (g.items || []).filter((i) => i.id !== itemId) };
-          }
-          return { ...g, childGroups: del(g.childGroups || []) };
+      const applyOptimisticDelete = (
+        prev: CostEstimateDetailsWeb,
+      ): CostEstimateDetailsWeb =>
+        recalculateCostEstimateDetails({
+          ...prev,
+          rootGroups: removeItemFromCostEstimateTree(prev.rootGroups, itemId),
         });
 
-      const prevDetails = details;
-      setDetails(prev => prev ? { ...prev, rootGroups: del(prev.rootGroups) } : prev);
+      let prevDetails: CostEstimateDetailsWeb | null = null;
+      setDetails((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        prevDetails = prev;
+        return applyOptimisticDelete(prev);
+      });
 
       try {
         await costEstimateApi.deleteItem(
@@ -913,12 +1278,13 @@ export const CostEstimateEditPage: React.FC = () => {
           itemId
         );
       } catch (err) {
-        // Przywróć stan przed usunięciem gdy API zwróci błąd
-        setDetails(prevDetails);
-        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się usunąć pozycji');
+        if (prevDetails) {
+          setDetails(prevDetails);
+        }
+        showApiError(err);
       }
     },
-    [user?.activeTenantId, projectId, estimateId, details, showError],
+    [user?.activeTenantId, projectId, estimateId, showApiError],
   );
 
   const confirmDeleteItem = useCallback(async () => {
@@ -967,6 +1333,17 @@ export const CostEstimateEditPage: React.FC = () => {
         return undefined;
       };
       const parentItem = findItem(details.rootGroups);
+      const shouldClearParentFinancialInputs =
+        relationType === 2 && parentItem?.relationType === 0;
+      const parentFinancialFieldsSnapshot = shouldClearParentFinancialInputs
+        ? {
+            quantity: parentItem?.quantity,
+            unit: parentItem?.unit,
+            unitPriceNet: parentItem?.unitPriceNet,
+            unitPriceGross: parentItem?.unitPriceGross,
+            vatRate: parentItem?.vatRate,
+          }
+        : null;
       const childCollection = relationType === 1 
         ? (parentItem?.options || []) 
         : (parentItem?.components || []);
@@ -980,7 +1357,12 @@ export const CostEstimateEditPage: React.FC = () => {
         parentItemId,
         relationType,
         order: childOrder,
-        fieldValues: buildDefaultItemFieldValues(details.templateStructure, relationType),
+        name: '',
+        quantity: 1,
+        isSelected: relationType !== 1, // opcje domyślnie odznaczone
+        isStageWork: false,
+        additionalFieldValues: [],
+        fieldValues: buildDefaultItemFieldValues(details.schema, relationType),
         options: relationType === 1 ? undefined : [],
         components: undefined,
         createdAt: new Date().toISOString(),
@@ -994,9 +1376,25 @@ export const CostEstimateEditPage: React.FC = () => {
               if (item.id === parentItemId) {
                 if (relationType === 1) {
                   return { ...item, options: [...(item.options || []), tempChild] };
-                } else {
-                  return { ...item, components: [...(item.components || []), tempChild] };
                 }
+
+                const updatedItem: CostEstimateItemWeb = {
+                  ...item,
+                  components: [...(item.components || []), tempChild],
+                };
+
+                if (shouldClearParentFinancialInputs) {
+                  return {
+                    ...updatedItem,
+                    quantity: undefined,
+                    unit: undefined,
+                    unitPriceNet: undefined,
+                    unitPriceGross: undefined,
+                    vatRate: undefined,
+                  };
+                }
+
+                return updatedItem;
               }
               // Sprawdź komponenty (opcje mogą być dodawane do komponentów)
               if (item.components?.some(c => c.id === parentItemId)) {
@@ -1104,9 +1502,25 @@ export const CostEstimateEditPage: React.FC = () => {
                 if (item.id === parentItemId) {
                   if (relationType === 1) {
                     return { ...item, options: (item.options || []).filter(opt => opt.id !== tempId) };
-                  } else {
-                    return { ...item, components: (item.components || []).filter(comp => comp.id !== tempId) };
                   }
+
+                  const restoredItem: CostEstimateItemWeb = {
+                    ...item,
+                    components: (item.components || []).filter(comp => comp.id !== tempId),
+                  };
+
+                  if (parentFinancialFieldsSnapshot) {
+                    return {
+                      ...restoredItem,
+                      quantity: parentFinancialFieldsSnapshot.quantity,
+                      unit: parentFinancialFieldsSnapshot.unit,
+                      unitPriceNet: parentFinancialFieldsSnapshot.unitPriceNet,
+                      unitPriceGross: parentFinancialFieldsSnapshot.unitPriceGross,
+                      vatRate: parentFinancialFieldsSnapshot.vatRate,
+                    };
+                  }
+
+                  return restoredItem;
                 }
                 // Sprawdź komponenty
                 if (item.components?.some(c => c.id === parentItemId)) {
@@ -1131,32 +1545,37 @@ export const CostEstimateEditPage: React.FC = () => {
           });
         
         setDetails(prev => prev ? { ...prev, rootGroups: removeTempChild(prev.rootGroups) } : prev);
-        showError('Błąd', err instanceof Error ? err.message : 'Nie udało się dodać elementu');
+        showApiError(err);
         return undefined;
       }
     },
-    [user?.activeTenantId, projectId, estimateId, details, showError],
+    [user?.activeTenantId, projectId, estimateId, details, showApiError],
   );
 
   // ========== PODSUMOWANIA Z SZABLONU ==========
 
   const summaryStats = useMemo(() => {
     if (!details) return [];
-    const sumFields = (details.templateStructure.calculatedFields || [])
-      .filter((f) => f.sumInTotal === true)
+    
+    // Get calculated fields from schema that should be shown in summary
+    // Note: sumInTotal property is not yet part of schema - showing main calculated fields
+    const calculatedFields = (details.schema?.fieldDefinitions ?? [])
+      .filter((f) => f.fieldScope === 2) // ItemCalculated = 2
+      .filter((f) => [
+        FieldType.ItemCalculatedValueNet as number,
+        FieldType.ItemCalculatedValueGross as number,
+        FieldType.ItemCalculatedTotalVat as number
+      ].includes(f.fieldType))
       .sort((a, b) => a.order - b.order);
 
     const currency =
       details.selectedCurrencySymbol || details.selectedCurrencyCode || '';
-    const getFieldType = (f: any) =>
-      f.fieldType ?? f.fieldTypeConfig?.fieldType;
 
-    return sumFields.map((f) => {
+    return calculatedFields.map((f) => {
       let value: number | undefined;
-      const ft = getFieldType(f);
-      if (f.fieldName === 'valueNet' || ft === 203) value = details.totalNet;
-      else if (f.fieldName === 'valueGross' || ft === 204) value = details.totalGross;
-      else if (f.fieldName === 'totalVat' || ft === 206) value = details.totalVat;
+      if (f.fieldType === FieldType.ItemCalculatedValueNet) value = details.totalNet;
+      else if (f.fieldType === FieldType.ItemCalculatedValueGross) value = details.totalGross;
+      else if (f.fieldType === FieldType.ItemCalculatedTotalVat) value = details.totalVat;
       else value = (details as any).summaryValues?.[f.id];
 
       return {
@@ -1171,46 +1590,37 @@ export const CostEstimateEditPage: React.FC = () => {
 
   /**
    * Reorder pozycji w grupie — wywołuje API PUT /{id}/groups/{groupId}/items/reorder
+   * Używa useMutation z invalidacją cache'u po sukcesie.
    */
   const handleReorderItems = useCallback(async (
     groupId: string,
     itemOrders: Array<{ itemId: string; order: number }>
   ): Promise<void> => {
-    if (!user?.activeTenantId || !projectId || !estimateId) {
-      throw new Error('Brak wymaganych parametrów');
-    }
-    await costEstimateApi.reorderItems(
-      user.activeTenantId,
-      projectId,
-      estimateId,
-      groupId,
-      {
-        costEstimateId: estimateId,
-        items: itemOrders,
-      }
-    );
-  }, [user?.activeTenantId, projectId, estimateId]);
+    await reorderItemsMutation.mutateAsync({ groupId, items: itemOrders });
+  }, [reorderItemsMutation]);
+
+  /**
+   * Reorder elementów potomnych (opcji/komponentów) w pozycji nadrzędnej
+   * Wywołuje API PUT /{id}/items/{parentItemId}/children/reorder
+   * Używa useMutation z invalidacją cache'u po sukcesie.
+   */
+  const handleReorderItemChildren = useCallback(async (
+    parentItemId: string,
+    itemOrders: Array<{ itemId: string; order: number }>
+  ): Promise<void> => {
+    await reorderItemChildrenMutation.mutateAsync({ parentItemId, items: itemOrders });
+  }, [reorderItemChildrenMutation]);
 
   /**
    * Reorder grup — wywołuje API PUT /{id}/groups/reorder
    * Obsługuje też przenoszenie grup między parentami (parentGroupId)
+   * Używa useMutation z invalidacją cache'u po sukcesie.
    */
   const handleReorderGroups = useCallback(async (
     groupOrders: Array<{ groupId: string; parentGroupId: string | null; order: number }>
   ): Promise<void> => {
-    if (!user?.activeTenantId || !projectId || !estimateId) {
-      throw new Error('Brak wymaganych parametrów');
-    }
-    await costEstimateApi.reorderGroups(
-      user.activeTenantId,
-      projectId,
-      estimateId,
-      {
-        costEstimateId: estimateId,
-        groups: groupOrders,
-      }
-    );
-  }, [user?.activeTenantId, projectId, estimateId]);
+    await reorderGroupsMutation.mutateAsync(groupOrders);
+  }, [reorderGroupsMutation]);
 
   /**
    * Przeniesienie pozycji między grupami — wywołuje API PATCH /{id}/items/{itemId}/move
@@ -1235,31 +1645,527 @@ export const CostEstimateEditPage: React.FC = () => {
     );
   }, [user?.activeTenantId, projectId, estimateId]);
 
-  const handleUploadFiles = useCallback(async (itemId: string, fieldDefinitionId: string, files: File[]): Promise<string[]> => {
+  const handleUploadFiles = useCallback(async (itemId: string, _fieldDefinitionId: string, files: File[]): Promise<string[]> => {
     if (!user?.activeTenantId || !projectId || !estimateId) {
       throw new Error('Brak wymaganych parametrów');
     }
-    return costEstimateApi.uploadCostEstimateItemFiles(
+    return uploadItemFiles(
       user.activeTenantId,
       projectId,
       estimateId,
       itemId,
-      fieldDefinitionId,
       files
     );
   }, [user?.activeTenantId, projectId, estimateId]);
 
   const handleUploadSuccess = useCallback(() => {
-    // Po uploadzie odśwież dane kosztorysu, aby uzyskać nowe SAS URI
     loadCostEstimate();
   }, [loadCostEstimate]);
 
-  /** Anuluje tryb edycji i odświeża dane z serwera */
-  const handleCancelEdit = useCallback(() => {
-    setIsEditMode(false);
-    setHasChanges(false);
-    loadCostEstimate();
-  }, [loadCostEstimate]);
+  /**
+   * Otwiera modal uploadu plików dla danej pozycji
+   */
+  const handleOpenFileUpload = useCallback((itemId: string) => {
+    setUploadItemId(itemId);
+    onUploadModalOpen();
+  }, [onUploadModalOpen]);
+
+  /**
+   * Obsługuje wybór opcji (radio button) - zaznacza opcję i kopiuje wartości finansowe do pozycji.
+   * - Przy zaznaczeniu: zapisuje kopię oryginalnych wartości rodzica, następnie nadpisuje wartościami opcji
+   * - Przy odznaczeniu: przywraca oryginalne wartości rodzica (bez trwałego czyszczenia)
+   * - Po każdej zmianie: przelicza sumy etapów
+   * - Wysyła request do API, robi optimistic update localnego stanu
+   */
+  const handleSelectOption = useCallback(
+    async (groupId: string, itemId: string, optionId: string) => {
+      if (!details || !user?.activeTenantId || !projectId || !estimateId) return;
+
+      // Znajdź opcję i pozycję nadrzędną w drzewie
+      let selectedOption: CostEstimateItemWeb | undefined;
+      let parentItem: CostEstimateItemWeb | undefined;
+      let newIsSelected = false;
+
+      const findItems = (groups: CostEstimateGroupWeb[]): boolean => {
+        for (const group of groups) {
+          for (const item of group.items || []) {
+            if (item.id === itemId) {
+              parentItem = item;
+              selectedOption = item.options?.find((o) => o.id === optionId);
+              if (selectedOption) {
+                newIsSelected = !selectedOption.isSelected;
+                return true;
+              }
+            }
+            for (const comp of item.components || []) {
+              if (comp.id === itemId) {
+                parentItem = comp;
+                selectedOption = comp.options?.find((o) => o.id === optionId);
+                if (selectedOption) {
+                  newIsSelected = !selectedOption.isSelected;
+                  return true;
+                }
+              }
+            }
+          }
+          if (findItems(group.childGroups || [])) return true;
+        }
+        return false;
+      };
+
+      if (!findItems(details.rootGroups) || !selectedOption || !parentItem) return;
+
+      // Zachowaj poprzedni stan do rollbacku
+      const prevDetails = details;
+
+      // Przy zaznaczaniu: zapisz oryginalne wartości rodzica (jeśli jeszcze nie są zapisane)
+      if (newIsSelected && !parentValuesBackupRef.current.has(itemId)) {
+        parentValuesBackupRef.current.set(itemId, {
+          quantity: parentItem.quantity ?? undefined,
+          unit: parentItem.unit,
+          unitPriceNet: parentItem.unitPriceNet,
+          vatRate: parentItem.vatRate,
+          unitPriceGross: parentItem.unitPriceGross,
+          netValue: parentItem.netValue,
+          grossValue: parentItem.grossValue,
+          vatValue: parentItem.vatValue,
+          additionalFieldValues: cloneAdditionalFieldValues(parentItem.additionalFieldValues),
+        });
+      }
+
+      // Optimistic update — zaktualizuj isSelected i wartości finansowe
+      setDetails((prev) => {
+        if (!prev) return prev;
+
+        const updateItemInTree = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb[] => {
+          return groups.map((group) => ({
+            ...group,
+            items: group.items.map((item) => {
+              if (item.id === itemId) {
+                const updatedOptions = item.options?.map((opt) => ({
+                  ...opt,
+                  isSelected: opt.id === optionId ? newIsSelected : false,
+                }));
+
+                // Przywróć oryginalne wartości lub nadpisz z opcji
+                const backup = parentValuesBackupRef.current.get(itemId);
+                const parentOverride = newIsSelected
+                  ? {
+                      quantity: selectedOption!.quantity,
+                      unit: selectedOption!.unit,
+                      unitPriceNet: selectedOption!.unitPriceNet,
+                      vatRate: selectedOption!.vatRate,
+                      unitPriceGross: selectedOption!.unitPriceGross,
+                      netValue: selectedOption!.netValue,
+                      grossValue: selectedOption!.grossValue,
+                      vatValue: selectedOption!.vatValue,
+                      additionalFieldValues: cloneAdditionalFieldValues(selectedOption!.additionalFieldValues),
+                    }
+                  : backup
+                    ? {
+                        quantity: backup.quantity,
+                        unit: backup.unit,
+                        unitPriceNet: backup.unitPriceNet,
+                        vatRate: backup.vatRate,
+                        unitPriceGross: backup.unitPriceGross,
+                        netValue: backup.netValue,
+                        grossValue: backup.grossValue,
+                        vatValue: backup.vatValue,
+                        additionalFieldValues: cloneAdditionalFieldValues(backup.additionalFieldValues),
+                      }
+                    : {
+                        quantity: item.quantity,
+                        unit: item.unit,
+                        unitPriceNet: item.unitPriceNet,
+                        vatRate: item.vatRate,
+                        unitPriceGross: item.unitPriceGross,
+                        netValue: item.netValue,
+                        grossValue: item.grossValue,
+                        vatValue: item.vatValue,
+                        additionalFieldValues: cloneAdditionalFieldValues(item.additionalFieldValues),
+                      };
+
+                return {
+                  ...item,
+                  options: updatedOptions,
+                  ...parentOverride,
+                };
+              }
+
+              // Szukaj w komponentach
+              return {
+                ...item,
+                components: item.components?.map((comp) => {
+                  if (comp.id === itemId) {
+                    const updatedOptions = comp.options?.map((opt) => ({
+                      ...opt,
+                      isSelected: opt.id === optionId ? newIsSelected : false,
+                    }));
+
+                    const backup = parentValuesBackupRef.current.get(itemId);
+                    const compOverride = newIsSelected
+                      ? {
+                          quantity: selectedOption!.quantity,
+                          unit: selectedOption!.unit,
+                          unitPriceNet: selectedOption!.unitPriceNet,
+                          vatRate: selectedOption!.vatRate,
+                          unitPriceGross: selectedOption!.unitPriceGross,
+                          netValue: selectedOption!.netValue,
+                          grossValue: selectedOption!.grossValue,
+                          vatValue: selectedOption!.vatValue,
+                          additionalFieldValues: cloneAdditionalFieldValues(selectedOption!.additionalFieldValues),
+                        }
+                      : backup
+                        ? {
+                            quantity: backup.quantity,
+                            unit: backup.unit,
+                            unitPriceNet: backup.unitPriceNet,
+                            vatRate: backup.vatRate,
+                            unitPriceGross: backup.unitPriceGross,
+                            netValue: backup.netValue,
+                            grossValue: backup.grossValue,
+                            vatValue: backup.vatValue,
+                            additionalFieldValues: cloneAdditionalFieldValues(backup.additionalFieldValues),
+                          }
+                        : {
+                            quantity: comp.quantity,
+                            unit: comp.unit,
+                            unitPriceNet: comp.unitPriceNet,
+                            vatRate: comp.vatRate,
+                            unitPriceGross: comp.unitPriceGross,
+                            netValue: comp.netValue,
+                            grossValue: comp.grossValue,
+                            vatValue: comp.vatValue,
+                            additionalFieldValues: cloneAdditionalFieldValues(comp.additionalFieldValues),
+                          };
+
+                    return {
+                      ...comp,
+                      options: updatedOptions,
+                      ...compOverride,
+                    };
+                  }
+                  return comp;
+                }),
+              };
+            }),
+            childGroups: updateItemInTree(group.childGroups || []),
+          }));
+        };
+
+        const updated = {
+          ...prev,
+          rootGroups: updateItemInTree(prev.rootGroups),
+          lastCalculatedAt: undefined,
+        };
+
+        // Przelicz sumy etapów
+        return recalculateCostEstimateDetails(updated);
+      });
+
+      setHasChanges(true);
+
+      // Wywołaj API, aby zapisać zmianę po stronie serwera
+      try {
+        await setItemIsSelected(
+          user.activeTenantId,
+          projectId,
+          estimateId,
+          optionId,
+          newIsSelected,
+        );
+      } catch (error) {
+        // Rollback przy błędzie
+        setDetails(prevDetails);
+        showApiError(error);
+      }
+    },
+    [details, user?.activeTenantId, projectId, estimateId, showApiError]
+  );
+
+  /**
+   * Przełącza widoczność kolumny (hide/show)
+   */
+  const handleToggleFieldVisibility = useCallback(
+    async (fieldId: string) => {
+      if (!user?.activeTenantId || !projectId || !estimateId || !details) return;
+
+      // Szukamy w additionalFields (nowa architektura)
+      const additionalField = (details.additionalFields ?? []).find((f) => f.id === fieldId);
+      if (!additionalField) return;
+
+      try {
+        await updateAdditionalField(user.activeTenantId, projectId, estimateId, fieldId, {
+          name: additionalField.name,
+        });
+
+        // Odśwież dane
+        loadCostEstimate();
+      } catch (err) {
+        showApiError(err);
+      }
+    },
+    [user?.activeTenantId, projectId, estimateId, details, loadCostEstimate, showApiError]
+  );
+
+  /**
+   * Dodaje nową kolumnę/pole do schematu kosztorysu
+   */
+  const handleAddField = useCallback(
+    async (label: string, fieldScope: number, fieldType: number) => {
+      if (!user?.activeTenantId || !projectId || !estimateId) return;
+
+      try {
+        await addAdditionalField(user.activeTenantId, projectId, estimateId, {
+          name: label,
+          fieldType: fieldType as AdditionalFieldType,
+        });
+
+        // Odśwież dane
+        loadCostEstimate();
+      } catch (err) {
+        showApiError(err);
+      }
+    },
+    [user?.activeTenantId, projectId, estimateId, loadCostEstimate, showApiError]
+  );
+
+  // ========== MODERN VIEW HANDLERS ==========
+
+  // Field change handler for modern view
+  // Obsługuje hierarchię: rootGroups → childGroups (rekurencyjnie) → items
+  //
+  // Nowa architektura: pola bazowe (name, quantity, unit, unitPriceNet, vatRate, isSelected, isStageWork)
+  // są bezpośrednimi właściwościami encji, a pola dodatkowe są w additionalFieldValues.
+  const handleFieldChangeModern = useCallback(
+    (groupId: string, itemId: string | null, fieldId: string, value: string | number | boolean | null) => {
+      setDetails((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        // Deep clone to avoid mutations
+        const updated = JSON.parse(JSON.stringify(prev)) as CostEstimateDetailsWeb;
+        
+        // Rekurencyjne wyszukiwanie grupy w hierarchii
+        const findGroup = (groups: CostEstimateGroupWeb[]): CostEstimateGroupWeb | undefined => {
+          for (const g of groups) {
+            if (g.id === groupId) return g;
+            if (g.childGroups?.length) {
+              const found = findGroup(g.childGroups);
+              if (found) return found;
+            }
+          }
+          return undefined;
+        };
+
+        // Rekurencyjne wyszukiwanie pozycji (item) — przeszukuje items, options i components w hierarchii
+        const findItem = (groups: CostEstimateGroupWeb[]): CostEstimateItemWeb | undefined => {
+          for (const g of groups) {
+            for (const item of g.items ?? []) {
+              // Sprawdź sam item
+              if (item.id === itemId) return item;
+              // Sprawdź w opcjach itemu
+              const inOptions = item.options?.find((o) => o.id === itemId);
+              if (inOptions) return inOptions;
+              // Sprawdź w komponentach itemu
+              const inComponents = item.components?.find((c) => c.id === itemId);
+              if (inComponents) return inComponents;
+              // Sprawdź w opcjach komponentów
+              for (const comp of item.components ?? []) {
+                const inCompOptions = comp.options?.find((o) => o.id === itemId);
+                if (inCompOptions) return inCompOptions;
+              }
+            }
+            if (g.childGroups?.length) {
+              const found = findItem(g.childGroups);
+              if (found) return found;
+            }
+          }
+          return undefined;
+        };
+
+        // Bazowe pola encji — bezpośrednie właściwości item/group
+        const BASE_ITEM_FIELDS = ['name', 'quantity', 'unit', 'unitPriceNet', 'vatRate', 'isSelected', 'isStageWork', 'netValue', 'vatValue', 'grossValue', 'unitPriceGross'] as const;
+        const BASE_GROUP_FIELDS = ['name'] as const;
+        type BaseItemField = typeof BASE_ITEM_FIELDS[number];
+        type BaseGroupField = typeof BASE_GROUP_FIELDS[number];
+
+        // Sprawdź czy pole jest bazowe (bezpośrednia właściwość encji)
+        const isBaseItemField = (id: string): id is BaseItemField =>
+          (BASE_ITEM_FIELDS as readonly string[]).includes(id);
+        const isBaseGroupField = (id: string): id is BaseGroupField =>
+          (BASE_GROUP_FIELDS as readonly string[]).includes(id);
+
+        // Resolve additional field ID — komponenty mogą wysyłać "additional_{id}" lub samo id
+        const resolveAdditionalFieldId = (id: string): string =>
+          id.startsWith('additional_') ? id.substring('additional_'.length) : id;
+
+        // Parsowanie wartości bazowej z uwzględnieniem typu
+        const parseBaseValue = (field: string, raw: string | number | boolean | null): string | number | boolean | null | undefined => {
+          if (raw === null || raw === '') {
+            if (field === 'isSelected' || field === 'isStageWork') {
+              if (typeof raw === 'boolean') {
+                return raw;
+              }
+              return false;
+            }
+            if (
+              field === 'quantity'
+              || field === 'unitPriceNet'
+              || field === 'vatRate'
+              || field === 'netValue'
+              || field === 'vatValue'
+              || field === 'grossValue'
+              || field === 'unitPriceGross'
+            ) {
+              return null;
+            }
+            return '';
+          }
+          // Obsługa pól numerycznych — parsuj string → number (z obsługą `,` jako separatora)
+          if (field === 'quantity' || field === 'unitPriceNet' || field === 'netValue' || field === 'vatValue' || field === 'grossValue' || field === 'unitPriceGross') {
+            if (typeof raw === 'string') {
+              if (isPartialNumericInput(raw)) {
+                return undefined;
+              }
+              return parseNumericInput(raw);
+            }
+            return typeof raw === 'number' ? roundToDecimals(raw) : raw;
+          }
+          if (field === 'vatRate') {
+            if (typeof raw === 'string') {
+              if (isPartialNumericInput(raw)) {
+                return undefined;
+              }
+              return parseVatPercentInput(raw);
+            }
+            return typeof raw === 'number' ? roundToDecimals(raw, 4) : raw;
+          }
+          // Obsługa pól boolean
+          if (field === 'isSelected' || field === 'isStageWork') {
+            if (typeof raw === 'string') return raw === 'true';
+            return raw;
+          }
+          // Pozostałe pola (name, unit) — string
+          return raw;
+        };
+
+        if (itemId === null) {
+          // ========== GROUP FIELD ==========
+          const group = findGroup(updated.rootGroups);
+          if (!group) return prev;
+
+          if (isBaseGroupField(fieldId)) {
+            const parsed = parseBaseValue(fieldId, value);
+            if (fieldId === 'name') {
+              group.name = parsed === null ? '' : String(parsed);
+            }
+          } else {
+            // Pole dodatkowe grupy — aktualizuj additionalFieldValues
+            const additionalFieldId = resolveAdditionalFieldId(fieldId);
+            const fieldType = resolveAdditionalFieldType(updated, additionalFieldId);
+            group.additionalFieldValues = upsertAdditionalFieldValue(
+              group.additionalFieldValues ?? [],
+              additionalFieldId,
+              fieldType,
+              value,
+            );
+          }
+        } else {
+          // ========== ITEM FIELD ==========
+          const item = findItem(updated.rootGroups);
+          if (!item) return prev;
+
+          if (isBaseItemField(fieldId)) {
+            // Bazowe pole pozycji — aktualizuj bezpośrednią właściwość
+            const parsed = parseBaseValue(fieldId, value);
+            const isPartialNumeric =
+              typeof value === 'string' && isInProgressNumericInput(value);
+            if (!isPartialNumeric) {
+              const isClear = parsed === null || parsed === undefined;
+              switch (fieldId) {
+              case 'name': item.name = parsed === null ? '' : String(parsed); break;
+              case 'quantity':
+                item.quantity = parsed === null ? null : (parsed as number | undefined);
+                if (isClear) {
+                  // quantity wyczyszczone → czyść wszystkie zależne pola kalkulowane
+                  item.netValue = undefined;
+                  item.vatValue = undefined;
+                  item.grossValue = undefined;
+                  item.unitPriceGross = undefined;
+                }
+                break;
+              case 'unit':
+                item.unit = parsed === null || parsed === '' ? undefined : String(parsed);
+                break;
+              case 'unitPriceNet':
+                item.unitPriceNet = parsed as number | undefined ?? undefined;
+                if (isClear) {
+                  // unitPriceNet wyczyszczone → czyść wszystkie zależne pola kalkulowane
+                  item.netValue = undefined;
+                  item.vatValue = undefined;
+                  item.grossValue = undefined;
+                  item.unitPriceGross = undefined;
+                }
+                break;
+              case 'vatRate':
+                item.vatRate = parsed as number | undefined ?? undefined;
+                if (isClear) {
+                  // vatRate wyczyszczone → czyść wszystkie zależne pola kalkulowane
+                  item.vatValue = undefined;
+                  item.grossValue = undefined;
+                  item.unitPriceGross = undefined;
+                }
+                break;
+              case 'isSelected': item.isSelected = parsed as boolean; break;
+              case 'isStageWork': item.isStageWork = parsed as boolean; break;
+              case 'netValue': item.netValue = parsed as number | undefined ?? undefined; break;
+              case 'vatValue': item.vatValue = parsed as number | undefined ?? undefined; break;
+              case 'grossValue': item.grossValue = parsed as number | undefined ?? undefined; break;
+              case 'unitPriceGross': item.unitPriceGross = parsed as number | undefined ?? undefined; break;
+              }
+            }
+          } else {
+            // Pole dodatkowe pozycji — aktualizuj additionalFieldValues
+            const additionalFieldId = resolveAdditionalFieldId(fieldId);
+            const fieldType = resolveAdditionalFieldType(updated, additionalFieldId);
+            item.additionalFieldValues = upsertAdditionalFieldValue(
+              item.additionalFieldValues ?? [],
+              additionalFieldId,
+              fieldType,
+              value,
+            );
+          }
+        }
+        
+        const recalculated = recalculateCostEstimateDetails(updated);
+        setHasChanges(true);
+        return recalculated;
+      });
+    },
+    []
+  );
+
+  // Reorder groups wrapper (simplified API)
+  const handleReorderGroupsModern = useCallback(
+    async (groupIds: string[]) => {
+      const groupOrders = groupIds.map((groupId, index) => ({
+        groupId,
+        parentGroupId: null,
+        order: index,
+      }));
+      await handleReorderGroups(groupOrders);
+    },
+    [handleReorderGroups]
+  );
+
+  // Reorder items wrapper (accepts itemOrders directly)
+  const handleReorderItemsModern = useCallback(
+    async (groupId: string, itemOrders: Array<{ itemId: string; order: number }>) => {
+      await handleReorderItems(groupId, itemOrders);
+    },
+    [handleReorderItems]
+  );
 
   // ========== GUARDS ==========
 
@@ -1273,7 +2179,9 @@ export const CostEstimateEditPage: React.FC = () => {
     );
   }
 
-  if (loading) {
+  const isLoadingDetails = isPending || isFetching || (fetchedDetails !== undefined && details === null);
+
+  if (isLoadingDetails) {
     return (
       <MainLayout>
         <LoadingSpinner message="Ładowanie kosztorysu…" fullScreen />
@@ -1294,19 +2202,9 @@ export const CostEstimateEditPage: React.FC = () => {
     );
   }
 
-  // Uprawnienia do edycji wynikające z access level kosztorysu i uprawnień w projekcie
-  // Full (3) — właściciel lub admin: może edytować wszystko
-  const canFullEdit =
-    details.accessLevel === CostEstimateAccessLevel.Full &&
-    (resourcePerms.mine.canEdit || resourcePerms.all.canEdit);
-  // Restricted (2) — udostępniony: może edytować tylko pola nieoznaczone isReadonly
-  const canRestrictedEdit =
-    details.accessLevel === CostEstimateAccessLevel.Restricted &&
-    resourcePerms.shared.canEdit;
-
-  const canAnyEdit = canFullEdit || canRestrictedEdit;
   const canShareResource =
     canFullEdit && (resourcePerms.mine.canShare || resourcePerms.all.canShare);
+  const canSchedule = resourcePerms.raw.canViewSchedule;
 
   // ========== SHARED TOOLBAR (normalny + fullscreen) ==========
 
@@ -1358,7 +2256,7 @@ export const CostEstimateEditPage: React.FC = () => {
                   Niezapisane zmiany
                 </Badge>
               )}
-              {isEditMode && canFullEdit && (
+              {canFullEdit && (
                 <Tooltip label="Edytuj nazwę i opis">
                   <IconButton
                     aria-label="Edytuj nazwę i opis"
@@ -1373,7 +2271,7 @@ export const CostEstimateEditPage: React.FC = () => {
           </HStack>
         </HStack>
 
-        {/* Prawa strona: wskaźniki + fullscreen */}
+        {/* Prawa strona: wskaźniki */}
         <HStack spacing={2} flexShrink={0}>
           {isRecalculating && (
             <HStack
@@ -1396,34 +2294,61 @@ export const CostEstimateEditPage: React.FC = () => {
               <Text>Przeliczono {formatTime(lastSavedAt)}</Text>
             </HStack>
           )}
-          <Box display={{ base: 'none', md: 'block' }}>
-            <Tooltip label={isFullscreen ? 'Zamknij pełny ekran (Esc)' : 'Pełny ekran'}>
-              <IconButton
-                aria-label="Pełny ekran"
-                icon={isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                size="sm"
-                variant="outline"
-                onClick={() => setIsFullscreen((v) => !v)}
-              />
-            </Tooltip>
-          </Box>
         </HStack>
       </Flex>
 
-      {/* Wiersz 2: toolbar akcji – identyczny wzorzec co harmonogram */}
-      <Box mt={2}>
+      {/* Wiersz 2: podsumowanie finansowe */}
+      {summaryStats.length > 0 && (
+        <>
+          <Divider mt={3} mb={2} borderColor={toolbarBorder} />
+          <StatGroup gap={3} flexWrap="wrap" justifyContent="flex-start">
+            {summaryStats.map((stat) => (
+              <Stat
+                key={stat.id}
+                bg={statBg}
+                px={4}
+                py={2}
+                borderRadius="lg"
+                minW="140px"
+                maxW="220px"
+                flex="0 1 auto"
+              >
+                <StatLabel fontSize="xs" color="gray.500" isTruncated>
+                  {stat.label}
+                </StatLabel>
+                <StatNumber fontSize="md" fontWeight="bold" isTruncated>
+                  {stat.value}
+                </StatNumber>
+              </Stat>
+            ))}
+          </StatGroup>
+        </>
+      )}
+
+      {/* Wiersz 3: toolbar (dokument + widok) */}
+      <Box mt={summaryStats.length > 0 ? 2 : 3}>
         <CostEstimateToolbar
-          isEditMode={isEditMode}
-          hasChanges={hasChanges}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          columnVisibility={
+            <ColumnVisibilityPopover
+              visibleColIds={visibleColIds}
+              onToggleColVisibility={handleToggleColVisibility}
+              fieldSchemas={details?.fieldSchemas ?? []}
+              additionalFields={details?.additionalFields ?? []}
+            />
+          }
           canEdit={canAnyEdit}
           canShare={canShareResource}
+          canSchedule={canSchedule}
           hasSchedule={!!details.workScheduleId}
           isSyncing={isSyncing}
           isRecalculating={isRecalculating}
-          onExpandAll={() => tableControlsRef.current?.expandAll()}
-          onCollapseAll={() => tableControlsRef.current?.collapseAll()}
-          onSetViewMode={() => setIsEditMode(false)}
-          onSetEditMode={() => setIsEditMode(true)}
+          onExpandAll={() => modernViewRef.current?.expandAll()}
+          onCollapseAll={() => modernViewRef.current?.collapseAll()}
+          onOpenSchema={onSchemaModalOpen}
           onRefresh={() => {
             if (autoRecalcTimeoutRef.current) {
               clearTimeout(autoRecalcTimeoutRef.current);
@@ -1438,60 +2363,12 @@ export const CostEstimateEditPage: React.FC = () => {
           }}
           onSyncSchedule={handleSyncSchedule}
           onShare={onShareModalOpen}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={() => setIsFullscreen((v) => !v)}
         />
       </Box>
-
-      {/* Wiersz 3: karty podsumowań */}
-      {summaryStats.length > 0 && (
-        <StatGroup mt={3} gap={3} flexWrap="wrap" justifyContent="flex-start">
-          {summaryStats.map((stat) => (
-            <Stat
-              key={stat.id}
-              bg={statBg}
-              px={4}
-              py={2}
-              borderRadius="lg"
-              minW="140px"
-              maxW="220px"
-              flex="0 1 auto"
-            >
-              <StatLabel fontSize="xs" color="gray.500" isTruncated>
-                {stat.label}
-              </StatLabel>
-              <StatNumber fontSize="md" fontWeight="bold" isTruncated>
-                {stat.value}
-              </StatNumber>
-            </Stat>
-          ))}
-        </StatGroup>
-      )}
     </Box>
   );
-
-  // ========== TABLE PROPS ==========
-
-  const tableProps = {
-    details,
-    editable: isEditMode && canAnyEdit,
-    accessLevel: details.accessLevel,
-    controlsRef: tableControlsRef,
-    onDataChange: handleDataChange,
-    onAddGroup: handleAddGroup,
-    onDeleteGroup: handleDeleteGroup,
-    onAddSubGroup: handleAddSubGroup,
-    onAddItem: handleAddItem,
-    onDeleteItem: handleDeleteItem,
-    onRequestDeleteItem: (groupId: string, itemId: string) => setItemToDelete({ groupId, itemId }),
-    onRequestDeleteOption: (groupId: string, itemId: string, optionId: string) => setOptionToDelete({ groupId, itemId, optionId }),
-    onRequestDeleteComponent: (groupId: string, itemId: string, componentId: string) => setComponentToDelete({ groupId, itemId, componentId }),
-    onAddChildItem: handleAddChildItem,
-    onUploadFiles: handleUploadFiles,
-    onUploadSuccess: handleUploadSuccess,
-    onFieldAutosave: handleFieldAutosave,
-    onReorderItems: handleReorderItems,
-    onReorderGroups: handleReorderGroups,
-    onMoveItem: handleMoveItem,
-  };
 
   // ========== FULLSCREEN ==========
 
@@ -1511,10 +2388,42 @@ export const CostEstimateEditPage: React.FC = () => {
         >
           {toolbar}
 
-          <Box flex={1} overflow="hidden" p={2}>
-            <CostEstimateTableView
-              {...tableProps}
-              maxTableHeight="calc(100vh - 140px)"
+          <Box
+            flex={1}
+            minH={0}
+            overflow="hidden"
+            display="flex"
+            flexDirection="column"
+            p={{ base: 2, md: 4 }}
+          >
+            <CostEstimateModernView
+              ref={modernViewRef}
+              fillHeight
+              details={details}
+              isEditMode={canAnyEdit}
+              tenantId={user.activeTenantId}
+              projectId={projectId ?? ''}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              visibleColIds={visibleColIds}
+              onToggleColVisibility={handleToggleColVisibility}
+              onFieldChange={handleFieldChangeModern}
+              onFieldAutosave={handleFieldAutosave}
+              onAddGroup={handleAddGroup}
+              onAddSubGroup={(parentGroupId) => handleAddSubGroup(parentGroupId)}
+              onAddItem={(groupId) => handleAddItem(groupId)}
+              onAddComponent={(groupId, itemId) => handleAddChildItem(groupId, itemId, 2)}
+              onAddOption={(groupId, itemId) => handleAddChildItem(groupId, itemId, 1)}
+              onDeleteGroup={handleDeleteGroup}
+              onDeleteItem={handleDeleteItem}
+              onSelectOption={handleSelectOption}
+              onUploadFiles={handleOpenFileUpload}
+              onReorderGroups={handleReorderGroupsModern}
+              onReorderItems={handleReorderItemsModern}
+              onReorderItemChildren={handleReorderItemChildren}
+              onToggleFieldVisibility={handleToggleFieldVisibility}
+              onAddField={handleAddField}
+              viewMode={viewMode}
             />
           </Box>
         </Box>
@@ -1537,12 +2446,53 @@ export const CostEstimateEditPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <Box bg={pageBg} minH="100vh">
+      <Box
+        bg={pageBg}
+        display="flex"
+        flexDirection="column"
+        h={{ base: 'calc(100dvh - 168px)', md: 'calc(100dvh - 104px)' }}
+        minH={0}
+        overflow="hidden"
+      >
         {toolbar}
 
-        {/* Tabela kosztorysu */}
-        <Box px={{ base: 2, md: 4 }} py={3}>
-          <CostEstimateTableView {...tableProps} />
+        <Box
+          flex={1}
+          minH={0}
+          display="flex"
+          flexDirection="column"
+          px={{ base: 1, md: 4 }}
+          py={{ base: 2, md: 3 }}
+        >
+          <CostEstimateModernView
+            ref={modernViewRef}
+            fillHeight
+            details={details}
+            isEditMode={canAnyEdit}
+            tenantId={user.activeTenantId}
+            projectId={projectId ?? ''}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            visibleColIds={visibleColIds}
+            onToggleColVisibility={handleToggleColVisibility}
+            onFieldChange={handleFieldChangeModern}
+            onFieldAutosave={handleFieldAutosave}
+            onAddGroup={handleAddGroup}
+            onAddSubGroup={(parentGroupId) => handleAddSubGroup(parentGroupId)}
+            onAddItem={(groupId) => handleAddItem(groupId)}
+            onAddComponent={(groupId, itemId) => handleAddChildItem(groupId, itemId, 2)}
+            onAddOption={(groupId, itemId) => handleAddChildItem(groupId, itemId, 1)}
+            onDeleteGroup={handleDeleteGroup}
+            onDeleteItem={handleDeleteItem}
+            onSelectOption={handleSelectOption}
+            onUploadFiles={handleOpenFileUpload}
+            onReorderGroups={handleReorderGroupsModern}
+            onReorderItems={handleReorderItemsModern}
+            onReorderItemChildren={handleReorderItemChildren}
+            onToggleFieldVisibility={handleToggleFieldVisibility}
+            onAddField={handleAddField}
+            viewMode={viewMode}
+          />
         </Box>
       </Box>
 
@@ -1559,6 +2509,295 @@ export const CostEstimateEditPage: React.FC = () => {
           currentUserId={user.id ?? ''}
           currentSharedUsers={details.sharedWithUsers ?? []}
           onShareUpdated={loadCostEstimate}
+        />
+      )}
+
+      {/* Modal zarządzania plikami pozycji */}
+      {isUploadModalOpen && uploadItemId && details && (
+        <>
+          <Modal isOpen={isUploadModalOpen} onClose={onUploadModalClose} size="lg">
+            <ModalOverlay />
+            <ModalContent>
+              <ModalHeader>
+                <HStack spacing={2}>
+                  <Paperclip size={18} />
+                  <Text>Załączniki pozycji</Text>
+                </HStack>
+              </ModalHeader>
+              <ModalCloseButton />
+              <ModalBody pb={6}>
+                <VStack spacing={4} align="stretch">
+                  {/* Lista istniejących plików */}
+                  {(() => {
+                    const currentItem = findItemInTree(details.rootGroups, uploadItemId);
+                    const itemFiles = currentItem?.files ?? [];
+                    if (itemFiles.length === 0) {
+                      return (
+                        <Flex
+                          direction="column"
+                          align="center"
+                          justify="center"
+                          py={6}
+                          color="neutral.500"
+                          borderRadius="md"
+                          border="2px dashed"
+                          borderColor="neutral.200"
+                        >
+                          <Paperclip size={28} />
+                          <Text mt={2} fontSize="sm">Brak załączników</Text>
+                          <Text fontSize="xs">Dodaj pliki używając przycisku poniżej</Text>
+                        </Flex>
+                      );
+                    }
+                    return (
+                      <VStack spacing={2} align="stretch" maxH="300px" overflowY="auto">
+                        <Text fontSize="sm" fontWeight="medium" color="neutral.600">
+                          Pliki ({itemFiles.length})
+                        </Text>
+                        {itemFiles.map((file) => (
+                          <Flex
+                            key={file.id}
+                            p={2}
+                            borderRadius="md"
+                            border="1px solid"
+                            borderColor="gray.200"
+                            align="center"
+                            gap={3}
+                          >
+                            {/* Miniaturka */}
+                            <Box
+                              w="40px"
+                              h="40px"
+                              borderRadius="md"
+                              overflow="hidden"
+                              bg="neutral.50"
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="center"
+                              flexShrink={0}
+                              cursor="pointer"
+                              onClick={() => {
+                                setPreviewFile(file);
+                                onPreviewOpen();
+                              }}
+                            >
+                              {file.contentType.startsWith('image/') && file.sasUriPreview ? (
+                                <Image
+                                  src={file.sasUriPreview}
+                                  alt={file.originalFileName}
+                                  objectFit="cover"
+                                  w="100%"
+                                  h="100%"
+                                />
+                              ) : (
+                                <FileText
+                                  size={20}
+                                  color={file.contentType === 'application/pdf' ? '#E53E3E' : '#718096'}
+                                />
+                              )}
+                            </Box>
+
+                            {/* Nazwa i info */}
+                            <VStack align="start" spacing={0} flex={1} minW={0}>
+                              <Text fontSize="sm" fontWeight="medium" noOfLines={1} title={file.originalFileName}>
+                                {file.originalFileName}
+                              </Text>
+                              <HStack spacing={2}>
+                                <Text fontSize="xs" color="neutral.500">
+                                  {formatFileSize(file.fileSize)}
+                                </Text>
+                                <Badge
+                                  size="sm"
+                                  colorScheme={file.contentType.startsWith('image/') ? 'green' : 'red'}
+                                  fontSize="2xs"
+                                >
+                                  {file.contentType.startsWith('image/') ? 'JPG' : 'PDF'}
+                                </Badge>
+                              </HStack>
+                            </VStack>
+
+                            {/* Akcje */}
+                            <HStack spacing={1}>
+                              <Tooltip label="Podgląd">
+                                <IconButton
+                                  aria-label="Podgląd"
+                                  icon={<Eye size={14} />}
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setPreviewFile(file);
+                                    onPreviewOpen();
+                                  }}
+                                />
+                              </Tooltip>
+                              <Tooltip label="Pobierz">
+                                <IconButton
+                                  aria-label="Pobierz"
+                                  icon={<Download size={14} />}
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    if (file.sasUriDownload) {
+                                      window.open(file.sasUriDownload, '_blank');
+                                    }
+                                  }}
+                                  isDisabled={!file.sasUriDownload}
+                                />
+                              </Tooltip>
+                              {canAnyEdit && (
+                                <Tooltip label="Usuń">
+                                  <IconButton
+                                    aria-label="Usuń"
+                                    icon={<Trash2 size={14} />}
+                                    size="sm"
+                                    variant="ghost"
+                                    colorScheme="red"
+                                    onClick={async () => {
+                                      const tenantId = user.activeTenantId;
+                                      if (!tenantId || !projectId || !estimateId) return;
+                                      try {
+                                        await deleteItemFile(
+                                          tenantId,
+                                          projectId,
+                                          estimateId,
+                                          uploadItemId,
+                                          file.id
+                                        );
+                                        showApiSuccess('deleted');
+                                        loadCostEstimate();
+                                      } catch (err) {
+                                        showApiError(err);
+                                      }
+                                    }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </HStack>
+                          </Flex>
+                        ))}
+                      </VStack>
+                    );
+                  })()}
+
+                  <Divider />
+
+                  {/* Upload */}
+                  <Alert status="info" borderRadius="md">
+                    <AlertIcon />
+                    <Text fontSize="sm">
+                      Dozwolone formaty: PDF, JPG (max 50MB na plik).
+                    </Text>
+                  </Alert>
+                  <Button
+                    as="label"
+                    htmlFor="file-upload"
+                    leftIcon={<Upload size={16} />}
+                    colorScheme="primary"
+                    variant="outline"
+                    cursor="pointer"
+                    size="sm"
+                  >
+                    Dodaj pliki
+                    <Input
+                      id="file-upload"
+                      type="file"
+                      multiple
+                      hidden
+                      accept=".pdf,.jpg,.jpeg"
+                      onChange={async (e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          try {
+                            const tenantId = user.activeTenantId;
+                            if (!tenantId || !projectId || !estimateId) {
+                              return;
+                            }
+                            const fileArray = Array.from(files);
+                            if (uploadItemId) {
+                              await uploadItemFiles(
+                                tenantId,
+                                projectId,
+                                estimateId,
+                                uploadItemId,
+                                fileArray
+                              );
+                              showApiSuccess('filesUploaded');
+                              loadCostEstimate();
+                            }
+                          } catch (err) {
+                            showApiError(err);
+                          }
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </Button>
+                </VStack>
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="ghost" onClick={onUploadModalClose}>
+                  Zamknij
+                </Button>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
+
+          {/* Modal podglądu pliku */}
+          <Modal isOpen={isPreviewOpen} onClose={onPreviewClose} size={{ base: "full", md: "4xl" }}>
+            <ModalOverlay />
+            <ModalContent>
+              <ModalHeader>
+                <HStack>
+                  {previewFile?.contentType.startsWith('image/') ? <ImageIcon size={20} /> : <FileText size={20} />}
+                  <Text noOfLines={1}>{previewFile?.originalFileName ?? ''}</Text>
+                </HStack>
+              </ModalHeader>
+              <ModalCloseButton />
+              <ModalBody pb={6}>
+                {previewFile?.contentType.startsWith('image/') && previewFile?.sasUriPreview ? (
+                  <Image
+                    src={previewFile.sasUriPreview}
+                    alt={previewFile.originalFileName}
+                    maxH="70vh"
+                    mx="auto"
+                  />
+                ) : previewFile?.sasUriPreview ? (
+                  <Box
+                    as="iframe"
+                    src={previewFile.sasUriPreview}
+                    w="100%"
+                    h="70vh"
+                    border="none"
+                    borderRadius="md"
+                  />
+                ) : (
+                  <Flex direction="column" align="center" justify="center" py={12} color="neutral.500">
+                    <FileText size={64} />
+                    <Text mt={4}>Podgląd niedostępny</Text>
+                  </Flex>
+                )}
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="ghost" onClick={onPreviewClose}>
+                  Zamknij
+                </Button>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
+        </>
+      )}
+
+      {/* Modal zarządzania polami dodatkowymi */}
+      {canAnyEdit && (
+        <SchemaManagerModal
+          isOpen={isSchemaModalOpen}
+          onClose={onSchemaModalClose}
+          fieldSchemas={details.fieldSchemas ?? []}
+          costEstimateId={estimateId}
+          tenantId={user.activeTenantId}
+          projectId={projectId}
+          onSchemaUpdated={loadCostEstimate}
+          isReadOnly={!canAnyEdit}
         />
       )}
 
@@ -1652,7 +2891,11 @@ export const CostEstimateEditPage: React.FC = () => {
             <Button variant="ghost" mr={3} onClick={onEditMetaClose}>
               Anuluj
             </Button>
-            <Button colorScheme="primary" onClick={handleSaveMetaChanges}>
+            <Button
+              colorScheme="primary"
+              onClick={() => void handleSaveMetaChanges()}
+              isLoading={isSavingMeta}
+            >
               Zapisz
             </Button>
           </ModalFooter>

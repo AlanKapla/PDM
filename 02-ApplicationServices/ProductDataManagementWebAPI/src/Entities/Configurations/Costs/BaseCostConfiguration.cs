@@ -1,9 +1,8 @@
-﻿using Entities.Models.Chats;
+using Entities.Models.Chats;
 using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -93,6 +92,20 @@ namespace Entities.Configurations.Costs
 
             builder.HasIndex(tc => tc.CostEstimateItemId);
             builder.HasIndex(tc => tc.WorkScheduleStageWorkId);
+
+            builder.Property(x => x.CategoryId).IsRequired(false);
+
+            builder.HasOne(x => x.Category)
+                .WithMany()
+                .HasForeignKey(x => x.CategoryId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            builder.HasIndex(x => x.CategoryId);
+
+            builder.Property(x => x.SourceFileHashSha256)
+                .HasMaxLength(64);
+
+            builder.HasIndex(x => new { x.TenantId, x.ProjectId, x.SourceFileHashSha256 });
         }
     }
 }

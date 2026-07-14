@@ -1,12 +1,4 @@
-﻿using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -35,6 +27,8 @@ namespace Entities.Configurations
 
             builder.HasIndex(x => new { x.TenantId, x.Email });
 
+            builder.HasIndex(x => new { x.TenantId, x.Email, x.ProjectId });
+
             builder.HasIndex(x => new { x.TenantId, x.Status });
 
             builder.HasIndex(x => x.ExpiresAt);
@@ -47,6 +41,26 @@ namespace Entities.Configurations
             builder.HasOne(x => x.Tenant)
                 .WithMany()
                 .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(x => x.Project)
+                .WithMany()
+                .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
+
+    public class TenantInvitationModulePermissionConfiguration : IEntityTypeConfiguration<TenantInvitationModulePermission>
+    {
+        public void Configure(EntityTypeBuilder<TenantInvitationModulePermission> builder)
+        {
+            builder.HasKey(p => new { p.InvitationId, p.Module });
+
+            builder.Property(p => p.Module).HasConversion<int>();
+
+            builder.HasOne(p => p.Invitation)
+                .WithMany(i => i.ModulePermissions)
+                .HasForeignKey(p => p.InvitationId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

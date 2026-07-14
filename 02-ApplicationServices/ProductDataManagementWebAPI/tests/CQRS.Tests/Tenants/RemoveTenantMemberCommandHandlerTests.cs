@@ -25,6 +25,7 @@ public sealed class RemoveTenantMemberCommandHandlerTests
     private readonly Mock<IReadRepository<Notification>> _notificationRepoMock = new();
     private readonly Mock<INotificationSender> _notificationSenderMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
+    private readonly Mock<IProjectMembershipProvisioner> _projectMembershipProvisionerMock = new();
     private readonly RemoveTenantMemberCommandHandler _handler;
 
     private readonly Guid _userId = Guid.NewGuid();
@@ -49,6 +50,11 @@ public sealed class RemoveTenantMemberCommandHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
 
+        _projectMembershipProvisionerMock
+            .Setup(p => p.DeactivateAllProjectMembershipsAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _handler = new RemoveTenantMemberCommandHandler(
             _tenantRepoMock.Object,
             _userRepoMock.Object,
@@ -56,7 +62,8 @@ public sealed class RemoveTenantMemberCommandHandlerTests
             _tenantPreferencesRepoMock.Object,
             _notificationRepoMock.Object,
             _notificationSenderMock.Object,
-            _currentUserMock.Object);
+            _currentUserMock.Object,
+            _projectMembershipProvisionerMock.Object);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -164,6 +171,9 @@ public sealed class RemoveTenantMemberCommandHandlerTests
         result.Should().Be(Unit.Value);
         member.IsActive.Should().BeFalse();
         _tenantMemberRepoMock.Verify(r => r.Update(member), Times.Once);
+        _projectMembershipProvisionerMock.Verify(
+            p => p.DeactivateAllProjectMembershipsAsync(tenantId, targetUserId, It.IsAny<CancellationToken>()),
+            Times.Once);
         _notificationSenderMock.Verify(s => s.EnqueueAsync(It.IsAny<NotificationPayloadDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -28,9 +28,14 @@ export interface UserProfile {
   activeTenantId?: string | null;
   
   /**
-   * Permissions in the active tenant (empty if no active tenant)
+   * Whether the user is an admin in the active tenant
    */
-  activeTenantPermissions: string[];
+  isActiveTenantAdmin: boolean;
+
+  /**
+   * Whether the user has the SYSTEM.SUPERADMIN role
+   */
+  isSuperAdmin: boolean;
 
   // Kontaktowe
   phoneNumber?: string | null;
@@ -97,7 +102,7 @@ export interface TenantMemberDetails {
   email: string;
   firstName: string;
   lastName: string;
-  roleCode: string;
+  isAdmin: boolean;
   isActive: boolean;
   joinedAt: string;
 }
@@ -110,7 +115,7 @@ export interface UserTenant {
   name: string;
   createdAt: string;
   isActive: boolean;
-  roleCode: string;
+  isAdmin: boolean;
   isActiveTenant: boolean;
 }
 
@@ -122,7 +127,7 @@ export interface TenantBasic {
   name: string;
   createdAt: string;
   isActive: boolean;
-  roleCode: string;
+  isAdmin: boolean;
 }
 
 /**
@@ -132,7 +137,7 @@ export interface TenantDetails {
   id: string;
   name: string;
   createdAt: string;
-  roleCode: string;
+  isAdmin: boolean;
   isActive: boolean;
   members: TenantMemberDetails[];
   invitations: TenantInvitationWeb[];
@@ -163,7 +168,11 @@ export interface TenantInvitationWeb {
   invitationId: string;
   tenantId: string;
   tenantName: string;
+  projectId?: string | null;
+  projectName?: string | null;
   email: string;
+  isAdmin: boolean;
+  modules: number[];
   invitedByUserEmail: string;
   invitedByUserName: string;
   createdAt: string;

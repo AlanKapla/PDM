@@ -1,10 +1,12 @@
 using Business.Interfaces.Constants;
+using CQRS.ProjectCosts.ApproveProjectCost;
 using CQRS.ProjectCosts.CreateProjectCost;
 using CQRS.ProjectCosts.DeleteProjectCost;
 using CQRS.ProjectCosts.GetProjectCosts;
-using CQRS.ProjectCosts.ShareProjectCosts;
-using CQRS.ProjectCosts.UpdateCostShare;
+using CQRS.ProjectCosts.RejectProjectCost;
+using CQRS.ProjectCosts.SubmitProjectCostForApproval;
 using CQRS.ProjectCosts.UpdateProjectCost;
+using CQRS.ProjectCosts.WithdrawProjectCost;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Controllers;
@@ -88,43 +90,58 @@ namespace WebApi.Tests.Controllers
         }
 
         [Fact]
-        public async Task ShareProjectCosts_OverridesIds_AndReturnsNoContent()
-        {
-            Guid tenantId = Guid.NewGuid();
-            Guid projectId = Guid.NewGuid();
-            ShareProjectCostsCommand command = new ShareProjectCostsCommand
-            {
-                TenantId = Guid.Empty,
-                ProjectId = Guid.Empty,
-                ProjectCostIds = new List<Guid> { Guid.NewGuid() },
-                SharedWithUserIds = new List<Guid> { Guid.NewGuid() }
-            };
-
-            IActionResult result = await sut.ShareProjectCosts(tenantId, projectId, command);
-
-            result.Should().BeOfType<NoContentResult>();
-            VerifyMediatorCalledOnce<ShareProjectCostsCommand>(c =>
-                c.TenantId == tenantId && c.ProjectId == projectId);
-        }
-
-        [Fact]
-        public async Task UpdateCostShare_OverridesIds_AndReturnsNoContent()
+        public async Task SubmitForApproval_BuildsCommand_FromRouteParams()
         {
             Guid tenantId = Guid.NewGuid();
             Guid projectId = Guid.NewGuid();
             Guid costId = Guid.NewGuid();
-            UpdateCostShareCommand command = new UpdateCostShareCommand
-            {
-                TenantId = Guid.Empty,
-                ProjectId = Guid.Empty,
-                CostId = Guid.Empty,
-                SharedWithUserIds = new List<Guid>()
-            };
 
-            IActionResult result = await sut.UpdateCostShare(tenantId, projectId, costId, command);
+            IActionResult result = await sut.SubmitForApproval(tenantId, projectId, costId);
 
-            result.Should().BeOfType<NoContentResult>();
-            VerifyMediatorCalledOnce<UpdateCostShareCommand>(c =>
+            result.Should().BeOfType<OkObjectResult>();
+            VerifyMediatorCalledOnce<SubmitProjectCostForApprovalCommand>(c =>
+                c.TenantId == tenantId && c.ProjectId == projectId && c.CostId == costId);
+        }
+
+        [Fact]
+        public async Task WithdrawFromApproval_BuildsCommand_FromRouteParams()
+        {
+            Guid tenantId = Guid.NewGuid();
+            Guid projectId = Guid.NewGuid();
+            Guid costId = Guid.NewGuid();
+
+            IActionResult result = await sut.WithdrawFromApproval(tenantId, projectId, costId);
+
+            result.Should().BeOfType<OkObjectResult>();
+            VerifyMediatorCalledOnce<WithdrawProjectCostCommand>(c =>
+                c.TenantId == tenantId && c.ProjectId == projectId && c.CostId == costId);
+        }
+
+        [Fact]
+        public async Task ApproveCost_BuildsCommand_FromRouteParams()
+        {
+            Guid tenantId = Guid.NewGuid();
+            Guid projectId = Guid.NewGuid();
+            Guid costId = Guid.NewGuid();
+
+            IActionResult result = await sut.ApproveCost(tenantId, projectId, costId);
+
+            result.Should().BeOfType<OkObjectResult>();
+            VerifyMediatorCalledOnce<ApproveProjectCostCommand>(c =>
+                c.TenantId == tenantId && c.ProjectId == projectId && c.CostId == costId);
+        }
+
+        [Fact]
+        public async Task RejectCost_BuildsCommand_FromRouteParams()
+        {
+            Guid tenantId = Guid.NewGuid();
+            Guid projectId = Guid.NewGuid();
+            Guid costId = Guid.NewGuid();
+
+            IActionResult result = await sut.RejectCost(tenantId, projectId, costId);
+
+            result.Should().BeOfType<OkObjectResult>();
+            VerifyMediatorCalledOnce<RejectProjectCostCommand>(c =>
                 c.TenantId == tenantId && c.ProjectId == projectId && c.CostId == costId);
         }
     }

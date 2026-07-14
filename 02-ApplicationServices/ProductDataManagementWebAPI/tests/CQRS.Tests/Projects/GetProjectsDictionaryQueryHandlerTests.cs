@@ -2,7 +2,6 @@ using Business.Interfaces.Constants;
 using Business.Interfaces.Model;
 using CQRS.Projects.GetProjectsDictionary;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
 using Moq;
@@ -54,9 +53,7 @@ public sealed class GetProjectsDictionaryQueryHandlerTests
 
         TenantCtxSnapshot snapshot = new TenantCtxSnapshot(
             TenantId: tenantId,
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: new HashSet<string>(),
-            IsTenantAdmin: true,
+            IsAdmin: true,
             IsActive: true);
 
         _currentUserMock
@@ -93,7 +90,6 @@ public sealed class GetProjectsDictionaryQueryHandlerTests
         _currentUserMock.Setup(u => u.Id).Returns(userId);
 
         Project project = BuildProject(tenantId, "Member Project");
-        Role adminRole = new Role { Id = Guid.NewGuid(), Code = RoleCodes.ProjectAdmin };
 
         List<ProjectMember> memberships =
         [
@@ -102,7 +98,7 @@ public sealed class GetProjectsDictionaryQueryHandlerTests
                 ProjectId = project.Id,
                 TenantId = tenantId,
                 UserId = userId,
-                MemberRole = adminRole,
+                IsAdmin = true,
                 Project = project,
             },
         ];
@@ -131,9 +127,7 @@ public sealed class GetProjectsDictionaryQueryHandlerTests
 
         TenantCtxSnapshot snapshot = new TenantCtxSnapshot(
             TenantId: tenantId,
-            TenantRoleId: Guid.NewGuid(),
-            TenantPermissionCodes: new HashSet<string>(),
-            IsTenantAdmin: true,
+            IsAdmin: true,
             IsActive: true);
 
         _currentUserMock

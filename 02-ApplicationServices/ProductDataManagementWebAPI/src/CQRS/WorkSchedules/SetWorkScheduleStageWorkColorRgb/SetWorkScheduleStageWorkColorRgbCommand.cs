@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.WorkSchedules.Shared;
 using MediatR;
 
@@ -9,6 +9,6 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb
         public Guid WorkScheduleStageWorkId { get; init; }
         public string ColorRgb { get; init; } = string.Empty;
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectSchedule;
     }
 }

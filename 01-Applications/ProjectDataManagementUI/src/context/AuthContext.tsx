@@ -147,6 +147,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Ping co 15s (lepiej niż 60s do wykrywania problemów)
     const pingInterval = setInterval(async () => {
+      if (document.hidden) {
+        return;
+      }
+
       const state = notificationHubService.getConnectionState();
       
       if (state === HubConnectionState.Connected) {

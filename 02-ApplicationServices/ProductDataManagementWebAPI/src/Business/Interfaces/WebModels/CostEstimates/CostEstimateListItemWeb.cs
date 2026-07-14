@@ -4,7 +4,6 @@ using Entities.Models.Costs;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -19,8 +18,6 @@ namespace Business.Interfaces.WebModels.CostEstimates
         Guid Id,
         Guid TenantId,
         Guid ProjectId,
-        Guid TemplateId,
-        string TemplateName,
         string Name,
         string? Description,
         CostEstimateStatus Status,

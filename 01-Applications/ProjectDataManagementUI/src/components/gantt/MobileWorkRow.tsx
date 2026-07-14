@@ -16,6 +16,7 @@ import {
 } from "@chakra-ui/react";
 import { MoreVertical, MessageSquare, Calendar, Users, Move, Trash2, GitBranch, Pencil } from "lucide-react";
 import { useGantt } from "./GanttContext";
+import { fmtCompactDate } from "./ganttRowUtils";
 import type { WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
 
 interface MobileWorkRowProps {
@@ -39,10 +40,6 @@ function getWorkDates(work: WorkScheduleStageWorkWeb): { start?: string; end?: s
   const starts = periods.map(p => p.startDate.slice(0, 10)).sort();
   const ends = periods.map(p => p.endDate.slice(0, 10)).sort();
   return { start: starts[0], end: ends[ends.length - 1] };
-}
-
-function fmtDate(d: string): string {
-  return new Date(d + "T00:00:00").toLocaleDateString("pl-PL", { day: "numeric", month: "short" });
 }
 
 export default function MobileWorkRow({ work, stageId, depth }: MobileWorkRowProps) {
@@ -106,7 +103,6 @@ export default function MobileWorkRow({ work, stageId, depth }: MobileWorkRowPro
             fontWeight="medium"
             textDecoration={work.isClosed ? "line-through" : "none"}
             color={work.isClosed ? "gray.500" : "inherit"}
-            noOfLines={2}
           >
             {work.name || <Text as="span" color="gray.400" fontStyle="italic">Bez nazwy</Text>}
           </Text>
@@ -116,7 +112,7 @@ export default function MobileWorkRow({ work, stageId, depth }: MobileWorkRowPro
               <HStack spacing={1}>
                 <Calendar size={10} color="gray" />
                 <Text fontSize="xs" color="gray.500">
-                  {fmtDate(start)} – {fmtDate(end)}
+                  {fmtCompactDate(start)}–{fmtCompactDate(end)}
                 </Text>
               </HStack>
             )}

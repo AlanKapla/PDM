@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.WebModels.Projects;
 using Entities.Models.Projects;
@@ -38,12 +37,13 @@ namespace CQRS.Projects.UpdateProject
             project.Name = request.Name.Trim();
             await projectRepo.Update(project);
 
-            // Current user's project membership with role
+            // Current user's project membership
             ProjectMember? projectMember = await projectMemberRepo.GetFirstBySearch(
                 pm => pm.ProjectId == project.Id
                     && pm.TenantId == request.TenantId
-                    && pm.UserId == currentUser.Id,
-                include => include.Include(pm => pm.MemberRole));
+                    && pm.UserId == currentUser.Id
+                    && pm.IsActive,
+                include => include.Include(pm => pm.ModulePermissions));
 
             // Creator info
             TenantMember? creatorMember = await tenantMemberRepo.GetFirstBySearch(
@@ -53,7 +53,7 @@ namespace CQRS.Projects.UpdateProject
 
             // Members count
             int membersCount = await projectMemberRepo.CountAsync(
-                pm => pm.ProjectId == project.Id && pm.TenantId == request.TenantId,
+                pm => pm.ProjectId == project.Id && pm.TenantId == request.TenantId && pm.IsActive,
                 cancellationToken);
 
             // User's permissions for this project
@@ -75,7 +75,8 @@ namespace CQRS.Projects.UpdateProject
                 CreatedByUserName = creatorMember?.User is not null
                     ? $"{creatorMember.User.FirstName} {creatorMember.User.LastName}".Trim()
                     : "Unknown",
-                UserRoleCode = projectMember?.MemberRole?.Code ?? RoleCodes.ProjectViewer,
+                IsAdmin = projectMember is not null && projectMember.IsAdmin,
+                CanViewAllResources = projectSnapshot?.IsProjectAdmin ?? false || currentUser.IsSuperAdmin,
                 MembersCount = membersCount,
                 UserPermissions = userPermissions,
                 Currency = null

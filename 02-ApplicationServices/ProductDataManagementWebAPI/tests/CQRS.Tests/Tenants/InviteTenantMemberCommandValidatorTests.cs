@@ -13,7 +13,6 @@ namespace CQRS.Tests.Tenants;
 public sealed class InviteTenantMemberCommandValidatorTests
 {
     private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
-    private readonly Mock<IRepository<TenantInvitation>> _invitationRepoMock = new();
     private readonly Mock<IReadRepository<User>> _userRepoMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly InviteTenantMemberCommandValidator _validator;
@@ -23,22 +22,15 @@ public sealed class InviteTenantMemberCommandValidatorTests
         _currentUserMock.Setup(u => u.Email).Returns("inviter@example.com");
         _currentUserMock.Setup(u => u.IsAuthenticated).Returns(true);
 
-        // Default: user not found (not a member), no existing invitation
+        // Default: user not found (not a member)
         _userRepoMock
             .Setup(r => r.GetFirstBySearch(
                 It.IsAny<Expression<Func<User, bool>>>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
 
-        _invitationRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantInvitation, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantInvitation>, IIncludableQueryable<TenantInvitation, object>>[]>()))
-            .ReturnsAsync((TenantInvitation?)null);
-
         _validator = new InviteTenantMemberCommandValidator(
             _tenantMemberRepoMock.Object,
-            _invitationRepoMock.Object,
             _userRepoMock.Object,
             _currentUserMock.Object);
     }
@@ -157,7 +149,6 @@ public sealed class InviteTenantMemberCommandValidatorTests
 
         InviteTenantMemberCommandValidator validator = new(
             _tenantMemberRepoMock.Object,
-            _invitationRepoMock.Object,
             _userRepoMock.Object,
             _currentUserMock.Object);
 
@@ -171,34 +162,20 @@ public sealed class InviteTenantMemberCommandValidatorTests
         Assert.False(result.IsValid);
     }
 
-    // === Invitation already exists ===
+    // === Invitation already exists — allowed (handler extends and resends) ===
 
     [Fact]
-    public async Task Validate_WhenActiveInvitationAlreadyExists_HasValidationError()
+    public async Task Validate_WhenActiveInvitationAlreadyExists_HasNoValidationError()
     {
         // Arrange
-        TenantInvitation existingInvitation = new TenantInvitation { Id = Guid.NewGuid() };
-
-        _invitationRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<TenantInvitation, bool>>>(),
-                It.IsAny<Func<IQueryable<TenantInvitation>, IIncludableQueryable<TenantInvitation, object>>[]>()))
-            .ReturnsAsync(existingInvitation);
-
-        InviteTenantMemberCommandValidator validator = new(
-            _tenantMemberRepoMock.Object,
-            _invitationRepoMock.Object,
-            _userRepoMock.Object,
-            _currentUserMock.Object);
-
         InviteTenantMemberCommand command = ValidCommand();
 
         // Act
         TestValidationResult<InviteTenantMemberCommand> result =
-            await validator.TestValidateAsync(command);
+            await _validator.TestValidateAsync(command);
 
         // Assert
-        Assert.False(result.IsValid);
+        result.ShouldNotHaveAnyValidationErrors();
     }
 
     // === Happy path ===

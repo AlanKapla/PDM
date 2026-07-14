@@ -15,18 +15,16 @@ const UserAvatar = memo(function UserAvatar({
   color = "white",
   ...props 
 }: UserAvatarProps) {
-  const initials = `${firstName[0]}${lastName[0]}`.toUpperCase();
+  const fullName = `${firstName} ${lastName}`.trim();
 
   return (
     <Avatar 
       size={size} 
       bg={bg} 
       color={color} 
-      name={initials}
+      name={fullName}
       {...props}
-    >
-      {initials}
-    </Avatar>
+    />
   );
 });
 

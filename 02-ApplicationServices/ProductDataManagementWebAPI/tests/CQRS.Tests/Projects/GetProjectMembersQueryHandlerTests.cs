@@ -1,20 +1,30 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Projects;
 using CQRS.Projects.GetProjectMembers;
+using Entities.Models.Projects;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore.Query;
 using Moq;
+using Repositories.Repository.Interfaces;
+using System.Linq.Expressions;
 
 namespace CQRS.Tests.Projects;
 
 public sealed class GetProjectMembersQueryHandlerTests
 {
     private readonly Mock<IUserService> _userServiceMock = new();
+    private readonly Mock<IRepository<ProjectMember>> _projectMemberRepoMock = new();
     private readonly GetProjectMembersQueryHandler _handler;
 
     public GetProjectMembersQueryHandlerTests()
     {
-        _handler = new GetProjectMembersQueryHandler(_userServiceMock.Object);
+        _projectMemberRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<Expression<Func<ProjectMember, bool>>>(),
+                It.IsAny<Func<IQueryable<ProjectMember>, IIncludableQueryable<ProjectMember, object>>[]>()))
+            .ReturnsAsync(new List<ProjectMember>());
+
+        _handler = new GetProjectMembersQueryHandler(_userServiceMock.Object, _projectMemberRepoMock.Object);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -30,7 +40,6 @@ public sealed class GetProjectMembersQueryHandlerTests
             LastName = lastName,
             Email = $"{firstName.ToLower()}@example.com",
             AzureAdB2CObjectId = Guid.NewGuid().ToString(),
-            RoleCode = RoleCodes.ProjectViewer,
             JoinedAt = DateTime.UtcNow,
         };
 
@@ -61,7 +70,7 @@ public sealed class GetProjectMembersQueryHandlerTests
         // Assert
         List<ProjectMemberWeb> list = result.ToList();
         list.Should().HaveCount(2);
-        list.Should().AllSatisfy(m => m.RoleCode.Should().Be(RoleCodes.ProjectViewer));
+        list.Should().AllSatisfy(m => m.Email.Should().NotBeNullOrEmpty());
     }
 
     [Fact]

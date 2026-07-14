@@ -19,6 +19,11 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 // Klucz: cacheKey, Wartość: CacheEntry
 const globalCache = new Map<string, CacheEntry<any>>();
 
+/** Czyści cały globalny cache tab — używane przy przełączaniu demo mode */
+export function clearAllTabCache(): void {
+  globalCache.clear();
+}
+
 // GLOBALNA mapa śledzenia fetch - zapobiega wielokrotnym wywołaniom w Strict Mode
 const fetchInProgress = new Map<string, boolean>();
 
@@ -86,6 +91,19 @@ export function useTabCache<T>(
       fetchInProgress.delete(cacheKey);
     }
   }, [cacheKey, isCacheValid]);
+
+  // Nasłuchuj zmiany demo mode — wyczyść cache i odśwież dane
+  useEffect(() => {
+    const handler = () => {
+      globalCache.delete(cacheKey);
+      setDataState(null);
+      fetch().catch((err) => {
+        console.error(`[useTabCache] pdm:demoModeChanged fetch error for ${cacheKey}:`, err);
+      });
+    };
+    window.addEventListener("pdm:demoModeChanged", handler);
+    return () => window.removeEventListener("pdm:demoModeChanged", handler);
+  }, [cacheKey, fetch]);
 
   const setData = useCallback((newData: T) => {
     const cacheEntry: CacheEntry<T> = {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useToken } from '@chakra-ui/react';
+import { Box, Text } from '@chakra-ui/react';
 import { TimelineStatus } from '../types/projectDashboard.types';
 import type { ProjectTimelineSummaryWeb } from '../types/projectDashboard.types';
 import { PROG, DAYS, TIMELINE_STATUS_MAP } from '../utils/formatters';
@@ -12,76 +12,57 @@ export interface TimelineOverviewProps {
   data: ProjectTimelineSummaryWeb;
 }
 
-/**
- * Panel postępu czasowego projektu.
- * Źródło danych: ProjectTimelineSummaryWeb.
- */
 export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactElement {
-  const [level1500, coral400, primary500, neutral200, neutral400, primary600] = useToken('colors', [
-    'level1.500', 'orange.600', 'primary.500', 'neutral.200', 'neutral.400', 'primary.600',
-  ]);
-
   const progressColor = (() => {
     switch (data.overallStatus) {
       case TimelineStatus.Completed:
       case TimelineStatus.CompletedLate:
-        return level1500;
+        return 'level1.500';
       case TimelineStatus.Delayed:
-        return coral400;
+        return 'orange.600';
       default:
-        return primary500;
+        return 'primary.500';
     }
   })();
 
   return (
-    <div
-      style={{
-        background: '#fff',
-        border: `0.5px solid ${neutral200}`,
-        borderRadius: 12,
-        padding: 16,
-      }}
+    <Box
+      bg="white"
+      borderWidth="2px"
+      borderColor="neutral.200"
+      borderRadius="xl"
+      p={{ base: 4, md: 5 }}
+      w="100%"
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: "sm", fontWeight: "medium" }}>Postęp projektu</span>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Text fontSize="sm" fontWeight="medium" color="neutral.800">
+          Postęp projektu
+        </Text>
         <TimelineStatusBadge status={data.overallStatus} small />
-      </div>
+      </Box>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-        <KpiCard
-          label="Postęp ogólny"
-          value={PROG(data.progressPercent)}
-          small
-        />
+      <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3} mb={3}>
         <KpiCard
           label="Opóźnione"
           value={String(data.delayedCount)}
-          accent={data.delayedCount > 0 ? coral400 : undefined}
+          colorScheme={data.delayedCount > 0 ? 'red' : 'gray'}
           small
         />
-        <KpiCard
-          label="W toku"
-          value={String(data.inProgressCount)}
-          accent={primary600}
-          small
-        />
+        <KpiCard label="W toku" value={String(data.inProgressCount)} colorScheme="primary" small />
         <KpiCard
           label="Czas projektu"
           value={DAYS(data.totalPlannedDays ?? null)}
+          colorScheme="purple"
           small
         />
-      </div>
+      </Box>
 
-      <MiniProgressBar
-        percent={data.progressPercent}
-        color={progressColor}
-        height={8}
-      />
-      <div style={{ fontSize: "xs", color: neutral400, marginTop: 3, marginBottom: 12 }}>
+      <MiniProgressBar percent={data.progressPercent} color={progressColor} height={8} />
+      <Text fontSize="xs" color="neutral.600" mt={1} mb={3}>
         {PROG(data.progressPercent)} ukończenia
-      </div>
+      </Text>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 12 }}>
+      <Box display="flex" flexWrap="wrap" gap={1} mb={3}>
         {(
           [
             { label: `Ukończone ${data.completedCount}`, status: TimelineStatus.Completed },
@@ -93,15 +74,17 @@ export function TimelineOverview({ data }: TimelineOverviewProps): React.ReactEl
           const cfg = TIMELINE_STATUS_MAP[status];
           return <Badge key={label} text={label} bg={cfg.bg} color={cfg.color} small />;
         })}
-      </div>
+      </Box>
 
-      <div style={{ fontSize: "xs", color: neutral400 }}>
+      <Text fontSize="xs" color="neutral.600">
         Harmonogramów: {data.workSchedulesCount}
         {data.activeSchedulesCount > 0 && (
-          <span style={{ marginLeft: 6 }}>(aktywnych: {data.activeSchedulesCount})</span>
+          <Text as="span" ml={2}>
+            (aktywnych: {data.activeSchedulesCount})
+          </Text>
         )}
-      </div>
-    </div>
+      </Text>
+    </Box>
   );
 }
 

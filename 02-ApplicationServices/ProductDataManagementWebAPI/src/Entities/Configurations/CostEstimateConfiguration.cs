@@ -65,17 +65,16 @@ namespace Entities.Configurations
                 .HasForeignKey(c => c.ProjectId)
                 .OnDelete(DeleteBehavior.Restrict);
             
-            // Relationship with CostEstimateTemplate
-            builder.HasOne(c => c.Template)
-                .WithMany()
-                .HasForeignKey(c => c.TemplateId)
-                .OnDelete(DeleteBehavior.Restrict);
-            
             // Relationship with User (Owner)
             builder.HasOne(c => c.Owner)
                 .WithMany()
                 .HasForeignKey(c => c.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
+            
+            // SchemaVersion property
+            builder.Property(c => c.SchemaVersion)
+                .IsRequired()
+                .HasDefaultValue(1);
             
             // RootGroups - ignoruj jako osobną nawigację
             builder.Ignore(c => c.RootGroups);
@@ -96,7 +95,6 @@ namespace Entities.Configurations
             builder.HasIndex(c => c.TenantId);
             builder.HasIndex(c => c.ProjectId);
             builder.HasIndex(c => new { c.TenantId, c.ProjectId });
-            builder.HasIndex(c => c.TemplateId);
             builder.HasIndex(c => c.OwnerId);
             builder.HasIndex(c => c.Status);
             builder.HasIndex(c => c.IsDeleted);

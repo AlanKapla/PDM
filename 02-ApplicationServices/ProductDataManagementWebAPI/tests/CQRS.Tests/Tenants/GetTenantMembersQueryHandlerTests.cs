@@ -1,7 +1,5 @@
-using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.Tenants;
 using CQRS.Tenants.GetTenantMembers;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using FluentAssertions;
@@ -34,9 +32,9 @@ public sealed class GetTenantMembersQueryHandlerTests
         TenantId = tenantId,
         UserId = Guid.NewGuid(),
         IsActive = true,
+        IsAdmin = false,
         CreatedAt = DateTime.UtcNow,
-        User = new User { Email = email, FirstName = "Jan", LastName = lastName },
-        MemberRole = new Role { Code = RoleCodes.TenantMember }
+        User = new User { Email = email, FirstName = "Jan", LastName = lastName }
     };
 
     // ─── Handle ───────────────────────────────────────────────────────────────
@@ -84,6 +82,6 @@ public sealed class GetTenantMembersQueryHandlerTests
         list.Should().HaveCount(2);
         list[0].LastName.Should().Be("Apple");
         list[1].LastName.Should().Be("Zebra");
-        list[0].RoleCode.Should().Be(RoleCodes.TenantMember);
+        list[0].IsAdmin.Should().BeFalse();
     }
 }

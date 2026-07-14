@@ -61,6 +61,13 @@ export interface CreateWorkScheduleCommand {
   dependencies?: WorkScheduleWorkDependencyDto[];
 }
 
+export interface GenerateScheduleFromEstimateAIRequest {
+    /** ISO 8601 date string — overall project start date */
+    overallStartDate: string;
+    /** ISO 8601 date string — overall project end date */
+    overallEndDate: string;
+}
+
 export interface UpdateWorkPeriodDto {
   id?: string;
   startDate: string;

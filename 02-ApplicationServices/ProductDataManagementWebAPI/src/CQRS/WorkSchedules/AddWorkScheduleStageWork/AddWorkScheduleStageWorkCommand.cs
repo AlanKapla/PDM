@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.WorkSchedules.Shared;
 
 namespace CQRS.WorkSchedules.AddWorkScheduleStageWork
@@ -10,6 +10,6 @@ namespace CQRS.WorkSchedules.AddWorkScheduleStageWork
         public int Order { get; init; }
         public string ColorRgb { get; init; } = string.Empty;
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectSchedule;
     }
 }

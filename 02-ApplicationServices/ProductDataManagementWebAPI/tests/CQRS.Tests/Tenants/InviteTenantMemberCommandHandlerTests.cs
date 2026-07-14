@@ -20,6 +20,8 @@ namespace CQRS.Tests.Tenants;
 public sealed class InviteTenantMemberCommandHandlerTests
 {
     private readonly Mock<IRepository<TenantInvitation>> _invitationRepoMock = new();
+    private readonly Mock<IRepository<TenantInvitationModulePermission>> _modulePermissionRepoMock = new();
+    private readonly Mock<IRepository<TenantMember>> _tenantMemberRepoMock = new();
     private readonly Mock<IReadRepository<User>> _userRepoMock = new();
     private readonly Mock<IReadRepository<Tenant>> _tenantRepoMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
@@ -62,6 +64,8 @@ public sealed class InviteTenantMemberCommandHandlerTests
 
         _handler = new InviteTenantMemberCommandHandler(
             _invitationRepoMock.Object,
+            _modulePermissionRepoMock.Object,
+            _tenantMemberRepoMock.Object,
             _userRepoMock.Object,
             _tenantRepoMock.Object,
             _currentUserMock.Object,
@@ -71,8 +75,6 @@ public sealed class InviteTenantMemberCommandHandlerTests
             _tokenGeneratorMock.Object,
             _notificationRepoMock.Object);
     }
-
-    // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private static InviteTenantMemberCommand ValidCommand(Guid tenantId) => new InviteTenantMemberCommand
     {
@@ -97,12 +99,9 @@ public sealed class InviteTenantMemberCommandHandlerTests
         AzureAdB2CObjectId = "azure-oid"
     };
 
-    // ─── Handle ───────────────────────────────────────────────────────────────
-
     [Fact]
     public async Task Handle_WhenTenantNotFound_ThrowsNotFoundApiException()
     {
-        // Arrange
         _tenantRepoMock
             .Setup(r => r.GetFirstBySearch(
                 It.IsAny<Expression<Func<Tenant, bool>>>()))
@@ -110,17 +109,14 @@ public sealed class InviteTenantMemberCommandHandlerTests
 
         InviteTenantMemberCommand command = ValidCommand(Guid.NewGuid());
 
-        // Act
         Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         await act.Should().ThrowAsync<NotFoundApiException>();
     }
 
     [Fact]
     public async Task Handle_WhenUserExists_InsertsInvitationAndSendsNotification()
     {
-        // Arrange
         Guid tenantId = Guid.NewGuid();
         Tenant tenant = BuildTenant(tenantId);
         User existingUser = BuildUser("invite@test.com");
@@ -137,13 +133,50 @@ public sealed class InviteTenantMemberCommandHandlerTests
 
         InviteTenantMemberCommand command = ValidCommand(tenantId);
 
-        // Act
         Unit result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         result.Should().Be(Unit.Value);
         _invitationRepoMock.Verify(r => r.Insert(It.IsAny<TenantInvitation>()), Times.Once);
         _notificationSenderMock.Verify(s => s.EnqueueAsync(It.IsAny<NotificationPayloadDto>(), It.IsAny<CancellationToken>()), Times.Once);
-        _emailSenderMock.Verify(s => s.SendEmailAsync(It.IsAny<EmailMessageDto>(), It.IsAny<CancellationToken>()), Times.Never);
+        _emailSenderMock.Verify(s => s.SendEmailAsync(It.IsAny<EmailMessageDto>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenPendingInvitationExists_ExtendsExpiryAndResendsEmailWithoutInsert()
+    {
+        Guid tenantId = Guid.NewGuid();
+        Tenant tenant = BuildTenant(tenantId);
+        TenantInvitation existingInvitation = new TenantInvitation
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Email = "invite@test.com",
+            Token = "existing-token",
+            IsActive = true,
+            Status = InvitationStatus.Pending,
+            ExpiresAt = DateTime.UtcNow.AddDays(1)
+        };
+
+        _tenantRepoMock
+            .Setup(r => r.GetFirstBySearch(
+                It.IsAny<Expression<Func<Tenant, bool>>>()))
+            .ReturnsAsync(tenant);
+
+        _invitationRepoMock
+            .Setup(r => r.GetFirstBySearch(
+                It.IsAny<Expression<Func<TenantInvitation, bool>>>(),
+                It.IsAny<Func<IQueryable<TenantInvitation>, IIncludableQueryable<TenantInvitation, object>>[]>()))
+            .ReturnsAsync(existingInvitation);
+
+        InviteTenantMemberCommand command = ValidCommand(tenantId);
+
+        Unit result = await _handler.Handle(command, CancellationToken.None);
+
+        result.Should().Be(Unit.Value);
+        existingInvitation.ExpiresAt.Should().BeCloseTo(DateTime.UtcNow.AddDays(7), TimeSpan.FromMinutes(1));
+        existingInvitation.ProjectId.Should().BeNull();
+        _invitationRepoMock.Verify(r => r.Insert(It.IsAny<TenantInvitation>()), Times.Never);
+        _invitationRepoMock.Verify(r => r.Update(existingInvitation), Times.Once);
+        _emailSenderMock.Verify(s => s.SendEmailAsync(It.IsAny<EmailMessageDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

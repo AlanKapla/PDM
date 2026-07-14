@@ -1,12 +1,4 @@
-﻿using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
+﻿using Entities.Models.Projects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -39,7 +31,10 @@ namespace Entities.Configurations
     {
         public void Configure(EntityTypeBuilder<ProjectMember> builder)
         {
-            builder.HasKey(pm => new { pm.TenantId, pm.ProjectId, pm.UserId});
+            builder.HasKey(pm => new { pm.TenantId, pm.ProjectId, pm.UserId });
+
+            builder.Property(pm => pm.IsActive)
+                .HasDefaultValue(true);
 
             builder.HasOne(pm => pm.Project)
                    .WithMany(p => p.Members)
@@ -48,13 +43,23 @@ namespace Entities.Configurations
 
             builder.HasOne(pm => pm.TenantMember)
                    .WithMany(u => u.ProjectMembers)
-                   .HasForeignKey(a => new { a.TenantId, a.UserId})
+                   .HasForeignKey(a => new { a.TenantId, a.UserId })
                    .OnDelete(DeleteBehavior.Restrict);
+        }
+    }
 
-            builder.HasOne(pm => pm.MemberRole)
-                   .WithMany()
-                   .HasForeignKey(pm => pm.RoleId)
-                   .OnDelete(DeleteBehavior.SetNull);
+    public class ProjectMemberModulePermissionConfiguration : IEntityTypeConfiguration<ProjectMemberModulePermission>
+    {
+        public void Configure(EntityTypeBuilder<ProjectMemberModulePermission> builder)
+        {
+            builder.HasKey(p => new { p.TenantId, p.ProjectId, p.UserId, p.Module });
+
+            builder.Property(p => p.Module).HasConversion<int>();
+
+            builder.HasOne(p => p.ProjectMember)
+                   .WithMany(pm => pm.ModulePermissions)
+                   .HasForeignKey(p => new { p.TenantId, p.ProjectId, p.UserId })
+                   .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

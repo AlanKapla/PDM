@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.WorkSchedules;
 using CQRS.WorkSchedules.Shared;
 
@@ -11,7 +11,7 @@ namespace CQRS.WorkSchedules.GetWorkSchedules
     {
         public ResourceScope Scope { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectView;
+        public override string PermissionCode => PermissionCodes.ProjectSchedule;
 
         public ResourceScope? GetResourceScope() => Scope;
     }

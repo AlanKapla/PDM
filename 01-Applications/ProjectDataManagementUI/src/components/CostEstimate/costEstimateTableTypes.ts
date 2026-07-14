@@ -12,16 +12,13 @@ import type {
 // Stałe
 // ---------------------------------------------------------------------------
 
-/** Minimalna szerokość kolumny „Pozycja" — dopasowuje się do zawartości */
-export const POSITION_COL_MIN_WIDTH = 260;
-
 // ---------------------------------------------------------------------------
 // Typy
 // ---------------------------------------------------------------------------
 
 /** Spłaszczony wiersz tabeli — używany w flatRows */
 export interface FlatRow {
-  type: 'group' | 'item';
+  type: 'group' | 'item' | 'groupSummary';
   level: number;
   groupId?: string;
   group?: CostEstimateGroupWeb;
@@ -45,6 +42,8 @@ export interface ExpandedColumn {
   isFilterable: boolean;
   isBoolean: boolean;
   isNumeric: boolean;
+  /** FieldScope (0=Group, 1=ItemSystem, 2=ItemCalculated, 3=ItemGeneric) */
+  fieldScope: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -63,8 +62,8 @@ export type RenderFieldInputFn = (
   itemId?: string,
   /** ID definicji pola — wymagane dla pól typu pliki (upload) */
   fieldDefinitionId?: string,
-  /** Pliki dołączone do pola — tylko dla fieldType === 105 (ItemSystemFiles) */
-  files?: import('../../types/costEstimate.types.new').CostEstimateFieldFileWeb[] | null
+  /** Pliki dołączone do pozycji */
+  files?: import('../../types/costEstimate.types.new').CostEstimateItemFileWeb[] | null
 ) => React.ReactNode;
 
 export type FormatDisplayValueFn = (

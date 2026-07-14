@@ -22,6 +22,8 @@ public class MicrosoftGraphService : IMicrosoftGraphService
     {
         try
         {
+            var users = graphClient.Users;
+
             var user = await graphClient.Users[azureAdB2CObjectId]
                 .GetAsync(requestConfig =>
                 {

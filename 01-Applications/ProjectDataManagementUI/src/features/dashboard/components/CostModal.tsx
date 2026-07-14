@@ -8,11 +8,13 @@ import {
   SimpleGrid,
   Alert,
   AlertIcon,
-  Checkbox,
+  Badge,
   Text,
   Button,
+  Checkbox,
   HStack,
   IconButton,
+  Tooltip,
   AlertDialog,
   AlertDialogOverlay,
   AlertDialogContent,
@@ -21,10 +23,15 @@ import {
   AlertDialogFooter,
   useDisclosure,
 } from '@chakra-ui/react';
-import { FileUp, X } from 'lucide-react';
+import { FileUp, Eye, Sparkles, X } from 'lucide-react';
 import AppModal from '../../../components/ui/AppModal';
 import ContractorPicker from '../../../components/ContractorPicker';
+import ContractorQuickAddModal from '../../../components/ContractorQuickAddModal';
+import { CostCategoryPicker } from '../../../components/CostCategoryPicker';
+import { CostCategoryQuickAddModal } from '../../../components/CostCategoryQuickAddModal';
 import CostLinkSection from '../../../components/CostTracker/CostLinkSection';
+import { AICostImportModal } from '../../../components/CostTracker/AICostImportModal';
+import type { ParsedCostDto } from '../../../types/ai.types';
 import type {
   TrackedCostWeb,
   CreateTrackedCostRequest,
@@ -35,6 +42,11 @@ import { useTrackedCostMutations } from '../hooks/useTrackedCostMutations';
 import { useProjectCostMutations } from '../../../hooks/useProjectCostMutations';
 import { useProjectPermissions } from '../../../hooks/useProjectPermissions';
 import { useTenantPermissions } from '../../../hooks/useTenantPermissions';
+import {
+  syncCostAmounts,
+  parseAmountString,
+  formatAmountString,
+} from '../../../utils/costAmountCalculations';
 import type { ProjectCostListItemWeb } from '../../../types/project.types';
 
 type CostModalMode = 'create' | 'edit';
@@ -61,6 +73,8 @@ export interface CostModalBaseProps {
   projectId: string;
   mode: CostModalMode;
   onClose: () => void;
+  /** Dane wypełnione przez AI — przekazane przy otwieraniu modala po analizie dokumentu */
+  aiPrefill?: { parsedData: ParsedCostDto; file: File };
 }
 
 export type CostModalProps = CostModalBaseProps & CostModalTypeProps;
@@ -71,11 +85,11 @@ interface CostFormState {
   net: string;
   gross: string;
   contractorId: string | null;
+  categoryId: string | null;
   date: string;
   number: string;
   newFiles: File[];
   existingAttachmentIds: string[];
-  isAccepted: boolean;
   document: File | null;
   removeDocument: boolean;
 }
@@ -90,8 +104,8 @@ export function CostModal(props: CostModalProps): React.ReactElement {
   const { canEdit: isTenantAdmin } = useTenantPermissions();
   const canQuickAdd = isProjectAdmin || isTenantAdmin;
 
-  // Powiązania kosztu (tylko dla type=tracked, mode=edit)
-  const isTrackedEdit = props.type === 'tracked' && mode === 'edit';
+  // Powiązania kosztu (dla type=tracked w edit i create bez workItemType)
+  const isTrackedWithLink = props.type === 'tracked' && (mode === 'edit' || !props.workItemType);
   const [linkItemId, setLinkItemId] = useState<string | null>(
     () => (props.type === 'tracked' && mode === 'edit' ? (props.cost?.costEstimateItemId ?? null) : null)
   );
@@ -117,7 +131,49 @@ export function CostModal(props: CostModalProps): React.ReactElement {
     }
   };
 
+  const [aiParsedInfo, setAiParsedInfo] = useState<ParsedCostDto | null>(
+    () => (mode === 'create' && props.aiPrefill ? props.aiPrefill.parsedData : null)
+  );
+  const [isAiContractorCreateOpen, setIsAiContractorCreateOpen] = useState(false);
+  const [isAiCategoryCreateOpen, setIsAiCategoryCreateOpen] = useState(false);
+
+  const handleAIParsed = (parsed: ParsedCostDto, file: File) => {
+    setAiParsedInfo(parsed);
+    setForm({
+      name: parsed.name ?? '',
+      description: parsed.description ?? '',
+      net: parsed.net != null ? String(parsed.net) : '',
+      gross: parsed.gross != null ? String(parsed.gross) : '',
+      contractorId: parsed.contractorFound ? (parsed.contractorId ?? null) : null,
+      categoryId: parsed.categoryFound ? (parsed.categoryId ?? null) : null,
+      date: parsed.date ? parsed.date.substring(0, 10) : '',
+      number: parsed.number ?? '',
+      newFiles: props.type === 'tracked' ? [file] : [],
+      existingAttachmentIds: [],
+      document: props.type === 'project' ? file : null,
+      removeDocument: false,
+    });
+    setIsAIImportOpen(false);
+  };
+
   const [form, setForm] = useState<CostFormState>(() => {
+    if (mode === 'create' && props.aiPrefill) {
+      const { parsedData: p, file } = props.aiPrefill;
+      return {
+        name: p.name ?? '',
+        description: p.description ?? '',
+        net: p.net != null ? String(p.net) : '',
+        gross: p.gross != null ? String(p.gross) : '',
+        contractorId: p.contractorFound ? (p.contractorId ?? null) : null,
+        categoryId: p.categoryFound ? (p.categoryId ?? null) : null,
+        date: p.date ? p.date.substring(0, 10) : '',
+        number: p.number ?? '',
+        newFiles: props.type === 'tracked' ? [file] : [],
+        existingAttachmentIds: [],
+        document: props.type === 'project' ? file : null,
+        removeDocument: false,
+      };
+    }
     if (props.type === 'tracked' && mode === 'edit' && props.cost) {
       const c = props.cost;
       return {
@@ -126,11 +182,11 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         net: c.net != null ? String(c.net) : '',
         gross: c.gross != null ? String(c.gross) : '',
         contractorId: c.contractorId ?? null,
+        categoryId: c.categoryId ?? null,
         date: c.date ? c.date.substring(0, 10) : '',
         number: c.number ?? '',
         newFiles: [],
         existingAttachmentIds: c.attachments?.map((a) => a.id) ?? [],
-        isAccepted: false,
         document: null,
         removeDocument: false,
       };
@@ -143,11 +199,11 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         net: c.net != null && c.net !== 0 ? String(c.net) : '',
         gross: c.gross != null && c.gross !== 0 ? String(c.gross) : '',
         contractorId: c.contractorId ?? null,
+        categoryId: c.categoryId ?? null,
         date: c.date ? c.date.split('T')[0] : '',
         number: c.number ?? '',
         newFiles: [],
         existingAttachmentIds: [],
-        isAccepted: c.isAccepted,
         document: null,
         removeDocument: false,
       };
@@ -158,17 +214,18 @@ export function CostModal(props: CostModalProps): React.ReactElement {
       net: '',
       gross: '',
       contractorId: null,
+      categoryId: null,
       date: props.type === 'project' ? new Date().toISOString().split('T')[0] : '',
       number: '',
       newFiles: [],
       existingAttachmentIds: [],
-      isAccepted: false,
       document: null,
       removeDocument: false,
     };
   });
 
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [isAIImportOpen, setIsAIImportOpen] = useState(false);
   const {
     isOpen: isRemoveDocOpen,
     onOpen: onRemoveDocOpen,
@@ -200,9 +257,9 @@ export function CostModal(props: CostModalProps): React.ReactElement {
     props.type === 'project' ? props.cost : undefined;
   const hasDocument =
     props.type === 'project' &&
-    (!!form.document || (!!projectCost?.hasDocument && !form.removeDocument));
+    (!!projectCost?.hasDocument && !form.removeDocument);
   const documentName =
-    form.document?.name ?? projectCost?.documentFileName ?? '';
+    projectCost?.documentFileName ?? '';
   const fileInputId = projectCost
     ? `edit-expense-doc-${projectCost.id}`
     : 'new-expense-doc';
@@ -214,6 +271,30 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         ? prev.existingAttachmentIds.filter((id) => id !== attachmentId)
         : [...prev.existingAttachmentIds, attachmentId],
     }));
+  };
+
+  const handleNetChange = (value: string) => {
+    setForm((prev) => {
+      const net = parseAmountString(value);
+      const synced = syncCostAmounts(net, undefined, 'net');
+      return {
+        ...prev,
+        net: value.trim() === '' ? '' : value,
+        gross: formatAmountString(synced.gross),
+      };
+    });
+  };
+
+  const handleGrossChange = (value: string) => {
+    setForm((prev) => {
+      const gross = parseAmountString(value);
+      const synced = syncCostAmounts(undefined, gross, 'gross');
+      return {
+        ...prev,
+        net: formatAmountString(synced.net),
+        gross: value.trim() === '' ? '' : value,
+      };
+    });
   };
 
   const handleAction = async () => {
@@ -229,6 +310,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             gross: form.gross !== '' ? parseFloat(form.gross) : null,
             number: form.number || null,
             contractorId: form.contractorId || null,
+            categoryId: form.categoryId || null,
             date: form.date || null,
             newFiles: form.newFiles.length > 0 ? form.newFiles : undefined,
             ...(trackedProps.workItemType === WorkItemType.LinkedWorkItem
@@ -240,7 +322,8 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 ? { workScheduleStageWorkId: trackedProps.workScheduleStageWorkId ?? null }
                 : trackedProps.workItemType === WorkItemType.EstimateItem
                   ? { costEstimateItemId: trackedProps.costEstimateItemId ?? null }
-                  : {}),
+                  : { costEstimateItemId: linkItemId, workScheduleStageWorkId: linkWorkId }),
+
           };
           result = await trackedMutations.createCost(data);
         } else {
@@ -251,6 +334,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             gross: form.gross !== '' ? parseFloat(form.gross) : null,
             number: form.number || null,
             contractorId: form.contractorId || null,
+            categoryId: form.categoryId || null,
             date: form.date || null,
             newFiles: form.newFiles.length > 0 ? form.newFiles : undefined,
             existingAttachmentIds: form.existingAttachmentIds,
@@ -274,11 +358,11 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             name: form.name,
             number: form.number || null,
             contractorId: form.contractorId || null,
+            categoryId: form.categoryId || null,
             date: form.date ? new Date(form.date) : new Date(),
             description: form.description || undefined,
             net: form.net !== '' ? parseFloat(form.net) : null,
             gross: form.gross !== '' ? parseFloat(form.gross) : null,
-            isAccepted: form.isAccepted,
             document: form.document || undefined,
           });
         } else {
@@ -287,11 +371,11 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             name: form.name,
             number: form.number || null,
             contractorId: form.contractorId || null,
+            categoryId: form.categoryId || null,
             date: form.date ? new Date(form.date) : new Date(),
             description: form.description || undefined,
             net: form.net !== '' ? parseFloat(form.net) : null,
             gross: form.gross !== '' ? parseFloat(form.gross) : null,
-            isAccepted: form.isAccepted,
             document:
               form.document && !existingCost.hasDocument ? form.document : undefined,
             updatedDocument:
@@ -320,6 +404,29 @@ export function CostModal(props: CostModalProps): React.ReactElement {
         isActionDisabled={!form.name.trim()}
       >
         <VStack spacing={4} align="stretch" sx={{ 'input, textarea, select': { fontSize: '16px' } }}>
+          {mode === 'create' && (
+            <HStack justify="flex-end">
+              <Button
+                variant="outline"
+                size="sm"
+                leftIcon={<FileUp size={14} aria-hidden="true" />}
+                onClick={() => setIsAIImportOpen(true)}
+              >
+                Importuj z dokumentu
+              </Button>
+            </HStack>
+          )}
+          {aiParsedInfo && (
+            <Alert status="info" fontSize="sm">
+              <AlertIcon as={Sparkles} />
+              Dane wypełnione przez AI — sprawdź i zatwierdź przed zapisaniem.
+              {aiParsedInfo.confidence < 0.7 && (
+                <Text as="span" ml={1} fontWeight="medium" color="orange.600">
+                  (niska pewność odczytu)
+                </Text>
+              )}
+            </Alert>
+          )}
           {error && (
             <Alert status="error">
               <AlertIcon />
@@ -354,7 +461,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 step="0.01"
                 min="0"
                 value={form.net}
-                onChange={(e) => setForm((p) => ({ ...p, net: e.target.value }))}
+                onChange={(e) => handleNetChange(e.target.value)}
               />
             </FormControl>
             <FormControl>
@@ -364,7 +471,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 step="0.01"
                 min="0"
                 value={form.gross}
-                onChange={(e) => setForm((p) => ({ ...p, gross: e.target.value }))}
+                onChange={(e) => handleGrossChange(e.target.value)}
               />
             </FormControl>
           </SimpleGrid>
@@ -379,13 +486,75 @@ export function CostModal(props: CostModalProps): React.ReactElement {
           </FormControl>
 
           <FormControl>
-            <FormLabel>Wykonawca</FormLabel>
+            <HStack mb={1} spacing={2} align="center">
+              <FormLabel mb={0}>Wykonawca</FormLabel>
+              {aiParsedInfo?.contractorFound && form.contractorId && (
+                <Badge colorScheme="purple" fontSize="2xs" px={1.5} py={0.5}>
+                  ⚡ AI znalazł
+                </Badge>
+              )}
+            </HStack>
             <ContractorPicker
               tenantId={tenantId}
               value={form.contractorId}
               onChange={(id) => setForm((p) => ({ ...p, contractorId: id }))}
               canQuickAdd={canQuickAdd}
             />
+            {aiParsedInfo && !aiParsedInfo.contractorFound && aiParsedInfo.suggestedContractor && !form.contractorId && (
+              <Alert status="warning" mt={2} fontSize="sm">
+                <AlertIcon />
+                <VStack align="flex-start" flex={1} spacing={1}>
+                  <Text fontSize="sm">
+                    AI sugeruje: <strong>{aiParsedInfo.suggestedContractor.name}</strong>
+                    {aiParsedInfo.suggestedContractor.nip && <> · NIP: {aiParsedInfo.suggestedContractor.nip}</>}
+                  </Text>
+                  <Button size="xs" colorScheme="purple" onClick={() => setIsAiContractorCreateOpen(true)}>
+                    Utwórz kontrahenta
+                  </Button>
+                </VStack>
+              </Alert>
+            )}
+          </FormControl>
+
+          <FormControl>
+            <HStack mb={1} spacing={2} align="center">
+              <FormLabel mb={0}>Kategoria</FormLabel>
+              {aiParsedInfo?.categoryFound && form.categoryId && (
+                <Badge colorScheme="purple" fontSize="2xs" px={1.5} py={0.5}>
+                  ⚡ AI znalazł
+                </Badge>
+              )}
+            </HStack>
+            <CostCategoryPicker
+              tenantId={tenantId}
+              projectId={projectId}
+              value={form.categoryId}
+              onChange={(id) => setForm((p) => ({ ...p, categoryId: id }))}
+              canQuickAdd={canQuickAdd}
+            />
+            {aiParsedInfo &&
+              !aiParsedInfo.categoryFound &&
+              aiParsedInfo.suggestedCategory &&
+              !form.categoryId && (
+                <Alert status="warning" mt={2} fontSize="sm" role="alert">
+                  <AlertIcon />
+                  <VStack align="flex-start" flex={1} spacing={1}>
+                    <Text fontSize="sm">
+                      AI sugeruje: <strong>{aiParsedInfo.suggestedCategory.name}</strong>
+                      {aiParsedInfo.suggestedCategory.code && (
+                        <> · Kod: {aiParsedInfo.suggestedCategory.code}</>
+                      )}
+                    </Text>
+                    <Button
+                      size="xs"
+                      colorScheme="purple"
+                      onClick={() => setIsAiCategoryCreateOpen(true)}
+                    >
+                      Utwórz kategorię
+                    </Button>
+                  </VStack>
+                </Alert>
+              )}
           </FormControl>
 
           <FormControl>
@@ -413,6 +582,50 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                   }
                   sx={{ paddingTop: '6px' }}
                 />
+                {form.newFiles.length > 0 && (
+                  <VStack align="stretch" spacing={1} mt={2}>
+                    {form.newFiles.map((f, i) => (
+                      <HStack
+                        key={i}
+                        spacing={2}
+                        px={3}
+                        py={2}
+                        borderWidth="1px"
+                        borderRadius="md"
+                        borderColor="neutral.200"
+                        bg="neutral.50"
+                      >
+                        <Text fontSize="sm" flex={1} isTruncated>{f.name}</Text>
+                        <Text fontSize="xs" color="neutral.500">{(f.size / 1024).toFixed(0)} KB</Text>
+                        {f.type.startsWith('image/') && (
+                          <Tooltip label="Podgląd">
+                            <IconButton
+                              aria-label="Podgląd pliku"
+                              icon={<Eye size={14} />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="level2"
+                              onClick={() => window.open(URL.createObjectURL(f), '_blank')}
+                            />
+                          </Tooltip>
+                        )}
+                        <IconButton
+                          aria-label="Usuń plik"
+                          icon={<X size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="red"
+                          onClick={() =>
+                            setForm((p) => ({
+                              ...p,
+                              newFiles: p.newFiles.filter((_, idx) => idx !== i),
+                            }))
+                          }
+                        />
+                      </HStack>
+                    ))}
+                  </VStack>
+                )}
               </FormControl>
 
               {mode === 'edit' && props.cost && (props.cost.attachments?.length ?? 0) > 0 && (
@@ -420,13 +633,27 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                   <FormLabel>Istniejące załączniki (odznacz aby usunąć)</FormLabel>
                   <VStack align="stretch" spacing={1}>
                     {props.cost.attachments.map((att) => (
-                      <Checkbox
-                        key={att.id}
-                        isChecked={form.existingAttachmentIds.includes(att.id)}
-                        onChange={() => toggleExistingAttachment(att.id)}
-                      >
-                        <Text fontSize="sm">{att.originalFileName}</Text>
-                      </Checkbox>
+                      <HStack key={att.id} spacing={2}>
+                        <Checkbox
+                          isChecked={form.existingAttachmentIds.includes(att.id)}
+                          onChange={() => toggleExistingAttachment(att.id)}
+                          flex={1}
+                        >
+                          <Text fontSize="sm">{att.originalFileName}</Text>
+                        </Checkbox>
+                        {att.fileUrl && (
+                          <Tooltip label="Podgląd">
+                            <IconButton
+                              aria-label={`Podgląd ${att.originalFileName}`}
+                              icon={<Eye size={14} />}
+                              size="xs"
+                              variant="ghost"
+                              colorScheme="level2"
+                              onClick={() => window.open(att.fileUrl, '_blank')}
+                            />
+                          </Tooltip>
+                        )}
+                      </HStack>
                     ))}
                   </VStack>
                 </FormControl>
@@ -439,7 +666,40 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             <>
               <FormControl>
                 <FormLabel>Dokument</FormLabel>
-                {hasDocument ? (
+                {form.document ? (
+                  <HStack
+                    spacing={2}
+                    px={3}
+                    py={2}
+                    borderWidth="1px"
+                    borderRadius="md"
+                    borderColor="neutral.200"
+                    bg="neutral.50"
+                  >
+                    <Text fontSize="sm" flex={1} isTruncated>{form.document.name}</Text>
+                    <Text fontSize="xs" color="neutral.500">{(form.document.size / 1024).toFixed(0)} KB</Text>
+                    {form.document.type.startsWith('image/') && (
+                      <Tooltip label="Podgląd">
+                        <IconButton
+                          aria-label="Podgląd dokumentu"
+                          icon={<Eye size={14} />}
+                          size="xs"
+                          variant="ghost"
+                          colorScheme="level2"
+                          onClick={() => window.open(URL.createObjectURL(form.document!), '_blank')}
+                        />
+                      </Tooltip>
+                    )}
+                    <IconButton
+                      aria-label="Usuń wybrany plik"
+                      icon={<X size={14} />}
+                      size="xs"
+                      variant="ghost"
+                      colorScheme="red"
+                      onClick={() => setForm((p) => ({ ...p, document: null }))}
+                    />
+                  </HStack>
+                ) : hasDocument ? (
                   <HStack
                     spacing={2}
                     px={3}
@@ -490,20 +750,12 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 </Text>
               </FormControl>
 
-              <FormControl>
-                <Checkbox
-                  isChecked={form.isAccepted}
-                  onChange={(e) => setForm((p) => ({ ...p, isAccepted: e.target.checked }))}
-                  colorScheme="green"
-                >
-                  Zaakceptowane
-                </Checkbox>
-              </FormControl>
+
             </>
           )}
 
-          {/* Sekcja powiązania — tylko tracked edit */}
-          {isTrackedEdit && (
+          {/* Sekcja powiązania — tracked edit i create bez kontekstu */}
+          {isTrackedWithLink && (
             <CostLinkSection
               currentEstimatePath={currentEstimatePath}
               currentWorkPath={currentWorkPath}
@@ -551,6 +803,50 @@ export function CostModal(props: CostModalProps): React.ReactElement {
             </AlertDialogContent>
           </AlertDialogOverlay>
         </AlertDialog>
+      )}
+
+      {mode === 'create' && (
+        <AICostImportModal
+          isOpen={isAIImportOpen}
+          onClose={() => setIsAIImportOpen(false)}
+          tenantId={tenantId}
+          projectId={projectId}
+          costType={props.type === 'project' ? 'ProjectCost' : 'TrackedCost'}
+          onParsed={handleAIParsed}
+        />
+      )}
+
+      {isAiContractorCreateOpen && aiParsedInfo?.suggestedContractor && (
+        <ContractorQuickAddModal
+          isOpen
+          tenantId={tenantId}
+          onClose={() => setIsAiContractorCreateOpen(false)}
+          initialValues={{
+            name: aiParsedInfo.suggestedContractor.name,
+            taxId: aiParsedInfo.suggestedContractor.nip,
+            street: aiParsedInfo.suggestedContractor.address,
+          }}
+          onCreated={(id) => {
+            setForm((p) => ({ ...p, contractorId: id }));
+            setIsAiContractorCreateOpen(false);
+          }}
+        />
+      )}
+      {isAiCategoryCreateOpen && aiParsedInfo?.suggestedCategory && (
+        <CostCategoryQuickAddModal
+          isOpen
+          tenantId={tenantId}
+          projectId={projectId}
+          onClose={() => setIsAiCategoryCreateOpen(false)}
+          initialValues={{
+            name: aiParsedInfo.suggestedCategory.name,
+            code: aiParsedInfo.suggestedCategory.code,
+          }}
+          onCreated={(id) => {
+            setForm((p) => ({ ...p, categoryId: id }));
+            setIsAiCategoryCreateOpen(false);
+          }}
+        />
       )}
     </>
   );

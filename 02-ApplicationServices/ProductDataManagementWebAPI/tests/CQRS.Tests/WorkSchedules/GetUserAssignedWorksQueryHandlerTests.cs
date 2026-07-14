@@ -35,11 +35,7 @@ public sealed class GetUserAssignedWorksQueryHandlerTests
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private static GetUserAssignedWorksQuery ValidQuery() =>
-        new GetUserAssignedWorksQuery
-        {
-            TenantId = Guid.NewGuid(),
-            ProjectId = Guid.NewGuid()
-        };
+        new GetUserAssignedWorksQuery();
 
     // ─── Handle ───────────────────────────────────────────────────────────────
 

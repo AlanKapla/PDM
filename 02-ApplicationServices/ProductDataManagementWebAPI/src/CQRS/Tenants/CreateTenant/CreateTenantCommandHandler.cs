@@ -1,11 +1,8 @@
-﻿using Business.Interfaces.Constants;
-using Business.Interfaces.Exceptions;
+﻿using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Tenants;
-using Entities.Enums;
 using Entities.Models;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using MediatR;
 using Repositories.Repository.Interfaces;
@@ -17,7 +14,6 @@ namespace CQRS.Tenants.CreateTenant
         private readonly IReadRepository<Tenant> tenantRepo;
         private readonly IRepository<TenantMember> tenantMemberRepo;
         private readonly IRepository<TenantPreferencesProfile> tenantPrefsRepo;
-        private readonly IReadRepository<Role> roleRepo;
         private readonly IPermissionsVersionService permissionsVersionService;
         private readonly ICurrentUser currentUser;
 
@@ -25,14 +21,12 @@ namespace CQRS.Tenants.CreateTenant
             IReadRepository<Tenant> tenantRepo,
             IRepository<TenantMember> tenantMemberRepo,
             IRepository<TenantPreferencesProfile> tenantPrefsRepo,
-            IReadRepository<Role> roleRepo,
             IPermissionsVersionService permissionsVersionService,
             ICurrentUser currentUser)
         {
             this.tenantRepo = tenantRepo;
             this.tenantMemberRepo = tenantMemberRepo;
             this.tenantPrefsRepo = tenantPrefsRepo;
-            this.roleRepo = roleRepo;
             this.permissionsVersionService = permissionsVersionService;
             this.currentUser = currentUser;
         }
@@ -47,20 +41,11 @@ namespace CQRS.Tenants.CreateTenant
             await tenantRepo.Insert(tenant);
             await tenantRepo.SaveChangesAsync(cancellationToken);
 
-            Role? adminRole = await roleRepo.GetFirstBySearch(
-                r => r.Scope == RoleScope.Tenant && r.Code == RoleCodes.TenantAdmin,
-                cancellationToken);
-
-            if (adminRole is null)
-            {
-                throw new NotFoundApiException(nameof(Role), RoleCodes.TenantAdmin);
-            }
-
             TenantMember ownerMember = new TenantMember
             {
                 TenantId = tenant.Id,
                 UserId = currentUser.Id,
-                RoleId = adminRole.Id
+                IsAdmin = true
             };
 
             await tenantMemberRepo.Insert(ownerMember);
@@ -91,7 +76,7 @@ namespace CQRS.Tenants.CreateTenant
                 Name = tenant.Name,
                 CreatedAt = tenant.CreatedAt,
                 IsActive = tenant.IsActive,
-                RoleCode = RoleCodes.TenantAdmin
+                IsAdmin = true
             };
         }
     }

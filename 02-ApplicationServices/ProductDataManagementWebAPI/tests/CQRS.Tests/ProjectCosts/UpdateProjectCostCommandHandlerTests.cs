@@ -4,6 +4,7 @@ using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.ProjectCosts;
 using CQRS.ProjectCosts.UpdateProjectCost;
 using Entities.Models.Costs;
+using Entities.Models.Projects;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ namespace CQRS.Tests.ProjectCosts;
 public sealed class UpdateProjectCostCommandHandlerTests
 {
     private readonly Mock<IRepository<ProjectCost>> _projectCostRepoMock = new();
+    private readonly Mock<IReadRepository<ProjectCostCategory>> _categoryRepoMock = new();
     private readonly Mock<IProjectCostAccessService> _accessServiceMock = new();
     private readonly Mock<IBlobStorageService> _blobStorageServiceMock = new();
     private readonly Mock<IRepository<BaseCostAttachment>> _attachmentRepoMock = new();
@@ -49,6 +51,7 @@ public sealed class UpdateProjectCostCommandHandlerTests
 
         _handler = new UpdateProjectCostCommandHandler(
             _projectCostRepoMock.Object,
+            _categoryRepoMock.Object,
             _accessServiceMock.Object,
             _blobStorageServiceMock.Object,
             _attachmentRepoMock.Object,
@@ -66,8 +69,7 @@ public sealed class UpdateProjectCostCommandHandlerTests
             TenantId = TenantId,
             ProjectId = ProjectId,
             UserId = UserId,
-            Name = "Old Name",
-            SharedWith = new List<SharedProjectCost>()
+            Name = "Old Name"
         };
     }
 
@@ -80,7 +82,6 @@ public sealed class UpdateProjectCostCommandHandlerTests
             CostId = costId,
             Name = "Updated Name",
             Net = 2000m,
-            IsAccepted = false,
             RemoveDocument = false
         };
     }
@@ -133,7 +134,7 @@ public sealed class UpdateProjectCostCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenUserHasNoAccessAtAll_ThrowsForbiddenApiException()
+    public async Task Handle_WhenUserHasNoWriteAccess_ThrowsForbiddenApiException()
     {
         // Arrange
         Guid costId = Guid.NewGuid();
@@ -148,10 +149,6 @@ public sealed class UpdateProjectCostCommandHandlerTests
 
         _accessServiceMock
             .Setup(s => s.HasWriteAccessAsync(projectCost, UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        _accessServiceMock
-            .Setup(s => s.HasShareAccessAsync(projectCost, UserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         // Act
@@ -159,36 +156,5 @@ public sealed class UpdateProjectCostCommandHandlerTests
 
         // Assert
         await act.Should().ThrowAsync<ForbiddenApiException>();
-    }
-
-    [Fact]
-    public async Task Handle_WhenUserHasShareAccessOnly_UpdatesOnlyIsAccepted()
-    {
-        // Arrange
-        Guid costId = Guid.NewGuid();
-        ProjectCost projectCost = BuildProjectCost(costId);
-        UpdateProjectCostCommand command = BuildCommand(costId);
-
-        _projectCostRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<Expression<Func<ProjectCost, bool>>>(),
-                It.IsAny<Func<IQueryable<ProjectCost>, IIncludableQueryable<ProjectCost, object>>[]>()))
-            .ReturnsAsync(projectCost);
-
-        _accessServiceMock
-            .Setup(s => s.HasWriteAccessAsync(projectCost, UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        _accessServiceMock
-            .Setup(s => s.HasShareAccessAsync(projectCost, UserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        // Act
-        ProjectCostListItemWeb result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.Should().NotBeNull();
-        // Name should not be updated when user only has share access
-        projectCost.Name.Should().Be("Old Name");
     }
 }

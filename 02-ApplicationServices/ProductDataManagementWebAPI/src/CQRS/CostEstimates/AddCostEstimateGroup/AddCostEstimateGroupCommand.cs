@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 
 namespace CQRS.CostEstimates.AddCostEstimateGroup
 {
@@ -10,6 +10,6 @@ namespace CQRS.CostEstimates.AddCostEstimateGroup
         public Guid? ParentGroupId { get; init; }
         public int Order { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

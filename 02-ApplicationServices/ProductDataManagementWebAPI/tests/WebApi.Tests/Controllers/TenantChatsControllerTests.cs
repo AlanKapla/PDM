@@ -23,11 +23,11 @@ namespace WebApi.Tests.Controllers
 {
     public class TenantChatsControllerTests : ControllerTestBase
     {
-        private readonly TenantChatsController sut;
+        private readonly ChatsController sut;
 
         public TenantChatsControllerTests()
         {
-            sut = new TenantChatsController(MediatorMock.Object);
+            sut = new ChatsController(MediatorMock.Object);
         }
 
         [Fact]
@@ -157,7 +157,7 @@ namespace WebApi.Tests.Controllers
             Guid tenantId = Guid.NewGuid();
             Guid chatId = Guid.NewGuid();
 
-            IActionResult result = await sut.LeaveChat(tenantId, chatId);
+            IActionResult result = await sut.LeaveTenantChat(tenantId, chatId);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<LeaveChatCommand>(c => c.TenantId == tenantId && c.ChatId == chatId);
@@ -169,7 +169,7 @@ namespace WebApi.Tests.Controllers
             Guid tenantId = Guid.NewGuid();
             Guid chatId = Guid.NewGuid();
 
-            IActionResult result = await sut.GetChatMessages(tenantId, chatId);
+            IActionResult result = await sut.GetTenantChatMessages(tenantId, chatId);
 
             result.Should().BeOfType<OkObjectResult>();
             VerifyMediatorCalledOnce<GetChatMessagesQuery>(q => q.TenantId == tenantId && q.ChatId == chatId);
@@ -182,7 +182,7 @@ namespace WebApi.Tests.Controllers
             Guid chatId = Guid.NewGuid();
             SendMessageRequest body = new SendMessageRequest("Hi");
 
-            IActionResult result = await sut.SendMessage(tenantId, chatId, body);
+            IActionResult result = await sut.SendTenantMessage(tenantId, chatId, body);
 
             result.Should().BeOfType<CreatedAtActionResult>();
             VerifyMediatorCalledOnce<SendMessageCommand>(c => c.TenantId == tenantId && c.ChatId == chatId && c.Content == "Hi");
@@ -196,7 +196,7 @@ namespace WebApi.Tests.Controllers
             Guid messageId = Guid.NewGuid();
             EditMessageRequest body = new EditMessageRequest("edited");
 
-            IActionResult result = await sut.EditMessage(tenantId, chatId, messageId, body);
+            IActionResult result = await sut.EditTenantMessage(tenantId, chatId, messageId, body);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<EditMessageCommand>(c => c.TenantId == tenantId && c.ChatId == chatId && c.MessageId == messageId);
@@ -209,7 +209,7 @@ namespace WebApi.Tests.Controllers
             Guid chatId = Guid.NewGuid();
             Guid messageId = Guid.NewGuid();
 
-            IActionResult result = await sut.DeleteMessage(tenantId, chatId, messageId);
+            IActionResult result = await sut.DeleteTenantMessage(tenantId, chatId, messageId);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<DeleteMessageCommand>(c => c.TenantId == tenantId && c.ChatId == chatId && c.MessageId == messageId);
@@ -221,7 +221,7 @@ namespace WebApi.Tests.Controllers
             Guid tenantId = Guid.NewGuid();
             Guid chatId = Guid.NewGuid();
 
-            IActionResult result = await sut.MarkAsRead(tenantId, chatId);
+            IActionResult result = await sut.MarkTenantChatAsRead(tenantId, chatId);
 
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<MarkAsReadCommand>(c => c.TenantId == tenantId && c.ChatId == chatId);

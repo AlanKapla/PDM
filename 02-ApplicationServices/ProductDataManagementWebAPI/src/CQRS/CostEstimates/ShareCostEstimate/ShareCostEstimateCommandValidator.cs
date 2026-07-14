@@ -1,4 +1,4 @@
-﻿using CQRS.Extensions;
+using CQRS.Extensions;
 using CQRS.Helpers;
 using Entities.Models.CostEstimates;
 using Entities.Models.Projects;

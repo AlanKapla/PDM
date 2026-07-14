@@ -149,15 +149,15 @@ public sealed class SetWorkScheduleStageWorkPeriodsCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_WhenPeriodEndDateNotGreaterThanStartDate_HasValidationError()
+    public void Validate_WhenPeriodIsSingleDay_HasNoValidationError()
     {
         // Arrange
-        DateTime start = new DateTime(2024, 1, 10);
+        DateTime day = new DateTime(2024, 1, 10);
         SetWorkScheduleStageWorkPeriodsCommand command = ValidCommand() with
         {
             Periods = new List<WorkPeriodDto>
             {
-                new WorkPeriodDto(start, start, false) // EndDate == StartDate
+                new WorkPeriodDto(day, day, false)
             }
         };
 
@@ -165,7 +165,7 @@ public sealed class SetWorkScheduleStageWorkPeriodsCommandValidatorTests
         TestValidationResult<SetWorkScheduleStageWorkPeriodsCommand> result = _validator.TestValidate(command);
 
         // Assert
-        Assert.False(result.IsValid);
+        result.ShouldNotHaveAnyValidationErrors();
     }
 
     [Fact]

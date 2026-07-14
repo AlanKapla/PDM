@@ -18,3 +18,61 @@
     font-size: 16px !important;
   }
 }
+
+/*
+  Focus-visible — WCAG AA 2.4.7 / 2.4.11
+  Wyraźny fokus tylko dla użytkowników klawiatury (nie myszy).
+  Nie usuwać ani nie nadpisywać outline dla :focus-visible.
+*/
+:focus-visible {
+  outline: 3px solid #3182CE !important;
+  outline-offset: 2px !important;
+}
+
+/*
+  Tree view — inline inputy w wąskich komórkach z overflow:hidden.
+  Globalny outline jest obcinany i wygląda jak ucięta „gruba ramka”.
+  Fokus sygnalizuje kursor tekstowy + subtelny hover border.
+*/
+.ce-tree-view input:focus,
+.ce-tree-view input:focus-visible,
+.ce-tree-view textarea:focus,
+.ce-tree-view textarea:focus-visible,
+.ce-tree-view select:focus,
+.ce-tree-view select:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+
+/*
+  Skip link — WCAG 2.4.1 "Bypass Blocks"
+  Ukryty poza ekranem, widoczny po sfokusowaniu klawiaturą.
+*/
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 9999;
+}
+
+.skip-link:focus-visible {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  padding: 8px 16px;
+  background: #2B6CB0;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 4px;
+  text-decoration: none;
+  outline: 3px solid #ffffff !important;
+  outline-offset: 2px !important;
+}

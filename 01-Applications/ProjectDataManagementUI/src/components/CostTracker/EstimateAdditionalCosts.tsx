@@ -15,6 +15,7 @@ import { Plus, Edit2, List } from "lucide-react";
 import CostFormDrawer from "./CostFormDrawer";
 import CostListDrawer from "./CostListDrawer";
 import type { CostEstimateSummaryWeb, TrackerAdditionalCostsWeb } from "../../types/costTracker.types";
+import { formatDateShort } from "../../utils/formatters";
 
 const fmt = (value: number | null): string => {
   if (value === null || value === undefined) return "—";
@@ -109,7 +110,7 @@ export default function EstimateAdditionalCosts({
                 <Text fontWeight="medium" color="neutral.700" noOfLines={1} flex={1}>{cost.name}</Text>
                 <HStack spacing={3} flexShrink={0} color="neutral.500">
                   <Text>{fmt(cost.net)} PLN</Text>
-                  {cost.date && <Text>{new Date(cost.date).toLocaleDateString("pl-PL")}</Text>}
+                  {cost.date && <Text>{formatDateShort(cost.date)}</Text>}
                 </HStack>
               </HStack>
             ))}

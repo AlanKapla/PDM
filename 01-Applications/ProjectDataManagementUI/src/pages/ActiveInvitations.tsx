@@ -1,4 +1,5 @@
 ﻿import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -9,52 +10,77 @@ import {
   Button,
   HStack,
   Stack,
+  Badge,
 } from "@chakra-ui/react";
-import { Mail } from "lucide-react";
+import { Mail, FolderKanban } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
-import { acceptTenantInvitation } from "../services/tenantService";
-import { useActiveInvitations, tenantKeys } from "../hooks/queries";
+import { formatDateShort } from "../utils/formatters";
+import { acceptTenantInvitation, changeActiveTenant } from "../services/tenantService";
+import {
+  useActiveInvitations,
+  tenantKeys,
+} from "../hooks/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToastNotification } from "../hooks/useToastNotification";
-import { handleApiError } from "../utils/handleApiError";
-import type { TenantInvitationWeb } from "../types/auth.types";
 import { InvitationStatus } from "../types/auth.types";
+import type { TenantInvitationWeb } from "../types/auth.types";
+import { PROJECT_MODULE_LABELS, ProjectModule } from "../types/projectModulePermissions";
 
-export default function ActiveInvitations() {
+export default function ActiveInvitations(): React.ReactElement {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: allInvitations = [], isLoading: loading } = useActiveInvitations();
-  const invitations = allInvitations.filter(
-    (inv) => inv.status === InvitationStatus.Pending
+  const { data: tenantInvitations = [], isLoading: loadingTenant } = useActiveInvitations();
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const {showError, showApiSuccess, showApiError } = useToastNotification();
+
+  const pendingTenant = tenantInvitations.filter(
+    (inv) => inv.status === InvitationStatus.Pending && !inv.projectId
   );
-  const [acceptingInvitationId, setAcceptingInvitationId] = useState<string | null>(null);
-  
-  const { showSuccess, showError, showApiSuccess } = useToastNotification();
+  const pendingProject = tenantInvitations.filter(
+    (inv) => inv.status === InvitationStatus.Pending && inv.projectId
+  );
+  const loading = loadingTenant;
+  const hasAny = pendingTenant.length > 0 || pendingProject.length > 0;
 
   const cardBg = useColorModeValue("white", "gray.800");
   const pageBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
-  const handleAcceptInvitation = async (invitationId: string, token: string, tenantName: string) => {
-    setAcceptingInvitationId(invitationId);
+  const handleAcceptTenant = async (invitationId: string, token: string, tenantId: string): Promise<void> => {
+    setAcceptingId(invitationId);
     try {
-      const success = await acceptTenantInvitation(token);
-      
-      if (success) {
-        queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
-        queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
-        
-        showApiSuccess('inviteAccepted');
-      } else {
-        showError("Nie udało się zaakceptować zaproszenia", "Zaproszenie może być nieaktualne lub wygasłe");
-      }
+      await acceptTenantInvitation(token);
+      await changeActiveTenant(tenantId);
+      queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
+      showApiSuccess("inviteAccepted");
     } catch (error) {
-      console.error("Błąd akceptacji zaproszenia:", error);
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
-      setAcceptingInvitationId(null);
+      setAcceptingId(null);
     }
   };
+
+  const handleAcceptProject = async (inv: TenantInvitationWeb): Promise<void> => {
+    setAcceptingId(inv.invitationId);
+    try {
+      await acceptTenantInvitation(inv.token);
+      await changeActiveTenant(inv.tenantId);
+      queryClient.invalidateQueries({ queryKey: tenantKeys.invitations() });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.my() });
+      showApiSuccess("inviteAccepted");
+      if (inv.projectId) {
+        navigate(`/projects/${inv.projectId}`);
+      }
+    } catch (error) {
+      showApiError(error);
+    } finally {
+      setAcceptingId(null);
+    }
+  };
+
+  const formatModules = (modules: number[]): string =>
+    modules.map((m) => PROJECT_MODULE_LABELS[m as ProjectModule]).join(", ");
 
   if (loading) {
     return (
@@ -71,14 +97,12 @@ export default function ActiveInvitations() {
     <MainLayout>
       <Box bg={pageBg} minH="100vh" p={{ base: 4, md: 6 }}>
         <VStack spacing={8} maxW="1200px" mx="auto" align="stretch">
-          {/* Header */}
           <HStack spacing={3} flexWrap="wrap">
             <Mail size={32} />
             <Heading size={{ base: "md", md: "lg" }}>Aktywne zaproszenia</Heading>
           </HStack>
 
-          {/* Lista zaproszeń */}
-          {invitations.length === 0 ? (
+          {!hasAny ? (
             <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
               <VStack spacing={3}>
                 <Mail size={48} color="gray" />
@@ -86,73 +110,100 @@ export default function ActiveInvitations() {
                   Nie masz aktywnych zaproszeń
                 </Text>
                 <Text color="neutral.400" textAlign="center" fontSize="sm">
-                  Kiedy ktoś zaprosi Cię do organizacji, zobaczysz to tutaj
+                  Kiedy ktoś zaprosi Cię do organizacji lub projektu, zobaczysz to tutaj
                 </Text>
               </VStack>
             </Box>
           ) : (
-            <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
-              <Stack spacing={3}>
-                {invitations.map((invitation) => (
-                  <Box
-                    key={invitation.invitationId}
-                    p={4}
-                    rounded="lg"
-                    border="1px solid"
-                    borderColor={borderColor}
-                    bg="transparent"
-                  >
-                    <Stack direction={{ base: "column", md: "row" }} justify="space-between" align={{ base: "stretch", md: "center" }} spacing={3}>
-                      <VStack align="flex-start" spacing={2} flex={1}>
-                        <Text fontWeight="bold" fontSize={{ base: "md", md: "lg" }}>{invitation.tenantName}</Text>
-                        <VStack align="flex-start" spacing={1}>
-                          <HStack spacing={2}>
-                            <Text fontSize="sm" color="neutral.600">
-                              Zaproszenie od:
+            <Stack spacing={6}>
+              {pendingProject.length > 0 && (
+                <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
+                  <HStack mb={4}>
+                    <FolderKanban size={20} />
+                    <Heading size="sm">Zaproszenia do projektów</Heading>
+                    <Badge colorScheme="blue">{pendingProject.length}</Badge>
+                  </HStack>
+                  <Stack spacing={3}>
+                    {pendingProject.map((inv) => (
+                      <Box key={inv.invitationId} p={4} rounded="lg" border="1px solid" borderColor={borderColor}>
+                        <Stack direction={{ base: "column", md: "row" }} justify="space-between" spacing={3}>
+                          <VStack align="flex-start" spacing={1}>
+                            <Text fontWeight="bold">{inv.projectName}</Text>
+                            <Text fontSize="sm" color="neutral.600">Organizacja: {inv.tenantName}</Text>
+                            <Text fontSize="sm" color="neutral.500">
+                              Od: {inv.invitedByUserName} ({inv.invitedByUserEmail})
                             </Text>
-                            <Text fontSize="sm" fontWeight="medium">
-                              {invitation.invitedByUserName}
-                            </Text>
-                            <Text fontSize="xs" color="neutral.400">
-                              ({invitation.invitedByUserEmail})
-                            </Text>
-                          </HStack>
-                          <HStack spacing={2} flexWrap="wrap">
-                            <Text fontSize="xs" color="neutral.500">
-                              Wysłano: {new Date(invitation.createdAt).toLocaleDateString('pl-PL')}
+                            {inv.modules.length > 0 && (
+                              <Text fontSize="xs" color="neutral.500">
+                                Dostęp: {formatModules(inv.modules)}
+                              </Text>
+                            )}
+                            {inv.expiresAt && (
+                              <Text fontSize="xs" color="orange.500">
+                                Ważne do: {formatDateShort(inv.expiresAt)}
+                              </Text>
+                            )}
+                          </VStack>
+                          <Button
+                            size="sm"
+                            colorScheme="green"
+                            onClick={() => void handleAcceptProject(inv)}
+                            isLoading={acceptingId === inv.invitationId}
+                            isDisabled={acceptingId !== null}
+                          >
+                            Akceptuj
+                          </Button>
+                        </Stack>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {pendingTenant.length > 0 && (
+                <Box bg={cardBg} p={6} rounded="lg" shadow="md" borderWidth="1px" borderColor={borderColor}>
+                  <HStack mb={4}>
+                    <Mail size={20} />
+                    <Heading size="sm">Zaproszenia do organizacji</Heading>
+                    <Badge colorScheme="purple">{pendingTenant.length}</Badge>
+                  </HStack>
+                  <Stack spacing={3}>
+                    {pendingTenant.map((invitation) => (
+                      <Box key={invitation.invitationId} p={4} rounded="lg" border="1px solid" borderColor={borderColor}>
+                        <Stack direction={{ base: "column", md: "row" }} justify="space-between" spacing={3}>
+                          <VStack align="flex-start" spacing={1}>
+                            <Text fontWeight="bold">{invitation.tenantName}</Text>
+                            <Text fontSize="sm" color="neutral.500">
+                              Od: {invitation.invitedByUserName} ({invitation.invitedByUserEmail})
                             </Text>
                             {invitation.expiresAt && (
-                              <>
-                                <Text fontSize="xs" color="neutral.500">
-                                  •
-                                </Text>
-                                <Text fontSize="xs" color="orange.500">
-                                  Ważne do: {new Date(invitation.expiresAt).toLocaleDateString('pl-PL')}
-                                </Text>
-                              </>
+                              <Text fontSize="xs" color="orange.500">
+                                Ważne do: {formatDateShort(invitation.expiresAt)}
+                              </Text>
                             )}
-                          </HStack>
-                        </VStack>
-                      </VStack>
-                      <Button
-                        size="sm"
-                        colorScheme="green"
-                        onClick={() => handleAcceptInvitation(
-                          invitation.invitationId,
-                          invitation.token,
-                          invitation.tenantName
-                        )}
-                        isLoading={acceptingInvitationId === invitation.invitationId}
-                        isDisabled={acceptingInvitationId !== null}
-                        width={{ base: "100%", md: "auto" }}
-                      >
-                        Akceptuj
-                      </Button>
-                    </Stack>
-                  </Box>
-                ))}
-              </Stack>
-            </Box>
+                          </VStack>
+                          <Button
+                            size="sm"
+                            colorScheme="green"
+                            onClick={() =>
+                              void handleAcceptTenant(
+                                invitation.invitationId,
+                                invitation.token,
+                                invitation.tenantId
+                              )
+                            }
+                            isLoading={acceptingId === invitation.invitationId}
+                            isDisabled={acceptingId !== null}
+                          >
+                            Akceptuj
+                          </Button>
+                        </Stack>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
           )}
         </VStack>
       </Box>

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.ProjectDashboard;
 using CQRS.ProjectDashboard.GetProjectDashboard;
 using MediatR;
@@ -25,7 +25,7 @@ namespace WebApi.Controllers
         /// <param name="projectId">Project ID</param>
         /// <returns>Cost tracker details with project summary, per-estimate summaries and project-level additional costs</returns>
         [HttpGet]
-        [Authorize(Policy = PermissionCodes.ProjectEdit)]
+        [Authorize(Policy = PermissionCodes.ProjectDashboardTracker)]
         [ProducesResponseType(typeof(ProjectDashboardWeb), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]

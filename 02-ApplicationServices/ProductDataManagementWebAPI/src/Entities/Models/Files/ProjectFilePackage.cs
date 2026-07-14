@@ -41,6 +41,15 @@ namespace Entities.Models.Files
         public TenantMember CreatedByTenantMember { get; set; } = default!;
         
         /// <summary>
+        /// Parent package id (null = root directory)
+        /// </summary>
+        public Guid? ParentId { get; set; }
+
+        // Navigation
+        public ProjectFilePackage? Parent { get; set; }
+        public ICollection<ProjectFilePackage> Children { get; set; } = new List<ProjectFilePackage>();
+
+        /// <summary>
         /// Files belonging to this package
         /// </summary>
         public ICollection<ProjectFile> Files { get; set; } = new List<ProjectFile>();

@@ -1,16 +1,7 @@
 ﻿using Business.Interfaces.Services;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Roles;
-using Entities.Models.Tenants;
-using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using Entities.Models.CostTrackers;
+using Entities.Models.WorkSchedules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
@@ -60,10 +51,7 @@ namespace Business.Implementation.Services
             Guid costEstimateId = workSchedule.CostEstimateId.Value;
 
             List<CostEstimateGroup> allGroups = (await costEstimateGroupRepo.GetBySearch(
-                g => g.CostEstimateId == costEstimateId && !g.IsDeleted,
-                include => include
-                    .Include(g => g.FieldValues)
-                    .ThenInclude(fv => fv.FieldDefinition)))
+                g => g.CostEstimateId == costEstimateId && !g.IsDeleted))
                 .ToList();
 
             List<WorkScheduleStage> allStages = (await stageRepo.GetBySearch(
@@ -206,11 +194,7 @@ namespace Business.Implementation.Services
 
         private static string ResolveGroupName(CostEstimateGroup group, int order)
         {
-            string? nameValue = group.FieldValues
-                .FirstOrDefault(fv => fv.FieldDefinition.FieldType == FieldType.GroupName)
-                ?.StringValue;
-
-            return !string.IsNullOrWhiteSpace(nameValue) ? nameValue : $"Nazwa etapu {order}";
+            return !string.IsNullOrWhiteSpace(group.Name) ? group.Name : $"Nazwa etapu {order}";
         }
 
         private async Task SyncWorksFromItemsAsync(
@@ -220,10 +204,7 @@ namespace Business.Implementation.Services
             CancellationToken cancellationToken)
         {
             List<CostEstimateItem> allItems = (await costEstimateItemRepo.GetBySearch(
-                i => i.CostEstimateId == costEstimateId && !i.IsDeleted,
-                include => include
-                    .Include(i => i.FieldValues)
-                    .ThenInclude(fv => fv.FieldDefinition)))
+                i => i.CostEstimateId == costEstimateId && !i.IsDeleted))
                 .ToList();
 
             HashSet<Guid> stageIds = stageByGroupId.Values.Select(s => s.Id).ToHashSet();
@@ -353,18 +334,12 @@ namespace Business.Implementation.Services
 
         private static bool IsWorkScopeItem(CostEstimateItem item)
         {
-            return item.FieldValues.Any(fv =>
-                fv.FieldDefinition.FieldType == FieldType.ItemSystemIsWorkScope &&
-                fv.BoolValue == true);
+            return item.IsStageWork && item.RelationType == ItemRelationType.None;
         }
 
         private static string ResolveItemName(CostEstimateItem item, int order)
         {
-            string? nameValue = item.FieldValues
-                .FirstOrDefault(fv => fv.FieldDefinition.FieldType == FieldType.ItemSystemName)
-                ?.StringValue;
-
-            return !string.IsNullOrWhiteSpace(nameValue) ? nameValue : $"Zakres pracy {order}";
+            return !string.IsNullOrWhiteSpace(item.Name) ? item.Name : $"Zakres pracy {order}";
         }
 
         private async Task DeleteDependenciesForWorksAsync(

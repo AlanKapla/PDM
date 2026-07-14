@@ -2,53 +2,72 @@
    Dashboard responsive & UX styles
    ============================================================ */
 
-/* Tab bar — horizontal scroll on mobile, hidden scrollbar */
-.dashboard-tabs-bar {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.dashboard-tabs-bar::-webkit-scrollbar {
-  display: none;
+.dashboard-page {
+  width: 100%;
+  max-width: 100%;
 }
 
-/* Tab buttons — 44px touch target on mobile */
-@media (max-width: 768px) {
-  .dashboard-tab-btn {
-    min-height: 44px;
-  }
-  .dashboard-action-btn {
-    min-height: 44px;
-  }
+.dashboard-summary-grid {
+  width: 100%;
 }
 
-/* Top overview grid: 2-col → 1-col on narrow screens */
-.dashboard-overview-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-@media (max-width: 560px) {
-  .dashboard-overview-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* 3-col KPI grid → 2-col on very small screens */
 .dashboard-kpi-3col {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 12px;
   margin-bottom: 16px;
+  width: 100%;
 }
-@media (max-width: 400px) {
-  .dashboard-kpi-3col {
-    grid-template-columns: 1fr 1fr;
+
+.dashboard-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.dashboard-table-wrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.dashboard-finance-grid,
+.dashboard-schedules-grid,
+.dashboard-general-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.dashboard-chart-row-full {
+  grid-column: 1 / -1;
+}
+
+.dashboard-chart-card {
+  min-height: 120px;
+  width: 100%;
+}
+
+@media (min-width: 1400px) {
+  .dashboard-finance-grid,
+  .dashboard-schedules-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* Table horizontal scroll wrapper */
-.dashboard-table-wrap {
-  overflow-x: auto;
+@media (max-width: 640px) {
+  .dashboard-finance-grid,
+  .dashboard-schedules-grid,
+  .dashboard-general-charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dashboard-general-charts-grid {
+  margin-bottom: 24px;
 }

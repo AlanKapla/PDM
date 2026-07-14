@@ -13,22 +13,21 @@ namespace Entities.Models.Costs
         public Guid UserId { get; set; }
 
         /// <summary>
-        /// Czy koszt został zaakceptowany (włączony do trackera)
+        /// Status akceptacji kosztu
         /// </summary>
-        public bool IsAccepted { get; set; } = false;
+        public CostApprovalStatus ApprovalStatus { get; set; } = CostApprovalStatus.Draft;
 
         /// <summary>
         /// ID użytkownika, który zaakceptował koszt
         /// </summary>
-        public Guid? AcceptedByUserId { get; set; }
+        public Guid? ApprovedByUserId { get; set; }
 
         /// <summary>
         /// Data akceptacji kosztu
         /// </summary>
-        public DateTime? AcceptedAt { get; set; }
+        public DateTime? ApprovedAt { get; set; }
 
         // Navigation
         public virtual ProjectMember ProjectMember { get; set; } = default!;
-        public virtual ICollection<SharedProjectCost> SharedWith { get; set; } = new List<SharedProjectCost>();
     }
 }

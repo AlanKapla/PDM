@@ -18,5 +18,6 @@ export function DashboardCurrencyProvider({
   );
 }
 
-export const useDashboardCurrency = (): string =>
-  useContext(DashboardCurrencyContext);
+export function useDashboardCurrency(): string {
+  return useContext(DashboardCurrencyContext);
+}

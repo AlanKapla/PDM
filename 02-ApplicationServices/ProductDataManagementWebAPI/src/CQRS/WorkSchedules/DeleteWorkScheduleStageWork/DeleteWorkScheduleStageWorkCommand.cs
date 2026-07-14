@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using CQRS.WorkSchedules.Shared;
 using MediatR;
 
@@ -8,6 +8,6 @@ namespace CQRS.WorkSchedules.DeleteWorkScheduleStageWork
     {
         public Guid WorkScheduleStageWorkId { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectSchedule;
     }
 }

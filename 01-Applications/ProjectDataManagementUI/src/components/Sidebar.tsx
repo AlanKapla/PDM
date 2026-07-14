@@ -19,7 +19,6 @@ import {
   Building2,
   FolderKanban,
   Briefcase,
-  FileText,
   Settings,
   RefreshCw,
   Mail,
@@ -29,7 +28,7 @@ import {
 import { useLocation, Link as RouterLink } from "react-router-dom";
 import { useContext } from "react";
 import { InvitationStatus } from "../types/auth.types";
-import { useActiveInvitations } from "../hooks/queries";
+import { useActiveInvitations, useActiveProjectInvitations } from "../hooks/queries";
 import { ChatUnreadContext } from "../context/ChatUnreadContext";
 
 // ===== SIDEBAR CONTENT COMPONENT =====
@@ -38,10 +37,15 @@ export function SidebarContent() {
   const { totalUnread } = useContext(ChatUnreadContext);
   const { data: invitations = [] } = useActiveInvitations({
     refetchInterval: 30000,
+    refetchIntervalInBackground: false,
   });
-  const invitationsCount = invitations.filter(
-    (inv) => inv.status === InvitationStatus.Pending
-  ).length;
+  const { data: projectInvitations = [] } = useActiveProjectInvitations({
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+  });
+  const invitationsCount =
+    invitations.filter((inv) => inv.status === InvitationStatus.Pending).length +
+    projectInvitations.filter((inv) => inv.status === InvitationStatus.Pending).length;
 
   const activeBg = useColorModeValue("primary.100", "primary.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
@@ -166,22 +170,7 @@ export function SidebarContent() {
         Zaplanowane prace
       </Button>
 
-      {/* Szablony kosztorysów */}
-      <Button
-        as={RouterLink}
-        to="/cost-estimate-templates"
-        variant="ghost"
-        justifyContent="flex-start"
-        leftIcon={<FileText size={20} />}
-        w="100%"
-        bg={location.pathname === "/cost-estimate-templates" ? activeBg : "transparent"}
-        _hover={{ bg: hoverBg, textDecoration: "none" }}
-        textDecoration="none"
-      >
-        Szablony kosztorysów
-      </Button>
-
-      {/* Ustawienia */}
+      {/* Zaplanowane prace */}
       <Button
         as={RouterLink}
         to="/profile"

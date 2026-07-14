@@ -26,8 +26,9 @@ import {
   Spinner,
   useBreakpointValue
 } from "@chakra-ui/react";
-import { X, Upload, FileText, Package } from "lucide-react";
+import { X, Upload, FileText } from "lucide-react";
 import { handleApiError } from "../utils/handleApiError";
+import { flattenCatalogsForSelect } from "../utils/flattenCatalogsForSelect";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { FILE_UPLOAD } from "../utils/constants";
@@ -41,6 +42,8 @@ interface UploadFilesModalProps {
   projectId: string;
   projectName: string;
   onFilesUploaded: () => void;
+  /** Gdy ustawione — tryb direct: upload wprost do tego katalogu, bez wyboru */
+  targetCatalogId?: string;
 }
 
 interface FileWithDisplayName {
@@ -59,7 +62,9 @@ export default function UploadFilesModal({
   projectId,
   projectName,
   onFilesUploaded,
+  targetCatalogId,
 }: UploadFilesModalProps) {
+  const isDirect = !!targetCatalogId;
   const [mode, setMode] = useState<"new" | "existing">("new");
   const [packageName, setPackageName] = useState("");
   const [selectedPackageId, setSelectedPackageId] = useState("");
@@ -68,11 +73,20 @@ export default function UploadFilesModal({
   const [files, setFiles] = useState<FileWithDisplayName[]>([]);
   const [uploading, setUploading] = useState(false);
   const [packageNameError, setPackageNameError] = useState("");
-  const { showSuccess, showError } = useToastNotification();
+  const [parentDirectoryId, setParentDirectoryId] = useState<string>("");
+  const {showSuccess, showError, showApiError } = useToastNotification();
 
   useEffect(() => {
     if (isOpen) {
-      fetchMyPackages();
+      setFiles([]);
+      setPackageNameError("");
+      if (!isDirect) {
+        setMode("new");
+        setPackageName("");
+        setSelectedPackageId("");
+        setParentDirectoryId("");
+        fetchMyPackages();
+      }
     }
   }, [isOpen, tenantId, projectId]);
 
@@ -83,7 +97,7 @@ export default function UploadFilesModal({
       const data: ProjectFilePackageWeb[] = response.data;
       setPackages(data);
     } catch (error) {
-      showError("Błąd", "Nie udało się pobrać listy paczek");
+      showError("Błąd", "Nie udało się pobrać listy katalogów");
     } finally {
       setLoadingPackages(false);
     }
@@ -137,24 +151,49 @@ export default function UploadFilesModal({
   };
 
   const handleUpload = async () => {
-    // Walidacja
-    if (mode === "new" && !packageName.trim()) {
-      setPackageNameError("Nazwa paczki jest wymagana");
+    if (isDirect) {
+      if (files.length === 0) {
+        showError("Błąd", "Dodaj przynajmniej jeden plik");
+        return;
+      }
+      setUploading(true);
+      try {
+        const filesToUpload = files.map(f => ({
+          file: f.file,
+          displayName: f.displayName.trim() || undefined,
+          comment: f.comment.trim() || undefined,
+        }));
+        await projectApi.addFilesToPackage(tenantId, projectId, targetCatalogId!, filesToUpload);
+        showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? 'plik' : 'plików'}`);
+        setFiles([]);
+        onFilesUploaded();
+        onClose();
+      } catch (error) {
+        showApiError(error);
+      } finally {
+        setUploading(false);
+      }
       return;
     }
 
-    // Sprawdź czy paczka o tej nazwie już istnieje w paczkach użytkownika
+    // Tryb picker — walidacja
+    if (mode === "new" && !packageName.trim()) {
+      setPackageNameError("Nazwa katalogu jest wymagana");
+      return;
+    }
+
+    // Sprawdź czy katalog o tej nazwie już istnieje
     if (mode === "new") {
       const trimmedName = packageName.trim().toLowerCase();
       const duplicate = packages.find(p => p.name.toLowerCase() === trimmedName);
       if (duplicate) {
-        setPackageNameError("Paczka o tej nazwie już istnieje. Wybierz inną nazwę lub dodaj pliki do istniejącej paczki.");
+        setPackageNameError("Katalog o tej nazwie już istnieje. Wybierz inną nazwę lub dodaj pliki do istniejącego katalogu.");
         return;
       }
     }
 
     if (mode === "existing" && !selectedPackageId) {
-      showError("Błąd", "Wybierz paczkę");
+      showError("Błąd", "Wybierz katalog");
       return;
     }
 
@@ -178,7 +217,8 @@ export default function UploadFilesModal({
           tenantId,
           projectId,
           packageName.trim(),
-          filesToUpload
+          filesToUpload,
+          parentDirectoryId || undefined
         );
       } else {
         await projectApi.addFilesToPackage(
@@ -195,12 +235,12 @@ export default function UploadFilesModal({
       setMode("new");
       setPackageName("");
       setSelectedPackageId("");
+      setParentDirectoryId("");
       setFiles([]);
       onFilesUploaded();
       onClose();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setUploading(false);
     }
@@ -211,18 +251,11 @@ export default function UploadFilesModal({
       setMode("new");
       setPackageName("");
       setSelectedPackageId("");
+      setParentDirectoryId("");
       setFiles([]);
       setPackageNameError("");
       onClose();
     }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   return (
@@ -235,7 +268,9 @@ export default function UploadFilesModal({
       >
       <ModalOverlay />
       <ModalContent maxW={{ base: "100%", md: "600px" }} mx={{ base: 0, md: "auto" }}>
-        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>Dodaj pliki do projektu</ModalHeader>
+        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
+          {isDirect ? "Dodaj pliki do katalogu" : "Dodaj pliki do projektu"}
+        </ModalHeader>
         <ModalCloseButton isDisabled={uploading} />
         <ModalBody>
           <VStack spacing={4} align="stretch">
@@ -243,76 +278,99 @@ export default function UploadFilesModal({
               Projekt: <Text as="span" fontWeight="bold">{projectName}</Text>
             </Text>
 
-            <FormControl>
-              <FormLabel>Tryb dodawania</FormLabel>
-              <RadioGroup value={mode} onChange={(value) => setMode(value as "new" | "existing")}>
-                <Stack direction="row" spacing={4}>
-                  <Radio value="new" isDisabled={uploading}>
-                    Nowa paczka
-                  </Radio>
-                  <Radio value="existing" isDisabled={uploading}>
-                    Istniejąca paczka
-                  </Radio>
-                </Stack>
-              </RadioGroup>
-            </FormControl>
+            {!isDirect && (
+              <>
+                <FormControl>
+                  <FormLabel>Tryb dodawania</FormLabel>
+                  <RadioGroup value={mode} onChange={(value) => setMode(value as "new" | "existing")}>
+                    <Stack direction="row" spacing={4}>
+                      <Radio value="new" isDisabled={uploading}>
+                        Nowy katalog
+                      </Radio>
+                      <Radio value="existing" isDisabled={uploading}>
+                        Istniejący katalog
+                      </Radio>
+                    </Stack>
+                  </RadioGroup>
+                </FormControl>
 
-            {mode === "new" ? (
-              <FormControl isRequired isInvalid={!!packageNameError}>
-                <FormLabel>Nazwa paczki</FormLabel>
-                <Input
-                  value={packageName}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setPackageName(value);
-                    // Walidacja duplikatu nazwy na bieżąco
-                    if (value.trim() && packages.some(p => p.name.toLowerCase() === value.trim().toLowerCase())) {
-                      setPackageNameError("Paczka o tej nazwie już istnieje");
-                    } else {
-                      setPackageNameError("");
-                    }
-                  }}
-                  placeholder="np. Dokumentacja, Zdjęcia, Rysunki"
-                  isDisabled={uploading}
-                />
-                <FormErrorMessage>{packageNameError}</FormErrorMessage>
-                <Text fontSize="xs" color="neutral.500" mt={1}>
-                  Pliki zostaną zapisane w nowej paczce
-                </Text>
-              </FormControl>
-            ) : (
-              <FormControl isRequired>
-                <FormLabel>Wybierz paczkę</FormLabel>
-                {loadingPackages ? (
-                  <HStack justify="center" py={2}>
-                    <Spinner size="sm" />
-                    <Text fontSize="sm">Ładowanie paczek...</Text>
-                  </HStack>
-                ) : packages.length === 0 ? (
-                  <Text fontSize="sm" color="neutral.500">
-                    Nie masz jeszcze żadnych paczek. Przełącz się na "Nowa paczka".
-                  </Text>
-                ) : (
+                {mode === "new" ? (
                   <>
-                    <Select
-                      value={selectedPackageId}
-                      onChange={(e) => setSelectedPackageId(e.target.value)}
-                      placeholder="Wybierz paczkę"
-                      isDisabled={uploading}
-                      icon={<Package size={16} />}
-                    >
-                      {packages.map((pkg) => (
-                        <option key={pkg.id} value={pkg.id}>
-                          {pkg.name} ({pkg.totalFiles} {pkg.totalFiles === 1 ? 'plik' : 'plików'})
-                        </option>
-                      ))}
-                    </Select>
-                    <Text fontSize="xs" color="neutral.500" mt={1}>
-                      Pliki zostaną dodane do wybranej paczki
-                    </Text>
+                    <FormControl isRequired isInvalid={!!packageNameError}>
+                      <FormLabel>Nazwa katalogu</FormLabel>
+                      <Input
+                        value={packageName}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setPackageName(value);
+                          if (value.trim() && packages.some(p => p.name.toLowerCase() === value.trim().toLowerCase())) {
+                            setPackageNameError("Katalog o tej nazwie już istnieje");
+                          } else {
+                            setPackageNameError("");
+                          }
+                        }}
+                        placeholder="np. Dokumentacja, Zdjęcia, Rysunki"
+                        isDisabled={uploading}
+                      />
+                      <FormErrorMessage>{packageNameError}</FormErrorMessage>
+                      <Text fontSize="xs" color="neutral.500" mt={1}>
+                        Pliki zostaną zapisane w nowym katalogu
+                      </Text>
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Katalog nadrzędny (opcjonalnie)</FormLabel>
+                      <Select
+                        value={parentDirectoryId}
+                        onChange={(e) => setParentDirectoryId(e.target.value)}
+                        placeholder="Brak — utwórz jako katalog główny"
+                        isDisabled={uploading}
+                      >
+                        {flattenCatalogsForSelect(packages).map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <Text fontSize="xs" color="neutral.500" mt={1}>
+                        Jeśli nie wybierzesz, katalog zostanie dodany jako główny
+                      </Text>
+                    </FormControl>
                   </>
+                ) : (
+                  <FormControl isRequired>
+                    <FormLabel>Wybierz katalog</FormLabel>
+                    {loadingPackages ? (
+                      <HStack justify="center" py={2}>
+                        <Spinner size="sm" />
+                        <Text fontSize="sm">Ładowanie katalogów...</Text>
+                      </HStack>
+                    ) : packages.length === 0 ? (
+                      <Text fontSize="sm" color="neutral.500">
+                        Nie masz jeszcze żadnych katalogów. Przełącz się na "Nowy katalog".
+                      </Text>
+                    ) : (
+                      <>
+                        <Select
+                          value={selectedPackageId}
+                          onChange={(e) => setSelectedPackageId(e.target.value)}
+                          placeholder="Wybierz katalog"
+                          isDisabled={uploading}
+                        >
+                          {flattenCatalogsForSelect(packages).map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </Select>
+                        <Text fontSize="xs" color="neutral.500" mt={1}>
+                          Pliki zostaną dodane do wybranego katalogu
+                        </Text>
+                      </>
+                    )}
+                  </FormControl>
                 )}
-              </FormControl>
+              </>
             )}
 
             <FormControl>

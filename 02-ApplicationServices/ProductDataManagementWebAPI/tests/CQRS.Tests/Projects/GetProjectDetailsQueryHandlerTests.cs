@@ -123,7 +123,7 @@ public sealed class GetProjectDetailsQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenUserHasProjectMembership_ReturnsProjectMemberRoleCode()
+    public async Task Handle_WhenUserHasProjectMembership_ReturnsProjectMemberIsAdmin()
     {
         // Arrange
         Guid tenantId = Guid.NewGuid();
@@ -137,12 +137,21 @@ public sealed class GetProjectDetailsQueryHandlerTests
                 It.IsAny<Func<IQueryable<Project>, IIncludableQueryable<Project, object>>>()))
             .ReturnsAsync(project);
 
+        _currentUserMock
+            .Setup(u => u.GetProjectSnapshotAsync(projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ProjectCtxSnapshot(
+                ProjectId: projectId,
+                TenantId: tenantId,
+                ProjectPermissionCodes: new HashSet<string> { PermissionCodes.ProjectFiles },
+                IsProjectAdmin: false,
+                IsActive: true));
+
         ProjectMember membership = new ProjectMember
         {
             ProjectId = projectId,
             TenantId = tenantId,
             UserId = _currentUserMock.Object.Id,
-            MemberRole = new Entities.Models.Roles.Role { Code = RoleCodes.ProjectEditor },
+            IsAdmin = false,
         };
 
         _projectMemberRepoMock
@@ -157,6 +166,6 @@ public sealed class GetProjectDetailsQueryHandlerTests
         ProjectDetailsWeb result = await _handler.Handle(query, CancellationToken.None);
 
         // Assert
-        result.UserRoleCode.Should().Be(RoleCodes.ProjectEditor);
+        result.IsAdmin.Should().BeFalse();
     }
 }

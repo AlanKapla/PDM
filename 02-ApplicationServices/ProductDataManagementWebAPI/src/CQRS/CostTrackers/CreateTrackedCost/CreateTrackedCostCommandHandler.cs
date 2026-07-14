@@ -1,7 +1,8 @@
-﻿using Business.Interfaces.Model;
+using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostTrackers;
 using CQRS.CostTrackers.Shared;
+using CQRS.Projects.Shared;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
 using Entities.Models.Costs;
@@ -9,7 +10,6 @@ using Entities.Models.Chats;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
-using Entities.Models.Roles;
 using Entities.Models.Tenants;
 using Entities.Models.Users;
 using Entities.Models.WorkSchedules;
@@ -23,11 +23,13 @@ namespace CQRS.CostTrackers.CreateTrackedCost
         : TrackedCostMutationHandlerBase, IRequestHandler<CreateTrackedCostCommand, TrackedCostWeb>
     {
         private readonly IReadRepository<TrackedCost> trackedCostRepository;
+        private readonly IReadRepository<ProjectCostCategory> categoryRepo;
         private readonly ICostTrackerFinancialService financialService;
         private readonly ILogger<CreateTrackedCostCommandHandler> logger;
 
         public CreateTrackedCostCommandHandler(
             IReadRepository<TrackedCost> trackedCostRepository,
+            IReadRepository<ProjectCostCategory> categoryRepo,
             IReadRepository<CostEstimateItem> costEstimateItemRepository,
             IReadRepository<WorkScheduleStageWork> stageWorkRepository,
             ICostTrackerFinancialService financialService,
@@ -38,6 +40,7 @@ namespace CQRS.CostTrackers.CreateTrackedCost
             : base(currentUser, trackedCostRepository, costEstimateItemRepository, stageWorkRepository, attachmentService, contractorService)
         {
             this.trackedCostRepository = trackedCostRepository;
+            this.categoryRepo = categoryRepo;
             this.financialService = financialService;
             this.logger = logger;
         }
@@ -49,6 +52,9 @@ namespace CQRS.CostTrackers.CreateTrackedCost
             await ValidateTrackedCostLinksAsync(
                 request.CostEstimateItemId, request.WorkScheduleStageWorkId,
                 request.ProjectId, request.TenantId, cancellationToken);
+
+            await ProjectCostCategoryValidation.ValidateCategoryBelongsToProjectAsync(
+                request.CategoryId, request.ProjectId, categoryRepo, cancellationToken);
 
             (decimal? net, decimal? gross) = financialService.Calculate(request.Net, request.Gross);
 
@@ -64,6 +70,7 @@ namespace CQRS.CostTrackers.CreateTrackedCost
                 Net = net,
                 Gross = gross,
                 ContractorId = request.ContractorId,
+                CategoryId = request.CategoryId,
                 Date = request.Date,
                 CreatedAt = DateTime.UtcNow
             };
@@ -79,8 +86,9 @@ namespace CQRS.CostTrackers.CreateTrackedCost
                 cost, request.NewFiles, [], request.TenantId, request.ProjectId, cancellationToken);
 
             await LoadContractorNamesAsync(new List<BaseCost> { cost }, request.TenantId, cancellationToken);
+            await LoadCategoryInfoAsync(new List<BaseCost> { cost }, request.ProjectId, categoryRepo, cancellationToken);
 
-            return MapTrackedCostToWeb(cost, attachments);
+            return MapCostToWeb(cost, attachments);
         }
     }
 }

@@ -81,7 +81,15 @@ async function initializeApp() {
       ReactDOM.createRoot(root).render(
         <QueryClientProvider client={queryClient}>
           <MsalProvider instance={msalInstance}>
-            <ChakraProvider theme={theme}>
+            <ChakraProvider
+              theme={theme}
+              toastOptions={{
+                defaultOptions: {
+                  position: "top-right",
+                  isClosable: true,
+                },
+              }}
+            >
               <App />
             </ChakraProvider>
           </MsalProvider>

@@ -17,7 +17,7 @@ namespace CQRS.Contractors.CreateContractor
         public string? Country { get; init; }
         public string? Notes { get; init; }
 
-        public string PermissionCode => PermissionCodes.TenantEdit;
+        public string PermissionCode => PermissionCodes.TenantSettingsEdit;
         public ResourceRef GetResource() => new(TenantId: TenantId);
     }
 }

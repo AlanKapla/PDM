@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using MediatR;
 
 namespace CQRS.CostEstimates.DeleteCostEstimate
@@ -8,6 +8,6 @@ namespace CQRS.CostEstimates.DeleteCostEstimate
     /// </summary>
     public sealed record DeleteCostEstimateCommand : CostEstimateCommandBase, IRequestCommand<Unit>
     {
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.WebModels.CostEstimates;
 using MediatR;
 
@@ -12,6 +12,6 @@ namespace CQRS.CostEstimates.ReorderCostEstimateItems
         public Guid GroupId { get; init; }
         public List<ReorderItemDto> Items { get; init; } = new();
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

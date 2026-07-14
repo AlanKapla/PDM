@@ -22,6 +22,7 @@ namespace CQRS.Tenants.RemoveTenantMember
         private readonly IReadRepository<Notification> notificationRepo;
         private readonly INotificationSender notificationSender;
         private readonly ICurrentUser currentUser;
+        private readonly IProjectMembershipProvisioner projectMembershipProvisioner;
 
         public RemoveTenantMemberCommandHandler(
             IReadRepository<Tenant> tenantRepo,
@@ -30,7 +31,8 @@ namespace CQRS.Tenants.RemoveTenantMember
             IRepository<TenantPreferencesProfile> tenantPreferencesRepo,
             IReadRepository<Notification> notificationRepo,
             INotificationSender notificationSender,
-            ICurrentUser currentUser)
+            ICurrentUser currentUser,
+            IProjectMembershipProvisioner projectMembershipProvisioner)
         {
             this.tenantRepo = tenantRepo;
             this.userRepo = userRepo;
@@ -39,6 +41,7 @@ namespace CQRS.Tenants.RemoveTenantMember
             this.notificationRepo = notificationRepo;
             this.notificationSender = notificationSender;
             this.currentUser = currentUser;
+            this.projectMembershipProvisioner = projectMembershipProvisioner;
         }
 
         public async Task<Unit> Handle(RemoveTenantMemberCommand request, CancellationToken cancellationToken)
@@ -52,8 +55,30 @@ namespace CQRS.Tenants.RemoveTenantMember
                     && m.IsActive)
                 ?? throw new NotFoundApiException(nameof(TenantMember), $"Tenant: {request.TenantId}, User: {request.UserId}");
 
+            if (tenantMember.IsAdmin)
+            {
+                int adminCount = await tenantMemberRepo.CountAsync(
+                    m => m.TenantId == request.TenantId
+                         && m.IsActive
+                         && m.IsAdmin,
+                    cancellationToken);
+
+                if (adminCount <= 1)
+                {
+                    throw new ConflictApiException(
+                        nameof(TenantMember),
+                        request.UserId.ToString(),
+                        "Nie można usunąć ostatniego administratora tenanta.");
+                }
+            }
+
             tenantMember.IsActive = false;
             await tenantMemberRepo.Update(tenantMember);
+
+            await projectMembershipProvisioner.DeactivateAllProjectMembershipsAsync(
+                request.TenantId,
+                request.UserId,
+                cancellationToken);
 
             TenantPreferencesProfile? tenantProfile = await tenantPreferencesRepo.GetFirstBySearch(
                 p => p.UserId == request.UserId && p.ActiveTenantId == request.TenantId);

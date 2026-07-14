@@ -29,11 +29,9 @@ import {
 import { FolderKanban, User, Calendar, ArrowLeft, Users, FileText, DollarSign, Power, Edit2, Save, X, TrendingUp, Settings } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import AddProjectMemberModal from "../components/AddProjectMemberModal";
-import { handleApiError } from "../utils/handleApiError";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
 import WorkScheduleFormModal from "../components/WorkScheduleFormModal";
-import ShareCostModal from "../components/ShareCostModal";
 import { ManageFileShareModal } from "../components/ManageFileShareModal";
 import ShareFilesModal from "../components/ShareFilesModal";
 import { projectApi, ResourceScope } from "../api/projectApi";
@@ -43,11 +41,11 @@ import { useProjectPermissions } from "../hooks/useProjectPermissions";
 import { useProjectDetails, useProjectMembers, projectKeys } from '../hooks/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ProjectDetailsWeb } from "../types/project.types";
-import { getRoleName, getRoleColor } from "../constants/roleCodes";
 import { DeleteAlertDialog } from "../components/ui";
 import { useToastNotification } from "../hooks/useToastNotification";
 import type { WorkScheduleSummaryWeb } from "../types/workSchedule.types";
-import type { ProjectCostListItemWeb, SharedProjectCostWeb, ProjectFilePackageWeb } from "../types/project.types";
+import type { ProjectCostListItemWeb, ProjectFilePackageWeb } from "../types/project.types";
+import { formatDate } from "../utils/formatters";
 
 export default function ProjectDetails() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -59,7 +57,7 @@ export default function ProjectDetails() {
   const { isOpen: isUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
   const { isOpen: isUploadVersionModalOpen, onOpen: onUploadVersionModalOpen, onClose: onUploadVersionModalClose } = useDisclosure();
   const { isOpen: isWorkScheduleModalOpen, onClose: onWorkScheduleModalClose } = useDisclosure();
-  const { showSuccess, showError, showWarning, showApiSuccess } = useToastNotification();
+  const {showSuccess, showError, showWarning, showApiSuccess, showApiError } = useToastNotification();
 
   const {
     data: projectData,
@@ -94,10 +92,7 @@ export default function ProjectDetails() {
   const [, setLoadingWorkSchedules] = useState(false);
   const [, setProjectCosts] = useState<ProjectCostListItemWeb[]>([]);
   const [, setLoadingCosts] = useState(false);
-  const [, setSharedCosts] = useState<SharedProjectCostWeb[]>([]);
-  const [, setLoadingSharedCosts] = useState(false);
-  const [costToShare, setCostToShare] = useState<ProjectCostListItemWeb | null>(null);
-  const { isOpen: isShareCostModalOpen, onOpen: onShareCostModalOpen, onClose: onShareCostModalClose } = useDisclosure();
+
   const { isOpen: isManageShareModalOpen, onOpen: onManageShareModalOpen, onClose: onManageShareModalClose } = useDisclosure();
   const { isOpen: isShareFilesModalOpen, onClose: onShareFilesModalClose } = useDisclosure();
   const { isOpen: isToggleStatusOpen, onOpen: onToggleStatusOpen, onClose: onToggleStatusClose } = useDisclosure();
@@ -183,20 +178,6 @@ export default function ProjectDetails() {
     }
   };
 
-  const fetchSharedProjectCosts = async () => {
-    if (!user?.activeTenantId || !projectId) return;
-
-    setLoadingSharedCosts(true);
-    try {
-      const response = await projectApi.getSharedProjectCosts(user.activeTenantId, projectId);
-      setSharedCosts(response.data);
-    } catch (err) {
-      showError("Błąd", "Nie udało się pobrać udostępnionych kosztów");
-    } finally {
-      setLoadingSharedCosts(false);
-    }
-  };
-
   const _handleAddCost = async () => {
     if (!user?.activeTenantId || !projectId) return;
 
@@ -258,8 +239,7 @@ export default function ProjectDetails() {
 
       await fetchProjectCosts();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setAddingNewCost(false);
     }
@@ -275,7 +255,6 @@ export default function ProjectDetails() {
       description: cost.description || '',
       net: cost.net?.toString() || '',
       gross: (cost.gross ?? '').toString(),
-      isAccepted: cost.isAccepted,
       removeDocument: false,
     });
     setDocumentFile(null);
@@ -322,7 +301,6 @@ export default function ProjectDetails() {
           description: editingCostData.description || undefined,
           net: editingCostData.net ? parseFloat(editingCostData.net) : undefined,
           gross: editingCostData.gross ? parseFloat(editingCostData.gross) : undefined,
-          isAccepted: editingCostData.isAccepted ?? false,
           document: documentFile || undefined,
           removeDocument: editingCostData.removeDocument,
         }
@@ -335,8 +313,7 @@ export default function ProjectDetails() {
       setDocumentFile(null);
       await fetchProjectCosts();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError("Błąd", "Nie udało się zaktualizować kosztu");
+      showApiError(error);
     } finally {
       setSavingCost(false);
     }
@@ -346,11 +323,6 @@ export default function ProjectDetails() {
     setEditingCostId(null);
     setEditingCostData(null);
     setDocumentFile(null);
-  };
-
-  const _handleShareCost = (cost: ProjectCostListItemWeb) => {
-    setCostToShare(cost);
-    onShareCostModalOpen();
   };
 
   const _handleDeleteCost = async (costId: string) => {
@@ -368,8 +340,7 @@ export default function ProjectDetails() {
 
       await fetchProjectCosts();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError("Błąd", "Nie udało się usunąć kosztu");
+      showApiError(error);
     } finally {
       setDeletingCostId(null);
     }
@@ -412,17 +383,6 @@ export default function ProjectDetails() {
         newSet.add(fileId);
       }
       return newSet;
-    });
-  };
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("pl-PL", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   };
 
@@ -524,7 +484,7 @@ export default function ProjectDetails() {
       await fetchProjectDetails();
       await fetchMembers();
     } catch (error) {
-      const { title, description } = handleApiError(error);
+      showApiError(error);
     } finally {
       setRemovingMember(null);
       setMemberToRemove(null);
@@ -552,8 +512,7 @@ export default function ProjectDetails() {
       // Odśwież dane projektu
       await fetchProjectDetails();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setTogglingStatus(false);
     }
@@ -569,7 +528,7 @@ export default function ProjectDetails() {
 
     setUpdatingName(true);
     try {
-      await projectApi.updateProject(user.activeTenantId, projectId, { Name: editedName });
+      await projectApi.updateProject(user.activeTenantId, projectId, { name: editedName });
 
       showApiSuccess('nameUpdated');
 
@@ -582,8 +541,7 @@ export default function ProjectDetails() {
       });
       await fetchProjectDetails();
     } catch (error) {
-      const { title, description } = handleApiError(error);
-      showError(title, description);
+      showApiError(error);
     } finally {
       setUpdatingName(false);
     }
@@ -622,20 +580,7 @@ export default function ProjectDetails() {
                     <HStack spacing={{ base: 1, md: 2 }} flexWrap="wrap" justifyContent={{ base: "flex-start", md: "flex-end" }}>
                       {!isEditingName && (
                         <>
-                          {permissions.canManageStatus && (
-                            <Tooltip label={project.isActive ? "Dezaktywuj projekt" : "Aktywuj projekt"}>
-                              <Button
-                                size={{ base: "xs", md: "sm" }}
-                                variant="ghost"
-                                leftIcon={<Power size={16} />}
-                                colorScheme={project.isActive ? "red" : "green"}
-                                onClick={onToggleStatusOpen}
-                                fontSize={{ base: "xs", md: "sm" }}
-                              >
-                                {project.isActive ? "Dezaktywuj" : "Aktywuj"}
-                              </Button>
-                            </Tooltip>
-                          )}
+
                           {permissions.canEdit && (
                             <Button
                               size={{ base: "xs", md: "sm" }}
@@ -698,15 +643,12 @@ export default function ProjectDetails() {
                         <Text fontSize="2xl" fontWeight="bold">
                           {project.name}
                         </Text>
-                        <Badge colorScheme={project.isActive ? "green" : "gray"}>
-                          {project.isActive ? "Aktywny" : "Nieaktywny"}
-                        </Badge>
                       </HStack>
                       <Text fontSize="sm" color="neutral.500">
                         Utworzono: {formatDate(project.createdAt)}
                       </Text>
-                      <Badge colorScheme={getRoleColor(project.userRoleCode)}>
-                        {getRoleName(project.userRoleCode)}
+                      <Badge colorScheme={project.isAdmin ? "purple" : "blue"}>
+                        {project.isAdmin ? "Admin" : "Członek"}
                       </Badge>
                     </VStack>
                   )}
@@ -715,7 +657,7 @@ export default function ProjectDetails() {
 
               {/* ====================== SZYBKI DOSTĘP ======================= */}
               <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-                {(permissions.canViewMembers || permissions.canManageMembers) && (
+                {permissions.isAdmin && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -735,7 +677,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {(permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources) && (
+                {permissions.canViewSchedule && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -755,7 +697,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {permissions.hasAnyResourceAccess && (
+                {permissions.canViewFiles && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -775,7 +717,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {permissions.hasAnyResourceAccess && (
+                {permissions.canViewCosts && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -795,7 +737,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {(permissions.canReadResources || permissions.canWriteResources || permissions.canReadAllResources || permissions.canWriteAllResources || permissions.canReadSharedResources) && (
+                {permissions.canViewEstimates && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -815,7 +757,7 @@ export default function ProjectDetails() {
                   </Box>
                 )}
 
-                {permissions.hasAnyResourceAccess && (
+                {permissions.canDashboardTracker && (
                   <Box
                     as="button"
                     bg={cardBg}
@@ -871,28 +813,9 @@ export default function ProjectDetails() {
             tenantId={project.tenantId}
             projectId={project.id}
             projectName={project.name}
-            isAdmin={permissions.canManageMembers}
             onMemberAdded={() => {
               fetchMembers();
               fetchProjectDetails();
-            }}
-          />
-        )}
-
-        {/* Modal udostępniania kosztu */}
-        {isShareCostModalOpen && costToShare && user?.activeTenantId && projectId && (
-          <ShareCostModal
-            isOpen={isShareCostModalOpen}
-            onClose={() => {
-              onShareCostModalClose();
-              setCostToShare(null);
-            }}
-            tenantId={user.activeTenantId}
-            projectId={projectId}
-            cost={costToShare}
-            onCostShared={() => {
-              fetchProjectCosts();
-              fetchSharedProjectCosts();
             }}
           />
         )}

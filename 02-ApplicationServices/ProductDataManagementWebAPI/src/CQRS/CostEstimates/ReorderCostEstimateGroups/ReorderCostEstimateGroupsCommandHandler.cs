@@ -1,10 +1,9 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.CostEstimates;
 using Entities.Models.CostEstimates;
-using Entities.Models.CostEstimateTemplates;
 using MediatR;
 using Repositories.Repository.Interfaces;
 
@@ -41,9 +40,6 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
 
             accessLevel.EnsureCanModifyStructure();
 
-            CostEstimateTemplate template = await cacheService.GetTemplateAsync(costEstimate.TemplateId, cancellationToken)
-                ?? throw new NotFoundApiException(nameof(CostEstimateTemplate), costEstimate.TemplateId.ToString());
-
             // Load all non-deleted groups from cache for validation
             Dictionary<Guid, CostEstimateGroup> allGroupsDict = await cacheService.GetGroupsDictionaryAsync(
                 request.CostEstimateId, request.TenantId, request.ProjectId, cancellationToken);
@@ -73,11 +69,6 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
                         throw new NotFoundApiException("ParentGroup", dto.ParentGroupId.Value.ToString());
                     }
 
-                    if (!template.CanBranchGroups)
-                    {
-                        throw new ValidationApiException(
-                            "Template does not allow branching groups (subgroups)");
-                    }
                 }
             }
 
@@ -106,12 +97,6 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
                     level = parent.Level + 1;
                 }
 
-                if (template.MaxGroupLevel.HasValue && level > template.MaxGroupLevel.Value)
-                {
-                    throw new ValidationApiException(
-                        $"Group {dto.GroupId}: Level {level} exceeds maximum allowed level {template.MaxGroupLevel.Value}");
-                }
-
                 group.Level = level;
             }
 
@@ -125,3 +110,6 @@ namespace CQRS.CostEstimates.ReorderCostEstimateGroups
         }
     }
 }
+
+
+

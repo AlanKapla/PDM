@@ -1,50 +1,10 @@
-﻿import type { CostEstimateTemplateStructureWeb } from './costEstimate.types';
-
-// Existing types from costEstimate.types.ts
-export interface CostEstimateTemplate {
-  id: string;
-  name: string;
-  description?: string;
-  createdAt: string;
-  createdByUserId: string;
-  createdByUserName: string;
-  itemsCount: number;
-}
-
-export enum CostEstimateStatus {
+﻿export enum CostEstimateStatus {
   Draft = 0,
   InProgress = 1,
   ReadyForReview = 2,
   Approved = 3,
   Rejected = 4,
   Archived = 5,
-}
-
-// ========== FIELD TYPE CONFIGURATION (NEW) ==========
-
-export interface CostEstimateFieldTypeConfigWeb {
-  fieldType: number;        // FieldType enum as int
-  fieldScope: number;       // FieldScope enum as int
-  namePl: string;           // Localized name (PL)
-  valueTypeName: string;    // e.g., "Integer", "Decimal", "String", "Date", "Boolean", "file"
-  isNumeric: boolean;
-  isText: boolean;
-  isDate: boolean;
-  isBoolean: boolean;
-  isCollection: boolean;    // Option/collection type
-  isFile?: boolean;         // File upload field (ItemSystemFiles = 105) - default false
-}
-
-export interface FieldDefinitionWeb {
-  id: string;
-  fieldName: string;
-  label: string;
-  isSortable: boolean;
-  isFilterable: boolean;
-  /** Pole oznaczone jako tylko do odczytu — Restricted users nie mogą go edytować */
-  isReadOnly?: boolean;
-  fieldTypeConfig: CostEstimateFieldTypeConfigWeb;
-  childFields?: FieldDefinitionWeb[] | null;
 }
 
 // ========== NEW MUTATION DTOs ==========
@@ -99,58 +59,169 @@ export enum ItemRelationType {
 
 /**
  * DTO dla tworzenia/edycji pozycji kosztorysu
- * Może zawierać kolekcję Options jeśli ma pole ItemSystemOptions
+ * Może zawierać kolekcję Options jeśli relationType=1
  * Może zawierać kolekcję Components - wtedy NIE MOŻE mieć FieldValues!
  */
 export interface CostEstimateItemDto {
-  id?: string;  // null/undefined dla nowych pozycji
-  parentItemId?: string;  // ID pozycji nadrzędnej (jeśli to opcja lub komponent)
-  relationType: number;   // ItemRelationType: None=0, Option=1, Component=2
+  id?: string;              // null/undefined dla nowych pozycji
+  parentItemId?: string;    // ID pozycji nadrzędnej (jeśli to opcja lub komponent)
+  relationType: number;     // ItemRelationType: None=0, Option=1, Component=2
   order: number;
-  fieldValues: CostEstimateFieldValueDto[];
+  name?: string;            // NOWE — direct property
+  quantity?: number;        // NOWE — direct property
+  unit?: string;            // NOWE
+  unitPriceNet?: number;    // NOWE
+  vatRate?: number;         // NOWE
+  additionalFieldValues: CostEstimateAdditionalFieldValueDto[]; // NOWE
   options?: CostEstimateItemDto[];     // Kolekcja opcji - max 1 poziom zagnieżdżenia!
   components?: CostEstimateItemDto[];  // Kolekcja komponentów - jeśli są, FieldValues musi być puste!
+  /**
+   * @deprecated Użyj bezpośrednich właściwości i additionalFieldValues
+   */
+  fieldValues?: CostEstimateFieldValueDto[];
 }
 
 /**
  * DTO dla tworzenia/edycji grupy kosztorysu (rekurencyjna struktura)
  */
 export interface CostEstimateGroupDto {
-  id?: string;  // null/undefined dla nowych grup
+  id?: string;              // null/undefined dla nowych grup
   parentGroupId?: string;
   level: number;
   order: number;
-  fieldValues: CostEstimateGroupFieldValueDto[];
+  name?: string;            // NOWE — direct property
+  additionalFieldValues: CostEstimateAdditionalFieldValueDto[]; // NOWE
   items: CostEstimateItemDto[];
   childGroups: CostEstimateGroupDto[];
+  /**
+   * @deprecated Użyj name (direct property) i additionalFieldValues
+   */
+  fieldValues?: CostEstimateGroupFieldValueDto[];
 }
 
 /**
  * DTO dla tworzenia kosztorysu z pełną strukturą.
  * Waluta nie jest wysyłana — backend pobiera ją z ProjectCurrency projektu.
  */
-export interface CreateCostEstimateWithDataDto {
-  templateId: string;
-  selectedCurrencyId?: string;  // DEPRECATED: waluta pochodzi z ProjectCurrency, pole zachowane dla wstecznej kompatybilności
+export interface CreateCostEstimateDto {
   name: string;
   description?: string;
-  rootGroups?: CostEstimateGroupDto[];  // null lub pusta = pusty kosztorys
 }
 
 /**
- * DTO dla aktualizacji kosztorysu z pełną strukturą
+ * DTO dla aktualizacji metadanych kosztorysu (nazwa i opis).
  */
 export interface UpdateCostEstimateDto {
   name: string;
   description?: string;
-  status: CostEstimateStatus;
-  rootGroups: CostEstimateGroupDto[];
+}
+
+// ========== ADDITIONAL FIELDS (NEW ARCHITECTURE) ==========
+
+export enum AdditionalFieldType {
+  String = 0,
+  Decimal = 1,
+  Boolean = 2,
+  DateTime = 3,
+}
+
+/** Typ kolumny w schemacie kosztorysu — pola dodatkowe (0–9) i podstawowe (100+). */
+export enum CostEstimateFieldType {
+  Text = 0,
+  Number = 1,
+  Boolean = 2,
+  Date = 3,
+  Select = 4,
+
+  Name = 100,
+  Quantity = 101,
+  Unit = 102,
+  UnitPriceNet = 103,
+  VatRate = 104,
+  UnitPriceGross = 105,
+  NetValue = 106,
+  GrossValue = 107,
+  VatValue = 108,
+  IsSelected = 109,
+  IsStageWork = 110,
+  Files = 111,
+  Actions = 112,
+  ItemSystemOptions = 113,
+}
+
+/**
+ * Wpis schematu kolumn kosztorysu (pola podstawowe i dodatkowe).
+ */
+export interface CostEstimateFieldSchemaWeb {
+  id: string;
+  costEstimateId: string;
+  fieldName: string;
+  fieldKey: string;
+  fieldType: CostEstimateFieldType;
+  isBasicField: boolean;
+  isAdditionalField: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * Definicja pola dodatkowego w kosztorysie
+ */
+export interface CostEstimateAdditionalFieldWeb {
+  id: string;
+  costEstimateId: string;
+  name: string;           // "Kod CPV", "Uwagi"
+  fieldType: AdditionalFieldType;
+  order: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * Wartość pola dodatkowego (wspólna dla grup i pozycji)
+ */
+export interface CostEstimateAdditionalFieldValueWeb {
+  id: string;
+  additionalFieldId: string;
+  stringValue?: string;
+  decimalValue?: number;
+  boolValue?: boolean;
+  dateTimeValue?: string; // ISO 8601
+}
+
+/**
+ * Plik na pozycji (zastępuje CostEstimateFieldFileWeb)
+ */
+export interface CostEstimateItemFileWeb {
+  id: string;
+  itemId: string;
+  originalFileName: string;
+  contentType: string;
+  fileSize: number;
+  order: number;
+  sasUriPreview: string | null;
+  sasUriDownload: string | null;
+  createdAt: string;
+}
+
+/**
+ * DTO dla wartości pola dodatkowego
+ */
+export interface CostEstimateAdditionalFieldValueDto {
+  id?: string;
+  additionalFieldId: string;
+  stringValue?: string;
+  decimalValue?: number;
+  boolValue?: boolean;
+  dateTimeValue?: string;
 }
 
 // ========== RESPONSE DTOs ==========
 
 /**
  * Plik dołączony do pola kosztorysu typu ItemSystemFiles (fieldType = 105)
+ * @deprecated Użyj CostEstimateItemFileWeb
  */
 export interface CostEstimateFieldFileWeb {
   id: string;                     // GUID pliku
@@ -166,6 +237,7 @@ export interface CostEstimateFieldFileWeb {
 /**
  * Wartość pola w kosztorysie (wspólna dla grup i pozycji)
  * Wartość zwracana w odpowiednim polu typowanym w zależności od FieldType
+ * @deprecated Zastąpione przez bezpośrednie właściwości na encjach i CostEstimateAdditionalFieldValueWeb
  */
 export interface CostEstimateFieldValueWeb {
   id: string;
@@ -187,21 +259,34 @@ export type CostEstimateItemFieldValueWeb = CostEstimateFieldValueWeb;
 
 /**
  * Pozycja kosztorysu (z serwera)
- * Może zawierać kolekcję Options jeśli ma pole ItemSystemOptions
- * Może zawierać kolekcję Components - pozycja składa się z komponentów
+ * Może zawierać kolekcję Options jeśli relationType=1
+ * Może zawierać kolekcję Components - pozycja składa się z komponentów (relationType=2)
  */
 export interface CostEstimateItemWeb {
   id: string;
   groupId: string;
-  parentItemId?: string;     // ID pozycji nadrzędnej (jeśli to opcja lub komponent)
-  relationType?: number;     // ItemRelationType: None=0, Option=1, Component=2
+  parentItemId?: string;      // ID pozycji nadrzędnej (jeśli to opcja lub komponent)
+  relationType: number;       // ItemRelationType: None=0, Option=1, Component=2 — wymagane
   order: number;
-  netValue?: number;         // Obliczona wartość netto (z komponentów lub pól)
-  grossValue?: number;       // Obliczona wartość brutto
-  vatValue?: number;         // Obliczona wartość VAT
-  fieldValues: CostEstimateFieldValueWeb[];
+  name: string;               // NOWE — direct property
+  quantity?: number | null;   // null = pole wyczyszczone przez użytkownika
+  unit?: string;              // NOWE
+  unitPriceNet?: number;      // NOWE
+  vatRate?: number;           // NOWE
+  unitPriceGross?: number;    // NOWE
+  netValue?: number;          // Obliczona wartość netto (z komponentów lub pól)
+  grossValue?: number;        // Obliczona wartość brutto
+  vatValue?: number;          // Obliczona wartość VAT
+  isSelected: boolean;        // NOWE — default true
+  isStageWork: boolean;       // NOWE — domyślnie true dla pozycji głównych (None)
+  additionalFieldValues: CostEstimateAdditionalFieldValueWeb[]; // NOWE
   options?: CostEstimateItemWeb[];      // Kolekcja opcji (zagnieżdżonych pozycji)
   components?: CostEstimateItemWeb[];   // Kolekcja komponentów (składników pozycji)
+  files?: CostEstimateItemFileWeb[];    // NOWE — pliki na pozycji
+  /**
+   * @deprecated Użyj bezpośrednich właściwości (name, quantity, unit itd.) oraz additionalFieldValues
+   */
+  fieldValues?: CostEstimateFieldValueWeb[];
   createdAt: string;
   updatedAt?: string;
 }
@@ -214,15 +299,20 @@ export interface CostEstimateGroupWeb {
   parentGroupId?: string;
   level: number;
   order: number;
-  fieldValues: CostEstimateFieldValueWeb[];
+  name: string;                            // NOWE — zamiast FieldValues
   totalNet?: number;
   totalGross?: number;
   totalVat?: number;
+  additionalFieldValues: CostEstimateAdditionalFieldValueWeb[]; // NOWE
   lastCalculatedAt?: string;
   childGroups: CostEstimateGroupWeb[];
   items: CostEstimateItemWeb[];
   createdAt: string;
   updatedAt?: string;
+  /**
+   * @deprecated Użyj name (direct property) i additionalFieldValues
+   */
+  fieldValues?: CostEstimateFieldValueWeb[];
 }
 
 /**
@@ -232,16 +322,14 @@ export interface CostEstimateDetailsWeb {
   id: string;
   tenantId: string;
   projectId: string;
-  templateId: string;
-  templateName: string;
-  templateVersionNumber?: number;
-  selectedCurrencyId: string;
   selectedCurrencyCode: string;
   selectedCurrencySymbol?: string;
   name: string;
   description?: string;
   status: CostEstimateStatus;
   rootGroups: CostEstimateGroupWeb[];
+  fieldSchemas: CostEstimateFieldSchemaWeb[];
+  additionalFields: CostEstimateAdditionalFieldWeb[];
   totalNet?: number;
   totalGross?: number;
   totalVat?: number;
@@ -250,7 +338,10 @@ export interface CostEstimateDetailsWeb {
   lastCalculatedAt?: string;
   ownerId: string;
   ownerName: string;
-  templateStructure: CostEstimateTemplateStructureWeb;
+  /**
+   * @deprecated Zastąpione przez additionalFields. Zachowane dla kompatybilności wstecznej.
+   */
+  schema?: CostEstimateSchemaWeb;
   /** ID powiązanego harmonogramu (jeśli istnieje) */
   workScheduleId?: string;
   /** Poziom dostępu bieżącego użytkownika do kosztorysu */
@@ -266,8 +357,6 @@ export interface CostEstimateListItemWeb {
   id: string;
   tenantId: string;
   projectId: string;
-  templateId: string;
-  templateName: string;
   name: string;
   description?: string;
   status: CostEstimateStatus;
@@ -288,6 +377,20 @@ export interface CostEstimateListItemWeb {
   currencyCode?: string;
   /** Symbol waluty projektu (np. "zł", "€") */
   currencySymbol?: string;
+}
+
+// ========== COMPUTED FLAGS ==========
+
+/**
+ * Flagi blokowania pól finansowych — obliczane client-side na podstawie zasad kalkulacji
+ */
+export interface ComputedFlags {
+  netValueComputed: boolean;
+  vatValueComputed: boolean;
+  grossValueComputed: boolean;
+  unitPriceGrossComputed: boolean;
+  financialFieldsLockedByComponents: boolean;
+  financialFieldsLockedByOptions: boolean;
 }
 
 // ========== HELPER FUNCTIONS ==========
@@ -335,6 +438,14 @@ export interface ReorderItemDto {
 }
 
 /**
+ * DTO dla zmiany kolejności elementów potomnych (opcji/komponentów) w pozycji nadrzędnej
+ */
+export interface ReorderItemChildDto {
+  itemId: string;
+  order: number;
+}
+
+/**
  * Request body dla reorder grup
  */
 export interface ReorderGroupsRequestDto {
@@ -348,6 +459,14 @@ export interface ReorderGroupsRequestDto {
 export interface ReorderItemsRequestDto {
   costEstimateId: string;
   items: ReorderItemDto[];
+}
+
+/**
+ * Request body dla reorder elementów potomnych (opcji/komponentów)
+ */
+export interface ReorderItemChildrenRequestDto {
+  costEstimateId: string;
+  items: ReorderItemChildDto[];
 }
 
 /**
@@ -398,6 +517,7 @@ export type UpdateFieldValueRequestDto = UpsertFieldValueRequestDto;
 /**
  * Pobiera wartość z typowanego pola CostEstimateFieldValueWeb jako string
  * Używane do wyświetlania i edycji
+ * @deprecated Używaj bezpośrednich właściwości na encjach
  */
 export function getFieldValueAsString(fieldValue: CostEstimateFieldValueWeb | undefined): string | undefined {
   if (!fieldValue) return undefined;
@@ -420,6 +540,7 @@ export function getFieldValueAsString(fieldValue: CostEstimateFieldValueWeb | un
 
 /**
  * Pobiera wartość z typowanego pola jako number
+ * @deprecated Używaj bezpośrednich właściwości na encjach
  */
 export function getFieldValueAsNumber(fieldValue: CostEstimateFieldValueWeb | undefined): number {
   if (!fieldValue) return 0;
@@ -436,6 +557,7 @@ export function getFieldValueAsNumber(fieldValue: CostEstimateFieldValueWeb | un
 
 /**
  * Pobiera wartość z typowanego pola jako boolean
+ * @deprecated Używaj bezpośrednich właściwości na encjach
  */
 export function getFieldValueAsBoolean(fieldValue: CostEstimateFieldValueWeb | undefined): boolean {
   if (!fieldValue) return false;
@@ -452,6 +574,7 @@ export function getFieldValueAsBoolean(fieldValue: CostEstimateFieldValueWeb | u
 
 /**
  * Konwertuje wartość CostEstimateFieldValueWeb na DTO dla edycji
+ * @deprecated Używaj bezpośrednich właściwości na encjach i CostEstimateAdditionalFieldValueDto
  */
 export function convertFieldValueWebToDto(fv: CostEstimateFieldValueWeb): CostEstimateFieldValueDto {
   return {
@@ -488,26 +611,27 @@ function isFieldValueEmpty(fv: CostEstimateFieldValueWeb): boolean {
  * Pomija pola bez wartości (po co je wysyłać?).
  * Gdy pozycja ma komponenty — pomija pola kalkulowane (fieldScope === 2),
  * bo backend sam je wyliczy jako sumę z komponentów.
+ * @deprecated Używaj bezpośrednich właściwości i additionalFieldValues
  */
 export function convertItemWebToDto(item: CostEstimateItemWeb): CostEstimateItemDto {
-  const hasComponents = (item.components?.length ?? 0) > 0;
-
-  const fieldValues = item.fieldValues
-    .filter(fv => {
-      // Nie wysyłaj pól bez wartości
-      if (isFieldValueEmpty(fv)) return false;
-      // Nie wysyłaj pól kalkulowanych gdy pozycja ma komponenty
-      if (hasComponents && fv.fieldScope === 2) return false;
-      return true;
-    })
-    .map(convertFieldValueWebToDto);
-
   return {
     id: isTemporaryId(item.id) ? undefined : item.id,
     parentItemId: isTemporaryId(item.parentItemId) ? undefined : item.parentItemId,
     relationType: item.relationType ?? 0,
     order: item.order,
-    fieldValues,
+    name: item.name,
+    quantity: item.quantity ?? undefined,
+    unit: item.unit,
+    unitPriceNet: item.unitPriceNet,
+    vatRate: item.vatRate,
+    additionalFieldValues: (item.additionalFieldValues ?? []).map(fv => ({
+      id: fv.id,
+      additionalFieldId: fv.additionalFieldId,
+      stringValue: fv.stringValue,
+      decimalValue: fv.decimalValue,
+      boolValue: fv.boolValue,
+      dateTimeValue: fv.dateTimeValue,
+    })),
     options: item.options?.map(convertItemWebToDto),
     components: item.components?.map(convertItemWebToDto),
   };
@@ -516,6 +640,7 @@ export function convertItemWebToDto(item: CostEstimateItemWeb): CostEstimateItem
 /**
  * Konwertuje grupę z serwera na DTO dla edycji.
  * Pomija pola bez wartości.
+ * @deprecated Używaj bezpośrednich właściwości i additionalFieldValues
  */
 export function convertGroupWebToDto(group: CostEstimateGroupWeb): CostEstimateGroupDto {
   return {
@@ -523,23 +648,28 @@ export function convertGroupWebToDto(group: CostEstimateGroupWeb): CostEstimateG
     parentGroupId: isTemporaryId(group.parentGroupId) ? undefined : group.parentGroupId,
     level: group.level,
     order: group.order,
-    fieldValues: group.fieldValues
-      .filter(fv => !isFieldValueEmpty(fv))
-      .map(convertFieldValueWebToDto),
+    name: group.name,
+    additionalFieldValues: (group.additionalFieldValues ?? []).map(fv => ({
+      id: fv.id,
+      additionalFieldId: fv.additionalFieldId,
+      stringValue: fv.stringValue,
+      decimalValue: fv.decimalValue,
+      boolValue: fv.boolValue,
+      dateTimeValue: fv.dateTimeValue,
+    })),
     items: (group.items || []).map(convertItemWebToDto),
-    childGroups: (group.childGroups || []).map(convertGroupWebToDto)
+    childGroups: (group.childGroups || []).map(convertGroupWebToDto),
   };
 }
 
 /**
  * Konwertuje szczegóły kosztorysu na DTO dla edycji
+ * @deprecated Używaj bezpośrednich właściwości i additionalFieldValues
  */
 export function convertDetailsWebToUpdateDto(details: CostEstimateDetailsWeb): UpdateCostEstimateDto {
   return {
     name: details.name,
     description: details.description,
-    status: details.status,
-    rootGroups: details.rootGroups.map(convertGroupWebToDto)
   };
 }
 
@@ -556,9 +686,10 @@ export function createEmptyGroup(
     parentGroupId,
     level,
     order,
-    fieldValues: [],
+    name: '',
+    additionalFieldValues: [],
     items: [],
-    childGroups: []
+    childGroups: [],
   };
 }
 
@@ -571,54 +702,190 @@ export function createEmptyItem(order: number = 0, parentItemId?: string): CostE
     parentItemId,
     order,
     relationType: 0, // None
-    fieldValues: [],
-    options: undefined
+    name: '',
+    additionalFieldValues: [],
+    options: undefined,
   };
 }
 
-// ========== EXISTING TYPES (for compatibility) ==========
-// Keep existing types from the original file for backward compatibility
-// NOTE: Template versioning has been removed in the refactoring
+// ========== AI COST ESTIMATE GENERATION ==========
 
-export enum CalculatedFieldType {
-  UnitPriceNet = 0,
-  VatRate = 1,
-  UnitPriceGross = 2,
-  ValueNet = 3,
-  ValueGross = 4,
-  UnitVat = 5,
-  TotalVat = 6,
-  Discount = 7,
+/**
+ * Dane wejściowe od użytkownika — opis inwestycji.
+ * Mapuje się na AICostEstimateRequestWeb po stronie API.
+ */
+export interface AICostEstimateRequestDto {
+  /** Co budujesz? (wolny tekst) */
+  investmentType: string;
+  /** Stan wykończenia */
+  finishingStandard?: string;
+  /** Szacowany budżet brutto w PLN */
+  budget?: number;
+  /** Powierzchnia/zakres */
+  area?: number;
+  /** Jednostka powierzchni (m², mb, szt) */
+  areaUnit?: string;
+  /** Lokalizacja inwestycji */
+  location?: string;
+  /** Rok ukończenia */
+  completionYear?: number;
+  /** Dodatkowe wymagania */
+  additionalRequirements?: string;
 }
 
-export enum GenericFieldType {
-  Integer = 0,
-  Decimal = 1,
-  String = 2,
-  Boolean = 3,
-  Date = 4,
-  DateTime = 5,
+/**
+ * Wartość pola wygenerowana przez AI.
+ */
+export interface AIFieldValueDto {
+  fieldDefinitionId: string;
+  decimalValue?: number;
+  stringValue?: string;
+  boolValue?: boolean;
+  dateTimeValue?: string;
 }
 
-export enum GroupHeaderFieldType {
-  GroupName = 0,
-  GroupDescription = 1,
-  GroupNumber = 2,
-  StartDate = 3,
-  EndDate = 4,
-  Status = 5,
-  Notes = 6,
-  Responsible = 7,
-  Budget = 8,
-  Priority = 9,
+/**
+ * Pozycja kosztorysowa w podglądzie AI.
+ */
+export interface AIItemPreviewDto {
+  tempId: string;
+  name: string;
+  order: number;
+  fieldValues: AIFieldValueDto[];
 }
 
-export interface CostEstimateTemplateStructure {
-  canAddGroups: boolean;
-  canBranchGroups: boolean;
-  maxGroupLevel?: number;
-  groupDefinition: Record<string, unknown>;  // simplified - use Record instead of any
-  workScopeFieldsDefinition: Record<string, unknown>;  // simplified
-  summaryConfiguration?: Record<string, unknown>;
-  uiConfiguration?: Record<string, unknown>;
+/**
+ * Grupa kosztorysowa w podglądzie AI.
+ */
+export interface AIGroupPreviewDto {
+  tempId: string;
+  parentTempId?: string | null;
+  name: string;
+  order: number;
+  fieldValues: AIFieldValueDto[];
+  items: AIItemPreviewDto[];
+  children?: AIGroupPreviewDto[];
+}
+
+/**
+ * Podgląd kosztorysu wygenerowanego przez AI.
+ * NIE jest zapisany w bazie danych — służy do prezentacji i zatwierdzenia przez użytkownika.
+ */
+export interface AICostEstimatePreviewDto {
+  suggestedName: string;
+  suggestedDescription?: string | null;
+  groups: AIGroupPreviewDto[];
+  warnings: string[];
+}
+
+/**
+ * Żądanie zapisu zatwierdzonego podglądu AI.
+ */
+export interface CreateCostEstimateFromAIPreviewDto {
+  name: string;
+  description?: string;
+  preview: AICostEstimatePreviewDto;
+}
+
+// ========== SCHEMA-BASED STRUCTURE (DEPRECATED) ==========
+
+/**
+ * Definicja pola w schemacie kosztorysu (backend: CostEstimateFieldDefinitionWeb)
+ * @deprecated Zastąpione przez CostEstimateAdditionalFieldWeb
+ */
+export interface CostEstimateFieldDefinitionWeb {
+  id: string;
+  fieldName: string;               // Guid as string - fixed Guid for default fields
+  fieldScope: number;              // FieldScope enum (Group=0, ItemSystem=1, ItemCalculated=2, ItemGeneric=3)
+  fieldType: number;               // FieldType enum (0-99=Group, 100-199=ItemSystem, 200-299=ItemCalculated, 300-399=ItemGeneric)
+  label: string;                   // User-visible label
+  isSortable: boolean;
+  isFilterable: boolean;
+  isVisible: boolean;              // Show/hide in UI
+  isReadonly: boolean;             // Calculated fields are readonly
+  parentFieldId: string | null;    // For nested fields (e.g., options under main field)
+  order: number;                   // 0-based display order
+  isUserDefined: boolean;          // true = user added field (can delete), false = system field
+  canRename: boolean;              // All fields can be renamed (label change)
+  canDelete: boolean;              // Only user-defined fields can be deleted
+  childFields: CostEstimateFieldDefinitionWeb[] | null;  // Nested fields (for collections)
+}
+
+/**
+ * Schema kosztorysu — zbiór definicji pól (backend: CostEstimateSchemaWeb)
+ * @deprecated Zastąpione przez CostEstimateAdditionalFieldWeb[] w CostEstimateDetailsWeb.additionalFields
+ */
+export interface CostEstimateSchemaWeb {
+  id: string;
+  costEstimateId: string;
+  fieldDefinitions: CostEstimateFieldDefinitionWeb[];
+  createdAt: string;               // ISO 8601
+  updatedAt: string | null;        // ISO 8601
+}
+
+// CostEstimateDetailsWebWithSchema removed - CostEstimateDetailsWeb now uses schema directly
+
+// ========== FIELD VALUE TYPE HELPER ==========
+
+/**
+ * Określa typ wartości pola na podstawie fieldType (FieldType enum).
+ * Używane do autosave - mówi jakiego pola w DTO użyć (stringValue/decimalValue/boolValue/dateTimeValue).
+ * 
+ * FieldType ranges:
+ * - GroupHeader: 0-99 (0=Name string, 3=StartDate date, 4=EndDate date, 8=Budget numeric)
+ * - ItemSystem: 100-199 (100=Name string, 101=Quantity numeric, 102=Unit string, 104=Selected boolean, 105=Files string, 107=IsWorkScope boolean)
+ * - ItemCalculated: 200-299 (all numeric)
+ * - ItemGeneric: 300-399 (300=Integer numeric, 301=Decimal numeric, 302=String string, 303=Boolean boolean, 304=Date date, 305=DateTime date)
+ * @deprecated Używaj AdditionalFieldType zamiast FieldType
+ */
+export type FieldValueType = 'string' | 'numeric' | 'boolean' | 'date';
+
+/**
+ * @deprecated Używaj AdditionalFieldType
+ */
+export function getFieldValueTypeFromFieldType(fieldType: number): FieldValueType {
+  // GroupHeader: Budget = 8 is numeric
+  if (fieldType === 8) return 'numeric';
+  // GroupHeader: StartDate = 3, EndDate = 4 are dates
+  if (fieldType === 3 || fieldType === 4) return 'date';
+  
+  // ItemSystem: Quantity = 101 is numeric
+  if (fieldType === 101) return 'numeric';
+  // ItemSystem: Selected = 104, IsWorkScope = 107 are booleans
+  if (fieldType === 104 || fieldType === 107) return 'boolean';
+  
+  // ItemCalculated: 200-299 all numeric
+  if (fieldType >= 200 && fieldType <= 299) return 'numeric';
+  
+  // ItemGeneric:
+  if (fieldType === 300 || fieldType === 301) return 'numeric';  // Integer, Decimal
+  if (fieldType === 303) return 'boolean';  // Boolean
+  if (fieldType === 304 || fieldType === 305) return 'date';  // Date, DateTime
+  
+  // Everything else is string
+  return 'string';
+}
+
+/**
+ * Determines value type from a field definition (supports both old FieldDefinitionWeb with fieldTypeConfig 
+ * and new CostEstimateFieldDefinitionWeb with just fieldType).
+ */
+export function getFieldValueType(fieldDef: { 
+  fieldType?: number; 
+  fieldTypeConfig?: { isNumeric?: boolean; isBoolean?: boolean; isDate?: boolean; isText?: boolean } 
+}): FieldValueType {
+  const cfg = fieldDef?.fieldTypeConfig;
+  
+  // Prefer fieldTypeConfig if available
+  if (cfg) {
+    if (cfg.isNumeric) return 'numeric';
+    if (cfg.isBoolean) return 'boolean';
+    if (cfg.isDate) return 'date';
+    return 'string';
+  }
+  
+  // Fallback to fieldType
+  const ft = fieldDef?.fieldType;
+  if (ft === undefined) return 'string';
+  return getFieldValueTypeFromFieldType(ft);
 }

@@ -1,4 +1,4 @@
-﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Constants;
 using Entities.Models.CostEstimates;
 
 namespace CQRS.CostEstimates.AddCostEstimateItem
@@ -13,6 +13,6 @@ namespace CQRS.CostEstimates.AddCostEstimateItem
         public ItemRelationType RelationType { get; init; }
         public int Order { get; init; }
 
-        public override string PermissionCode => PermissionCodes.ProjectResourcesWrite;
+        public override string PermissionCode => PermissionCodes.ProjectEstimates;
     }
 }

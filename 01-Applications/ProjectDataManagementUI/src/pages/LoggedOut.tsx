@@ -1,14 +1,13 @@
 ﻿import { useEffect, useContext } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Button, Container, Heading, Text, VStack, Flex, Spinner } from "@chakra-ui/react";
-import { CheckCircle, LogIn, Home } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { Box, Button, Container, Link, Text, VStack, Flex, Spinner } from "@chakra-ui/react";
+import { LogIn } from "lucide-react";
 import { useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { loginRequest } from "../config/authConfig";
 import { AuthContext } from "../context/AuthContext";
 
 export default function LoggedOut() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { instance, inProgress } = useMsal();
   const { isAuthenticated, user, loading: authLoading } = useContext(AuthContext);
@@ -49,10 +48,10 @@ export default function LoggedOut() {
 
   if (isLoading) {
     return (
-      <Flex minH="100vh" align="center" justify="center">
+      <Flex minH="100vh" align="center" justify="center" bg="white">
         <VStack spacing={4}>
-          <Spinner size="xl" color="primary.500" thickness="4px" />
-          <Text>Przetwarzanie logowania...</Text>
+          <Spinner size="xl" color="gray.400" thickness="3px" />
+          <Text color="gray.500">Przetwarzanie logowania...</Text>
         </VStack>
       </Flex>
     );
@@ -61,49 +60,75 @@ export default function LoggedOut() {
   // If MSAL authenticated, wait for user profile
   if (isAuthenticated && authLoading) {
     return (
-      <Flex minH="100vh" align="center" justify="center">
+      <Flex minH="100vh" align="center" justify="center" bg="white">
         <VStack spacing={4}>
-          <Spinner size="xl" color="green.500" thickness="4px" />
-          <Text>Ładowanie profilu użytkownika...</Text>
+          <Spinner size="xl" color="gray.400" thickness="3px" />
+          <Text color="gray.500">Ładowanie profilu użytkownika...</Text>
         </VStack>
       </Flex>
     );
   }
   return (
-    <Container maxW="md" py={20}>
-      <VStack spacing={6} textAlign="center">
-        <CheckCircle size={64} color="green" />
-        <Heading size="lg">Wylogowano pomyślnie</Heading>
-        <Text color="neutral.600">
-          Zostałeś wylogowany z systemu. Twoja sesja została zamknięta.
-        </Text>
-        <Button
-          colorScheme="primary"
-          size="lg"
-          w="full"
-          onClick={handleLogin}
-          leftIcon={<LogIn size={20} />}
-          isLoading={isLoading}
-          loadingText="Przekierowywanie..."
-          _hover={{ transform: "translateY(-2px)", shadow: "lg" }}
-          transition="all 0.2s"
-        >
-          Zaloguj się ponownie
-        </Button>
+    <Flex minH="100vh" bg="white" align="flex-start" justify="center" pt="12vh" px={4}>
+      <Container maxW="440px">
+        <VStack spacing={12} align="center" textAlign="center">
 
-        <Button
-          variant="outline"
-          colorScheme="primary"
-          size="lg"
-          w="full"
-          onClick={() => navigate("/")}
-          leftIcon={<Home size={20} />}
-          _hover={{ transform: "translateY(-2px)", shadow: "lg" }}
-          transition="all 0.2s"
-        >
-          Powrót do strony głównej
-        </Button>
-      </VStack>
-    </Container>
+          {/* Logo */}
+          <VStack spacing={3}>
+            <Link href="https://brickly.pro" target="_blank" rel="noopener noreferrer">
+              <img src="/logo.png" alt="Brickly" style={{ height: "64px", width: "auto" }} />
+            </Link>
+          </VStack>
+
+          {/* Card */}
+          <Box
+            w="full"
+            bg="white"
+            border="1px solid"
+            borderColor="gray.200"
+            borderRadius="16px"
+            p={8}
+          >
+            <VStack spacing={4}>
+              <Text fontSize="sm" color="gray.500">
+                Zostałeś wylogowany z systemu.
+              </Text>
+              <Button
+                size="lg"
+                w="full"
+                bg="#0047AB"
+                color="white"
+                fontWeight={700}
+                borderRadius="10px"
+                _hover={{ bg: "#003A8C", transform: "translateY(-1px)" }}
+                transition="all 0.2s"
+                leftIcon={<LogIn size={18} />}
+                onClick={handleLogin}
+                isLoading={isLoading}
+                loadingText="Przekierowywanie..."
+              >
+                Zaloguj się ponownie
+              </Button>
+            </VStack>
+          </Box>
+
+          <Text fontSize="sm" color="gray.400" textAlign="center">
+            Kosztorysy · Harmonogramy · Pliki · Komunikacja
+          </Text>
+
+          <Link
+            href="https://brickly.pro"
+            target="_blank"
+            rel="noopener noreferrer"
+            fontSize="sm"
+            color="gray.400"
+            _hover={{ color: "#0047AB" }}
+          >
+            brickly.pro
+          </Link>
+
+        </VStack>
+      </Container>
+    </Flex>
   );
 }
