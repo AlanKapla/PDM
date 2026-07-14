@@ -8,6 +8,7 @@
         Documentation,
         ProjectCosts,
         CostEstimates,
-        CostTrackers
+        CostTrackers,
+        AICostImport
     }
 }

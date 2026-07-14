@@ -17,6 +17,7 @@ using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.Costs;
 using Entities.Models.CostTrackers;
+using Entities.Models.AI;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
@@ -332,7 +333,12 @@ namespace WebApi.Extensions
 
             services
                 .AddRepository<TrackedCost>()
+                .AddRepository<BaseCost>()
                 .AddRepository<BaseCostAttachment>();
+
+            services
+                .AddRepository<AICostImportBatch>()
+                .AddRepository<AICostImportItem>();
 
 
             return services;
@@ -402,6 +408,13 @@ namespace WebApi.Extensions
             services.AddScoped<IDocumentParserService, DocumentParserService>();
             services.AddScoped<ICostEstimateAIGeneratorService, CostEstimateAIGeneratorService>();
 
+            services.AddScoped<IAICostDocumentEnrichmentService, Business.Implementation.Services.AI.AICostDocumentEnrichmentService>();
+            services.AddScoped<IAICostImportBlobService, Business.Implementation.Services.AI.AICostImportBlobService>();
+            services.AddScoped<IAICostDuplicateDetectionService, Business.Implementation.Services.AI.AICostDuplicateDetectionService>();
+            services.AddScoped<IAICostImportNotificationService, Business.Implementation.Services.AI.AICostImportNotificationService>();
+            services.AddHostedService<Business.Implementation.Services.AI.AICostImportWorker>();
+            services.AddHostedService<Business.Implementation.Services.AI.AICostImportRetentionCleanupService>();
+
             return services;
         }
 
@@ -438,6 +451,7 @@ namespace WebApi.Extensions
             services.Configure<AzureAdB2CSettings>(config.GetSection(AzureAdB2CSettings.SectionName));
             services.Configure<SeedSettings>(config.GetSection(SeedSettings.SectionName));
             services.Configure<RedisSettings>(config.GetSection(RedisSettings.SectionName));
+            services.Configure<AICostImportOptions>(config.GetSection(AICostImportOptions.SectionName));
             return services;
         }
 

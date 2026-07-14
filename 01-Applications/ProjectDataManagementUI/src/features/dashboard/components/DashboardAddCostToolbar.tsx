@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button, HStack } from '@chakra-ui/react';
 import { Plus, Sparkles } from 'lucide-react';
 import { AICostImportModal } from '../../../components/CostTracker/AICostImportModal';
+import { AICostPendingBadge } from '../../../components/AICostReview/AICostPendingBadge';
 import type { ParsedCostDto } from '../../../types/ai.types';
 import { CostModal } from './CostModal';
 import type { TrackedCostWeb } from '../types/projectDashboard.types';
@@ -39,6 +40,7 @@ export function DashboardAddCostToolbar({
   return (
     <>
       <HStack spacing={2} flexWrap="wrap">
+        <AICostPendingBadge tenantId={tenantId} projectId={projectId} context="dashboard" />
         <Button
           size="sm"
           leftIcon={<Sparkles size={18} aria-hidden="true" />}

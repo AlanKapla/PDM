@@ -21,6 +21,7 @@ import ProjectFiles from "../pages/ProjectFiles";
 import ProjectParameters from "../pages/ProjectParameters";
 import ProjectCosts from "../pages/ProjectCosts";
 import ProjectSimpleCosts from "../pages/ProjectSimpleCosts";
+import AICostReviewPage from "../pages/AICostReviewPage";
 import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 import ChatPage from "../pages/ChatPage";
 import ProjectBudgetPage from "../pages/ProjectBudgetPage";
@@ -155,6 +156,24 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ProjectSimpleCosts />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/costs/ai-review"
+        element={
+          <ProtectedRoute>
+            <AICostReviewPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/projects/:projectId/dashboard/ai-review"
+        element={
+          <ProtectedRoute>
+            <AICostReviewPage />
           </ProtectedRoute>
         }
       />

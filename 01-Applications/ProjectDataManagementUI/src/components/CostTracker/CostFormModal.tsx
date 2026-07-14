@@ -46,7 +46,7 @@ import { costTrackerApi } from "../../api/costTrackerApi";
 import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
 import type { CostEstimateSummaryWeb, TrackerGroupWeb, CostFormValues } from "../../types/costTracker.types";
-import type { ParsedCostDto } from "../../types/ai.types";
+import type { ParsedCostDto, TrackedCostContext } from "../../types/ai.types";
 
 interface CostFormModalProps {
   isOpen: boolean;
@@ -146,6 +146,13 @@ export default function CostFormModal({
     () => flatGroups.find((fg) => fg.group.groupId === selectedGroupId)?.group,
     [flatGroups, selectedGroupId]
   );
+
+  const aiTrackedCostContext = useMemo((): TrackedCostContext | undefined => {
+    if (selectedItemId !== "additional" && selectedItemId !== "") {
+      return { costEstimateItemId: selectedItemId };
+    }
+    return undefined;
+  }, [selectedItemId]);
 
   const handleClose = () => {
     setActiveStep(0);
@@ -428,6 +435,7 @@ export default function CostFormModal({
           projectId={projectId}
           costType="TrackedCost"
           onParsed={handleAIParsed}
+          trackedCostContext={aiTrackedCostContext}
         />
       </>
     );
@@ -451,6 +459,7 @@ export default function CostFormModal({
         projectId={projectId}
         costType="TrackedCost"
         onParsed={handleAIParsed}
+        trackedCostContext={aiTrackedCostContext}
       />
     </>
   );

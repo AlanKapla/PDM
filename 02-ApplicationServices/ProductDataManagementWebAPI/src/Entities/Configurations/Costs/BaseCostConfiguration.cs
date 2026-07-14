@@ -101,6 +101,11 @@ namespace Entities.Configurations.Costs
                 .OnDelete(DeleteBehavior.NoAction);
 
             builder.HasIndex(x => x.CategoryId);
+
+            builder.Property(x => x.SourceFileHashSha256)
+                .HasMaxLength(64);
+
+            builder.HasIndex(x => new { x.TenantId, x.ProjectId, x.SourceFileHashSha256 });
         }
     }
 }

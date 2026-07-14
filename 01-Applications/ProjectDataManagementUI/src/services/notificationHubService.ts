@@ -2,6 +2,7 @@ import * as signalR from "@microsoft/signalr";
 import type { NotificationPayloadDto, NotificationMarkAsReadDto } from "../types/notification.types";
 import { msalInstance } from "../main";
 import { silentRequest } from "../config/authConfig";
+import { parseApiDateTime } from "../utils/dateTimeUtils";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -121,7 +122,8 @@ class NotificationHubService {
     this.connection.on("ReceiveNotification", (payload: NotificationPayloadDto) => {
       const receiveTimestamp = new Date().toISOString();
       const createdAt = payload.notification.createdAt;
-      const latencyMs = Date.now() - new Date(createdAt).getTime();
+      const parsedCreatedAt = parseApiDateTime(createdAt);
+      const latencyMs = parsedCreatedAt ? Date.now() - parsedCreatedAt.getTime() : 0;
       
       // Zapisz czas otrzymania
       this.lastNotificationTime = Date.now();

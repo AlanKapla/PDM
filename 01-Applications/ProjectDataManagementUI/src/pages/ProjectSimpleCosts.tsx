@@ -48,6 +48,7 @@ import { useToastNotification } from "../hooks/useToastNotification";
 import { formatCurrency, formatDate } from "../utils/formatters";
 import { CostModal } from "../features/dashboard/components/CostModal";
 import { AICostImportModal } from "../components/CostTracker/AICostImportModal";
+import { AICostPendingBadge } from "../components/AICostReview/AICostPendingBadge";
 import ExpenseCard from "../components/ExpenseCard";
 import DeleteAlertDialog from "../components/ui/DeleteAlertDialog";
 import type { ProjectCostListItemWeb, CostApprovalStatus } from "../types/project.types";
@@ -868,6 +869,13 @@ export default function ProjectSimpleCosts() {
               {project && <Text fontSize="sm" color="neutral.600">{project.name}</Text>}
             </VStack>
           </HStack>
+          {user?.activeTenantId && projectId && (
+            <AICostPendingBadge
+              tenantId={user.activeTenantId}
+              projectId={projectId}
+              context="costs"
+            />
+          )}
         </HStack>
 
         {!project || !resourcePerms.hasAnyAccess ? (

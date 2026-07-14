@@ -1,4 +1,5 @@
-﻿using Business.Interfaces.Constants;
+﻿using Business.Implementation.Utilities;
+using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
 using Business.Interfaces.Services;
 using Entities.Models.Notifications;
@@ -74,7 +75,8 @@ namespace Business.Implementation.Services
                 Type = MapType(notification.Type),
                 Title = notification.Title,
                 Message = notification.Message,
-                CreatedAt = notification.CreatedAt == default ? DateTime.UtcNow : notification.CreatedAt,
+                CreatedAt = UtcDateTimeHelper.SpecifyUtc(
+                    notification.CreatedAt == default ? DateTime.UtcNow : notification.CreatedAt),
                 IsRead = notification.IsRead,
                 MetadataJson = notification.Metadata != null ? JsonSerializer.Serialize(notification.Metadata) : null
             };

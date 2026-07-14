@@ -12,6 +12,7 @@ using Entities.Models.WorkSchedules;
 using Entities.Models.Base;
 using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
+using Entities.Models.AI;
 
 namespace Entities.Context
 {
@@ -59,6 +60,8 @@ namespace Entities.Context
         public DbSet<TrackedCost> TrackedCosts => Set<TrackedCost>();
         public DbSet<ProjectCost> ProjectCosts => Set<ProjectCost>();
         public DbSet<BaseCostAttachment> CostAttachments => Set<BaseCostAttachment>();
+        public DbSet<AICostImportBatch> AICostImportBatches => Set<AICostImportBatch>();
+        public DbSet<AICostImportItem> AICostImportItems => Set<AICostImportItem>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -69,6 +72,7 @@ namespace Entities.Context
             CancellationToken cancellationToken = default)
         {
             DateTime now = DateTime.UtcNow;
+            DateTimeOffset nowOffset = DateTimeOffset.UtcNow;
 
             foreach (EntityEntry<DeletableEntity> entry in ChangeTracker.Entries<DeletableEntity>())
             {
@@ -84,17 +88,40 @@ namespace Entities.Context
                 if (entry.State == EntityState.Added
                     && entry.Properties.Any(p => p.Metadata.Name == "CreatedAt"))
                 {
-                    entry.Property("CreatedAt").CurrentValue = now;
+                    PropertyEntry createdAtProperty = entry.Property("CreatedAt");
+                    createdAtProperty.CurrentValue = GetTimestampValue(
+                        createdAtProperty.Metadata.ClrType,
+                        now,
+                        nowOffset);
                 }
 
                 if (entry.State == EntityState.Modified
                     && entry.Properties.Any(p => p.Metadata.Name == "UpdatedAt"))
                 {
-                    entry.Property("UpdatedAt").CurrentValue = now;
+                    PropertyEntry updatedAtProperty = entry.Property("UpdatedAt");
+                    updatedAtProperty.CurrentValue = GetTimestampValue(
+                        updatedAtProperty.Metadata.ClrType,
+                        now,
+                        nowOffset);
                 }
             }
 
             return await base.SaveChangesAsync(cancellationToken);
+        }
+
+        private static object GetTimestampValue(Type propertyType, DateTime utcNow, DateTimeOffset utcNowOffset)
+        {
+            if (propertyType == typeof(DateTimeOffset))
+            {
+                return utcNowOffset;
+            }
+
+            if (propertyType == typeof(DateTimeOffset?))
+            {
+                return utcNowOffset;
+            }
+
+            return utcNow;
         }
     }
 }

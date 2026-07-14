@@ -54,3 +54,67 @@ export interface ParseCostDocumentRequest {
   file: File;
   costType: CostDocumentType;
 }
+
+export type AICostImportItemStatus =
+  | 'Queued'
+  | 'Processing'
+  | 'Pending'
+  | 'ErrorNeedsReview'
+  | 'Accepted'
+  | 'Rejected'
+  | 'DuplicateDetected'
+  | 'ExpiredDeleted';
+
+export interface TrackedCostContext {
+  costEstimateItemId?: string;
+  workScheduleStageWorkId?: string;
+}
+
+export interface SubmitAICostImportBatchRequest {
+  files: File[];
+  costType: CostDocumentType;
+  trackedCostContext?: TrackedCostContext;
+}
+
+export interface AICostImportBatchWeb {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  costDocumentType: CostDocumentType;
+  status: string;
+  totalFiles: number;
+  processedFiles: number;
+  pendingCount: number;
+  errorCount: number;
+  duplicateCount: number;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
+export interface AICostImportItemWeb {
+  id: string;
+  batchId: string;
+  tenantId: string;
+  projectId: string;
+  status: AICostImportItemStatus;
+  costDocumentType: CostDocumentType;
+  originalFileName: string;
+  contentType: string;
+  fileSizeBytes: number;
+  parsedData?: ParsedCostDto | null;
+  lastError?: string | null;
+  previewUrl?: string | null;
+  analyzedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateAICostImportItemRequest {
+  parsedData: ParsedCostDto;
+}
+
+export interface PendingAICostImportCountWeb {
+  pendingCount: number;
+  errorCount: number;
+  duplicateCount: number;
+}

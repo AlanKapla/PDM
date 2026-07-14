@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Drawer,
   DrawerOverlay,
@@ -28,7 +28,7 @@ import { costTrackerApi } from "../../api/costTrackerApi";
 import { costTrackerKeys } from "../../hooks/queries";
 import { handleApiError } from "../../utils/handleApiError";
 import type { TrackedCostWeb, CostFormValues } from "../../types/costTracker.types";
-import type { ParsedCostDto } from "../../types/ai.types";
+import type { ParsedCostDto, TrackedCostContext } from "../../types/ai.types";
 
 interface CostFormDrawerProps {
   isOpen: boolean;
@@ -119,6 +119,18 @@ export default function CostFormDrawer({
       setLinkWorkId(null);
     }
   };
+
+  const aiTrackedCostContext = useMemo((): TrackedCostContext | undefined => {
+    const itemId = linkItemId ?? costEstimateItemId ?? undefined;
+    const workId = linkWorkId ?? undefined;
+    if (!itemId && !workId) {
+      return undefined;
+    }
+    return {
+      costEstimateItemId: itemId,
+      workScheduleStageWorkId: workId,
+    };
+  }, [linkItemId, costEstimateItemId, linkWorkId]);
 
   const handleWorkChange = (workId: string | null, relatedEstimateItemId?: string | null) => {
     setLinkWorkId(workId);
@@ -288,6 +300,7 @@ export default function CostFormDrawer({
         projectId={projectId}
         costType="TrackedCost"
         onParsed={handleAIParsed}
+        trackedCostContext={aiTrackedCostContext}
       />
     )}
     </>
