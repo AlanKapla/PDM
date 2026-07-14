@@ -8,11 +8,13 @@ import {
   Grid,
   GridItem,
   HStack,
+  IconButton,
   Image,
   Text,
+  Tooltip,
   VStack,
 } from '@chakra-ui/react';
-import { Check, X } from 'lucide-react';
+import { Check, Eye, X } from 'lucide-react';
 import { AICostReviewItemForm } from './AICostReviewItemForm';
 import DeleteAlertDialog from '../ui/DeleteAlertDialog';
 import { useModal } from '../../hooks/useModal';
@@ -114,6 +116,13 @@ export function AICostReviewItem({
     }
   };
 
+  const handleOpenFullSizePreview = (): void => {
+    if (!item.previewUrl) {
+      return;
+    }
+    window.open(item.previewUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <>
       <Box
@@ -167,9 +176,23 @@ export function AICostReviewItem({
             bg="gray.50"
             minH="280px"
           >
-            <Text fontSize="sm" fontWeight="medium" mb={3} color="neutral.700">
-              Podgląd dokumentu
-            </Text>
+            <HStack justify="space-between" mb={3}>
+              <Text fontSize="sm" fontWeight="medium" color="neutral.700">
+                Podgląd dokumentu
+              </Text>
+              {item.previewUrl && isImagePreview && (
+                <Tooltip label="Otwórz w pełnym rozmiarze">
+                  <IconButton
+                    aria-label={`Otwórz dokument w pełnym rozmiarze: ${item.originalFileName}`}
+                    icon={<Eye size={16} aria-hidden="true" />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="level2"
+                    onClick={handleOpenFullSizePreview}
+                  />
+                </Tooltip>
+              )}
+            </HStack>
             {item.previewUrl && isImagePreview ? (
               <Image
                 src={item.previewUrl}

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useMsal, useIsAuthenticated, useAccount } from "@azure/msal-react";
 import { loginRequest } from "../config/authConfig";
+import { LegalLinks } from "../components/legal/LegalLinks";
 
 export default function Home() {
   const location = useLocation();
@@ -128,9 +129,12 @@ export default function Home() {
         right={0}
         textAlign="center"
       >
-        <Text fontSize="xs" color="gray.300">
-          © 2026 Brickly
-        </Text>
+        <VStack spacing={2}>
+          <LegalLinks size="xs" variant="footer" />
+          <Text fontSize="xs" color="gray.300">
+            © 2026 Brickly
+          </Text>
+        </VStack>
       </Box>
     </Flex>
   );

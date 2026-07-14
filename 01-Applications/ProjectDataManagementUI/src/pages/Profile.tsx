@@ -20,6 +20,7 @@ import { LoadingSpinner } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { axiosClient } from "../api/axiosClient";
 import { hasActiveTenant } from "../utils/tenantUtils";
+import { LegalLinks } from "../components/legal/LegalLinks";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -349,6 +350,10 @@ export default function Profile() {
               </>
             )}
           </VStack>
+        </Box>
+
+        <Box mt={6} textAlign="center">
+          <LegalLinks size="sm" variant="footer" />
         </Box>
       </Box>
     </MainLayout>

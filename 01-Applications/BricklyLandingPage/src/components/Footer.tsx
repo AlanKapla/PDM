@@ -2,6 +2,8 @@ import { useState, useRef } from 'react'
 import { Mail, Globe, Phone, Building, Receipt, Facebook, Instagram } from 'lucide-react'
 import { useScrollTo } from '../hooks/useScrollTo'
 import LegalModal from './LegalModal'
+import { PrivacyPolicyContent, TermsOfServiceContent } from '@pdm-shared/legal/legalContent'
+import '@pdm-shared/legal/legalContent.css'
 import './Footer.css'
 
 const FOOTER_LINKS = {
@@ -154,58 +156,7 @@ export default function Footer() {
         title="Polityka prywatności"
         returnFocusRef={privacyBtnRef}
       >
-        <h3>1. Administrator danych</h3>
-        <p>
-          Administratorem danych osobowych jest Alan Kapla Usługi Informatyczne,
-          NIP: 762-201-08-39. Kontakt w sprawach danych osobowych:{' '}
-          <a href="mailto:kontakt@brickly.pro">kontakt@brickly.pro</a>.
-        </p>
-
-        <h3>2. Cel i podstawa przetwarzania</h3>
-        <ul>
-          <li>Świadczenie usług platformy (art. 6 ust. 1 lit. b RODO — wykonanie umowy).</li>
-          <li>Komunikacja i obsługa konta (art. 6 ust. 1 lit. b RODO).</li>
-          <li>Wymagania prawne i podatkowe (art. 6 ust. 1 lit. c RODO).</li>
-        </ul>
-
-        <h3>3. Zakres przetwarzanych danych</h3>
-        <ul>
-          <li>Dane rejestracyjne: imię, nazwisko, adres e-mail.</li>
-          <li>Dane projektów: dokumenty, kosztorysy, harmonogramy i pliki wprowadzone przez użytkowników.</li>
-          <li>Dane techniczne: logi dostępu, adresy IP.</li>
-        </ul>
-
-        <h3>4. Okres przechowywania</h3>
-        <p>
-          Dane konta przechowywane są przez czas trwania umowy oraz przez 5 lat po jej zakończeniu
-          (wymogi podatkowe). Dane projektów przechowywane są do momentu usunięcia przez
-          użytkownika lub zamknięcia konta.
-        </p>
-
-        <h3>5. Prawa użytkowników</h3>
-        <p>
-          Każdemu użytkownikowi przysługuje prawo dostępu do danych, ich sprostowania,
-          usunięcia, ograniczenia przetwarzania, przenoszenia oraz wniesienia sprzeciwu.
-          Kontakt: <a href="mailto:kontakt@brickly.pro">kontakt@brickly.pro</a>.
-        </p>
-
-        <h3>6. Pliki cookie</h3>
-        <p>
-          Platforma używa wyłącznie cookie sesyjnych niezbędnych do prawidłowego działania serwisu.
-          Żadne cookie analityczne ani marketingowe nie są stosowane bez wyraźnej zgody.
-        </p>
-
-        <h3>7. Bezpieczeństwo</h3>
-        <p>
-          Dane przechowywane są w infrastrukturze chmurowej z szyfrowaniem TLS podczas
-          transmisji oraz szyfrowaniem danych w spoczynku.
-        </p>
-
-        <h3>8. Zmiany polityki</h3>
-        <p>
-          O wszelkich zmianach niniejszej polityki użytkownicy zostaną poinformowani
-          drogą e-mailową z co najmniej 14-dniowym wyprzedzeniem.
-        </p>
+        <PrivacyPolicyContent />
       </LegalModal>
 
       <LegalModal
@@ -214,64 +165,7 @@ export default function Footer() {
         title="Regulamin"
         returnFocusRef={termsBtnRef}
       >
-        <h3>1. Definicje</h3>
-        <ul>
-          <li><strong>Platforma</strong> — serwis Brickly dostępny pod adresem app.brickly.pro.</li>
-          <li><strong>Użytkownik</strong> — osoba fizyczna lub prawna korzystająca z Platformy.</li>
-          <li><strong>Organizacja</strong> — podmiot, w imieniu którego Użytkownik korzysta z Platformy.</li>
-          <li><strong>Operator</strong> — Alan Kapla Usługi Informatyczne, NIP: 762-201-08-39.</li>
-        </ul>
-
-        <h3>2. Warunki korzystania</h3>
-        <ul>
-          <li>Korzystanie z Platformy wymaga rejestracji z podaniem prawdziwych danych.</li>
-          <li>Użytkownik ponosi odpowiedzialność za bezpieczeństwo danych logowania.</li>
-          <li>Udostępnianie konta osobom trzecim jest zabronione.</li>
-        </ul>
-
-        <h3>3. Licencja i własność intelektualna</h3>
-        <ul>
-          <li>Platforma udostępniana jest na zasadzie licencji niewyłącznej, niezbywalnej.</li>
-          <li>Użytkownik zachowuje pełne prawa do własnych danych projektowych.</li>
-          <li>Kod źródłowy i interfejs Platformy stanowią własność Operatora.</li>
-        </ul>
-
-        <h3>4. Odpowiedzialność</h3>
-        <ul>
-          <li>Operator nie ponosi odpowiedzialności za błędy w danych wprowadzonych przez Użytkownika.</li>
-          <li>
-            Operator dołoży starań, aby Platforma była dostępna całą dobę, jednak nie gwarantuje
-            poziomu dostępności (SLA) w planie bezpłatnym.
-          </li>
-          <li>
-            Maksymalna odpowiedzialność Operatora ograniczona jest do wartości 3-miesięcznej opłaty
-            abonamentowej.
-          </li>
-        </ul>
-
-        <h3>5. Dane i prywatność</h3>
-        <p>
-          Zasady przetwarzania danych osobowych opisuje Polityka prywatności dostępna w stopce serwisu.
-        </p>
-
-        <h3>6. Rozwiązanie umowy</h3>
-        <ul>
-          <li>Użytkownik może w każdej chwili usunąć konto z poziomu ustawień Platformy.</li>
-          <li>Operator może zawiesić konto w przypadku naruszenia Regulaminu.</li>
-          <li>Dane usuwane są w ciągu 30 dni od zamknięcia konta.</li>
-        </ul>
-
-        <h3>7. Zmiany Regulaminu</h3>
-        <p>
-          O wszelkich zmianach Regulaminu Użytkownicy zostaną poinformowani drogą e-mailową
-          z co najmniej 14-dniowym wyprzedzeniem.
-        </p>
-
-        <h3>8. Prawo właściwe</h3>
-        <p>
-          Regulamin podlega prawu polskiemu. Wszelkie spory rozstrzygane są przed sądem
-          właściwym dla siedziby Operatora.
-        </p>
+        <TermsOfServiceContent />
       </LegalModal>
     </footer>
   )
