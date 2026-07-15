@@ -22,6 +22,7 @@ namespace CQRS.Users.UserSyncFromB2C
         private readonly IRepository<User> userRepo;
         private readonly ICurrentUser currentUser;
         private readonly IMicrosoftGraphService graphService;
+        private readonly IWelcomeEmailService welcomeEmailService;
         private readonly ILogger<UserSyncFromB2CCommandHandler> logger;
 
         public UserSyncFromB2CCommandHandler(
@@ -29,12 +30,14 @@ namespace CQRS.Users.UserSyncFromB2C
             IRepository<User> userRepo,
             ICurrentUser currentUser,
             IMicrosoftGraphService graphService,
+            IWelcomeEmailService welcomeEmailService,
             ILogger<UserSyncFromB2CCommandHandler> logger)
         {
             this.userReadRepo = userReadRepo;
             this.userRepo = userRepo;
             this.currentUser = currentUser;
             this.graphService = graphService;
+            this.welcomeEmailService = welcomeEmailService;
             this.logger = logger;
         }
 
@@ -62,7 +65,7 @@ namespace CQRS.Users.UserSyncFromB2C
                 u => u.AzureAdB2CObjectId == azureB2CObjectId,
                 cancellationToken);
 
-            if (existingUserByB2C != null)
+            if (existingUserByB2C is not null)
             {
                 logger.LogInformation(
                     "User with Azure B2C Object ID {ObjectId} already exists. Returning existing user ID {UserId}",
@@ -77,7 +80,7 @@ namespace CQRS.Users.UserSyncFromB2C
                 u => u.Email == email,
                 cancellationToken);
 
-            if (existingUserByEmail != null)
+            if (existingUserByEmail is not null)
             {
                 // Link existing user account with Azure B2C
                 existingUserByEmail.AzureAdB2CObjectId = azureB2CObjectId;
@@ -94,7 +97,7 @@ namespace CQRS.Users.UserSyncFromB2C
                 return existingUserByEmail.Id;
             }
 
-            var graphData = await graphService.GetUserDataAsync(azureB2CObjectId, cancellationToken);
+            UserGraphData? graphData = await graphService.GetUserDataAsync(azureB2CObjectId, cancellationToken);
 
             // Create new user from B2C
             User newUser = new()
@@ -109,6 +112,10 @@ namespace CQRS.Users.UserSyncFromB2C
             };
 
             await userRepo.Insert(newUser);
+
+            await welcomeEmailService.SendWelcomeEmailAsync(newUser, cancellationToken);
+            newUser.WelcomeEmailSentAt = DateTime.UtcNow;
+            await userRepo.Update(newUser);
 
             logger.LogInformation(
                 "Created new user {UserId} from Azure B2C with Object ID {ObjectId}",

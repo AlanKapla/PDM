@@ -390,6 +390,7 @@ namespace WebApi.Extensions
             services.AddScoped<WorkScheduleBuilder>();
             services.AddScoped<IWorkScheduleAIGeneratorService, WorkScheduleAIGeneratorService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IWelcomeEmailService, WelcomeEmailService>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<IProjectMembershipProvisioner, ProjectMembershipProvisioner>();
             services.AddSingleton<ICacheService, CacheService>();

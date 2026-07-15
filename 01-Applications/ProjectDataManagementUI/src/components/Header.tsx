@@ -19,6 +19,7 @@ import { User as UserIcon, RefreshCw, Building2, Home, LogIn } from "lucide-reac
 import { AuthContext } from "../context/AuthContext";
 import NotificationBell from "./NotificationBell";
 import DemoModeMenuItem from "./DemoModeMenuItem";
+import { SendWelcomeEmailsMenuItem } from "./SendWelcomeEmailsMenuItem";
 import { useMyTenants } from "../hooks/queries";
 import { hasActiveTenant } from "../utils/tenantUtils";
 import { useAppSession } from "../hooks/useAppSession";
@@ -204,6 +205,7 @@ export default function Header(_props: HeaderProps): ReactElement {
                     )}
 
                     <DemoModeMenuItem />
+                    <SendWelcomeEmailsMenuItem />
 
                     <MenuDivider />
 

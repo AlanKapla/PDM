@@ -57,6 +57,9 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   if (pathOnly === "/api/user/auth-status" && method === "get") {
     return ok({ isAuthenticated: true, userId: MOCK_DATA.userProfile.id });
   }
+  if (pathOnly === "/api/user/send-welcome-emails" && method === "post") {
+    return ok({ sentCount: 3, skippedCount: 0 });
+  }
 
   // ============================================
   //  TENANTS
