@@ -30,6 +30,7 @@ import { useContext } from "react";
 import { InvitationStatus } from "../types/auth.types";
 import { useActiveInvitations, useActiveProjectInvitations } from "../hooks/queries";
 import { ChatUnreadContext } from "../context/ChatUnreadContext";
+import { useAppSession } from "../hooks/useAppSession";
 
 // ===== SIDEBAR CONTENT COMPONENT =====
 export function SidebarContent() {
@@ -191,8 +192,12 @@ export function SidebarContent() {
 // ===== SIDEBAR COMPONENT =====
 export default function Sidebar() {
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isDemoOnlySession } = useAppSession();
   const bg = useColorModeValue("white", "gray.900");
   const border = useColorModeValue("gray.200", "gray.700");
+  const sidebarTop = isDemoOnlySession
+    ? { base: "112px", md: "108px" }
+    : { base: "60px", md: "60px" };
 
   return (
     <>
@@ -226,9 +231,13 @@ export default function Sidebar() {
       <Box
         position="fixed"
         left="0"
-        top="60px"
+        top={sidebarTop}
         w="250px"
-        h="calc(100vh - 60px)"
+        h={
+          isDemoOnlySession
+            ? { base: "calc(100vh - 112px)", md: "calc(100vh - 108px)" }
+            : "calc(100vh - 60px)"
+        }
         bg={bg}
         borderRight="1px solid"
         borderColor={border}

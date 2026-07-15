@@ -12,6 +12,7 @@ import type {
   RemovedFromChatPayload,
   ChatDeletedPayload,
 } from "../types/chat.types";
+import { isDemoOnlySession } from "../utils/demoSession";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -112,6 +113,10 @@ class ChatHubService {
   }
 
   async startConnection(): Promise<void> {
+    if (isDemoOnlySession()) {
+      return;
+    }
+
     const conn = this.getOrCreateConnection();
 
     if (conn.state === signalR.HubConnectionState.Connected) return;
@@ -147,10 +152,16 @@ class ChatHubService {
   // ---- Hub method invocations ----
 
   async joinChat(chatId: string): Promise<void> {
+    if (isDemoOnlySession()) {
+      return;
+    }
     await this.getOrCreateConnection().invoke("JoinChat", chatId);
   }
 
   async leaveChat(chatId: string): Promise<void> {
+    if (isDemoOnlySession()) {
+      return;
+    }
     await this.getOrCreateConnection().invoke("LeaveChat", chatId);
   }
 
@@ -159,6 +170,9 @@ class ChatHubService {
     content: string,
     replyToMessageId?: string | null
   ): Promise<void> {
+    if (isDemoOnlySession()) {
+      return;
+    }
     await this.getOrCreateConnection().invoke(
       "SendMessage",
       chatId,
@@ -168,14 +182,23 @@ class ChatHubService {
   }
 
   async markAsRead(chatId: string): Promise<void> {
+    if (isDemoOnlySession()) {
+      return;
+    }
     await this.getOrCreateConnection().invoke("MarkAsRead", chatId);
   }
 
   async startTyping(chatId: string): Promise<void> {
+    if (isDemoOnlySession()) {
+      return;
+    }
     await this.getOrCreateConnection().invoke("StartTyping", chatId);
   }
 
   async stopTyping(chatId: string): Promise<void> {
+    if (isDemoOnlySession()) {
+      return;
+    }
     await this.getOrCreateConnection().invoke("StopTyping", chatId);
   }
 

@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
+import { isDemoModeActive, setDemoMode } from "../api/mock";
 import { notificationHubService } from "../services/notificationHubService";
+import { chatHubService } from "../services/chatHubService";
 import type { UserProfile } from "../types/auth.types";
 
 interface AuthContextType {
@@ -38,17 +40,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Flaga zapobiegająca wielokrotnej inicjalizacji SignalR
   const [signalRInitialized, setSignalRInitialized] = useState(false);
 
-  // Fetch user profile when authenticated
+  // Fetch user profile when authenticated (MSAL) or in demo mode without login
   useEffect(() => {
     let isMounted = true;
+    let fetchInFlight = false;
 
-    const fetchUserProfile = async () => {
-      // Czekaj aż MSAL zakończy inicjalizację
+    const fetchUserProfile = async (force = false) => {
       if (inProgress !== "none") {
         return;
       }
 
-      if (!isAuthenticated) {
+      const demoActive = isDemoModeActive();
+      const canLoadProfile = isAuthenticated || demoActive;
+
+      if (!canLoadProfile) {
         if (isMounted) {
           setUser(null);
           setLoading(false);
@@ -56,37 +61,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Already have user - skip fetch
-      if (user) {
-        if (isMounted) setLoading(false);
+      if (!force && user) {
+        if (isMounted) {
+          setLoading(false);
+        }
         return;
       }
 
-      // Start fetching
-      if (isMounted) setLoading(true);
-      
+      if (fetchInFlight) {
+        return;
+      }
+
+      fetchInFlight = true;
+
+      if (isMounted) {
+        setLoading(true);
+      }
+
       try {
-        await axiosClient.post("/user/sync-b2c");
+        if (isAuthenticated) {
+          await axiosClient.post("/user/sync-b2c");
+        }
         const response = await axiosClient.get("/user/me");
-        
+
         if (isMounted) {
           setUser(response.data);
           setLoading(false);
         }
-      } catch (error: any) {
+      } catch {
         if (isMounted) {
           setUser(null);
           setLoading(false);
         }
+      } finally {
+        fetchInFlight = false;
       }
     };
 
-    fetchUserProfile();
+    void fetchUserProfile();
+
+    const handleDemoModeChanged = () => {
+      void fetchUserProfile(true);
+    };
+    window.addEventListener("pdm:demoModeChanged", handleDemoModeChanged);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("pdm:demoModeChanged", handleDemoModeChanged);
     };
-  }, [isAuthenticated, inProgress, user]); // Czekaj na MSAL initialization
+  }, [isAuthenticated, inProgress]);
 
   // ✅ SignalR init - startuje gdy isAuthenticated (NIE czekaj na user/me!)
   useEffect(() => {
@@ -219,28 +242,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: true };
   };
 
-  // Logout
-  // Logout - clear state and redirect to MSAL logout
+  // Logout - clear state and redirect to MSAL logout (or home for demo-only session)
   const logout = async () => {
-    
-    // ✅ Zatrzymaj SignalR przed wylogowaniem
-    try {
-      await notificationHubService.stopConnection();
-    } catch (error) {
+    const demoOnlySession = isDemoModeActive() && !isAuthenticated;
+
+    if (!demoOnlySession) {
+      try {
+        await notificationHubService.stopConnection();
+      } catch {
+      }
     }
-    
-    // Clear app state
+
     setUser(null);
-    
-    // Clear app storage (MSAL will handle its own cache)
-    Object.keys(localStorage).forEach(key => {
-      if (!key.startsWith('msal.')) {
+    setDemoMode(false);
+
+    if (demoOnlySession) {
+      try {
+        await chatHubService.stopConnection();
+      } catch {
+      }
+      sessionStorage.clear();
+      window.location.href = "/";
+      return;
+    }
+
+    Object.keys(localStorage).forEach((key) => {
+      if (!key.startsWith("msal.")) {
         localStorage.removeItem(key);
       }
     });
     sessionStorage.clear();
-    
-    // Redirect to MSAL logout (will clear MSAL cache and redirect to Azure logout)
+
     const account = instance.getActiveAccount() || accounts[0];
     await instance.logoutRedirect({ account });
   };
@@ -248,14 +280,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const setIsAuthenticated = (_value: boolean) => {
   };
 
-  // Refresh user data from /user/me (po zmianie aktywnego tenanta)
+  // Refresh user data from /user/me (po zmianie aktywnego tenanta lub trybu demo)
   const refreshUser = async () => {
-    if (!isAuthenticated) return;
-    
+    if (!isAuthenticated && !isDemoModeActive()) {
+      setUser(null);
+      return;
+    }
+
     try {
       const response = await axiosClient.get("/user/me");
       setUser(response.data);
-    } catch (error) {
+    } catch {
+      setUser(null);
     }
   };
 

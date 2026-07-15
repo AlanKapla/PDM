@@ -89,6 +89,10 @@ axiosClient.interceptors.request.use(
 axiosClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (isDemoModeActive()) {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
 
     // If 401 Unauthorized

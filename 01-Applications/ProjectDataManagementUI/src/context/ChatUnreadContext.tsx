@@ -10,6 +10,7 @@ import {
 import { chatApi } from "../api/chatApi";
 import { chatHubService } from "../services/chatHubService";
 import { AuthContext } from "./AuthContext";
+import { isDemoOnlySession } from "../utils/demoSession";
 
 interface ChatUnreadContextType {
   totalUnread: number;
@@ -31,10 +32,10 @@ export function ChatUnreadProvider({ children }: { children: ReactNode }) {
 
   // Inicjalizacja: połącz z hubem, pobierz czaty, dołącz do grup SignalR
   useEffect(() => {
-    // Używamy user.email zamiast user.id — email jest zawsze obecny w UserProfile
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
-    // Zapamiętaj userId jeśli dostępny
     if (user.id) {
       userIdRef.current = user.id;
     }
@@ -43,18 +44,29 @@ export function ChatUnreadProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
-        await chatHubService.startConnection();
-        if (cancelled) return;
-
         const chats = await chatApi.getChats(user.activeTenantId ?? null);
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         const counts: Record<string, number> = {};
         for (const chat of chats) {
           counts[chat.id] = chat.unreadCount;
-          chatHubService.joinChat(chat.id).catch(() => {});
         }
         setUnreadByChatId(counts);
+
+        if (isDemoOnlySession()) {
+          return;
+        }
+
+        await chatHubService.startConnection();
+        if (cancelled) {
+          return;
+        }
+
+        for (const chat of chats) {
+          chatHubService.joinChat(chat.id).catch(() => {});
+        }
       } catch {
         // Nie blokuj aplikacji gdy czaty są niedostępne
       }
@@ -64,8 +76,7 @@ export function ChatUnreadProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-    // user.email zamiast user.id — email jest non-optional w UserProfile
-  }, [user?.email]);
+  }, [user?.email, user?.activeTenantId]);
 
   // Nowa wiadomość → inkrementuj licznik tylko jeśli wiadomość nie pochodzi od nas
   useEffect(() => {

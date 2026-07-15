@@ -2,6 +2,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { isDemoModeActive } from "../api/mock";
 import { Button, Flex, Spinner, Text, VStack } from "@chakra-ui/react";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
@@ -83,9 +84,10 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
 
-  // Tylko jeśli MSAL i AuthContext są gotowe i user nie istnieje, przekieruj na home
-  if (!isAuthenticated || !user) {
-    // Zapisz aktualny URL w state, aby móc wrócić po zalogowaniu
+  const demoAuthenticated = isDemoModeActive() && user !== null;
+  const msalAuthenticated = isAuthenticated && user !== null;
+
+  if (!msalAuthenticated && !demoAuthenticated) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 

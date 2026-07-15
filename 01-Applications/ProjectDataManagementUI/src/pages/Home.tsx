@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import { useMsal, useIsAuthenticated, useAccount } from "@azure/msal-react";
 import { loginRequest } from "../config/authConfig";
 import { LegalLinks } from "../components/legal/LegalLinks";
+import { DemoModeHomeToggle } from "../components/DemoModeHomeToggle";
 
 export default function Home() {
   const location = useLocation();
@@ -101,6 +102,7 @@ export default function Home() {
               >
                 Zaloguj się / Zarejestruj
               </Button>
+              <DemoModeHomeToggle />
             </VStack>
           </Box>
 

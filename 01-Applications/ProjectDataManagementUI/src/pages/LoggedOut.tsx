@@ -6,6 +6,7 @@ import { useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { loginRequest } from "../config/authConfig";
 import { AuthContext } from "../context/AuthContext";
+import { DemoModeHomeToggle } from "../components/DemoModeHomeToggle";
 
 export default function LoggedOut() {
   const location = useLocation();
@@ -109,6 +110,7 @@ export default function LoggedOut() {
               >
                 Zaloguj się ponownie
               </Button>
+              <DemoModeHomeToggle />
             </VStack>
           </Box>
 

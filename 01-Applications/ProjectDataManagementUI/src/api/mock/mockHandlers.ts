@@ -6,8 +6,7 @@
 import { MOCK_DATA, getCostEstimateDetailsById, getProjectFileData, getProjectCosts, getWorkSchedules, getWorkScheduleDetails, getDashboard } from "./mockData";
 
 function delay(): Promise<void> {
-  const ms = 200 + Math.random() * 300;
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((r) => setTimeout(r, 25));
 }
 
 type MockResponse = [number, unknown];
@@ -315,6 +314,24 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   // ============================================
   if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/parse\/\w+$/.test(pathOnly) && method === "post") {
     return ok(MOCK_DATA.aiCostImport);
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending\/count$/.test(pathOnly) && method === "get") {
+    return ok({ pendingCount: 0, errorCount: 0, duplicateCount: 0 });
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending\/accept-all$/.test(pathOnly) && method === "post") {
+    return noContent();
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending\/[^/]+\/accept$/.test(pathOnly) && method === "post") {
+    return noContent();
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending\/[^/]+$/.test(pathOnly) && method === "get") {
+    return ok([]);
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending$/.test(pathOnly) && method === "get") {
+    return ok([]);
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/batch$/.test(pathOnly) && method === "post") {
+    return ok({ batchId: "mock-batch", itemCount: 0, status: "Queued" });
   }
 
   // ============================================

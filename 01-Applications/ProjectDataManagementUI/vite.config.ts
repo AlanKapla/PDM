@@ -10,18 +10,18 @@ export default defineConfig({
   resolve: {
     alias: {
       "@pdm-shared": path.resolve(__dirname, "../shared"),
+      react: path.resolve(__dirname, "node_modules/react"),
+      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
     },
     dedupe: ["react", "react-dom", "@emotion/react", "@emotion/styled", "@emotion/cache"],
   },
+  optimizeDeps: {
+    include: ["react", "react-dom", "@emotion/react", "@emotion/styled"],
+  },
   server: {
     port: 5173,
-    strictPort: false,
+    strictPort: true,
     open: true,
-    hmr: {
-      protocol: "ws",
-      host: "localhost",
-      port: 5173,
-    },
   },
   preview: {
     port: 4173,

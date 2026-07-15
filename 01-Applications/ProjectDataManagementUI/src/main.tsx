@@ -103,8 +103,9 @@ async function initializeApp() {
   }
 }
 
-// Register Service Worker for PWA
-if ("serviceWorker" in navigator) {
+// Service worker tylko w produkcji — w dev cache SW powoduje konflikt z HMR
+// (duplicate React, invalid hook call przy mieszaniu starych i nowych chunków).
+if (!import.meta.env.DEV && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")
@@ -112,10 +113,14 @@ if ("serviceWorker" in navigator) {
         registration.update();
       })
       .catch((error) => {
-        if (import.meta.env.DEV) {
-          console.error("Service worker registration failed:", error);
-        }
+        console.error("Service worker registration failed:", error);
       });
+  });
+} else if (import.meta.env.DEV && "serviceWorker" in navigator) {
+  void navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => {
+      void registration.unregister();
+    });
   });
 }
 
