@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { InteractionStatus } from "@azure/msal-browser";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
 import { isDemoModeActive, setDemoMode } from "../api/mock";
@@ -46,7 +47,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let fetchInFlight = false;
 
     const fetchUserProfile = async (force = false) => {
-      if (inProgress !== "none") {
+      // MSAL busy — nie blokuj UI na zawsze: zostaw loading tylko jeśli jeszcze
+      // nie mamy profilu; gdy interakcja się skończy, effect odpali się ponownie.
+      if (inProgress !== InteractionStatus.None) {
+        if (isMounted && user) {
+          setLoading(false);
+        }
         return;
       }
 

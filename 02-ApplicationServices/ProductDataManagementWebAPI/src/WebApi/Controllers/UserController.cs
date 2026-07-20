@@ -1,6 +1,4 @@
-﻿using Business.Interfaces.WebModels.Users;
-using CQRS.Users.SendWelcomeEmailsToExistingUsers;
-using CQRS.Users.UserAuthStatus;
+﻿using CQRS.Users.UserAuthStatus;
 using CQRS.Users.UserDetails;
 using CQRS.Users.UserSyncFromB2C;
 using CQRS.Users.UserUpdate;
@@ -78,17 +76,4 @@ public class UserController : BaseApiController
         return Ok(await Send(query));
     }
 
-    /// <summary>
-    /// Sends welcome emails to all existing users who haven't received one yet. SuperAdmin only.
-    /// </summary>
-    [Authorize]
-    [HttpPost("send-welcome-emails")]
-    [ProducesResponseType(typeof(SendWelcomeEmailsResultWeb), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> SendWelcomeEmailsToExistingUsers()
-    {
-        SendWelcomeEmailsToExistingUsersCommand command = new();
-        SendWelcomeEmailsResultWeb result = await Send(command);
-        return Ok(result);
-    }
 }

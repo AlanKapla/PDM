@@ -44,10 +44,12 @@ import { hasActiveTenant } from "../utils/tenantUtils";
 type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access" | "error";
 
 /** Trasy dostępne bez aktywnej organizacji (np. profil, zaproszenia). */
-const TENANT_OPTIONAL_ROUTES = ["/profile", "/tenants/invitations", "/tenants/collaborating", "/invitations/accept"] as const;
+const TENANT_OPTIONAL_ROUTES = ["/profile", "/admin", "/tenants/invitations", "/tenants/collaborating", "/invitations/accept"] as const;
 
 function isTenantOptionalRoute(pathname: string): boolean {
-  return TENANT_OPTIONAL_ROUTES.includes(pathname as (typeof TENANT_OPTIONAL_ROUTES)[number]);
+  return TENANT_OPTIONAL_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
 }
 
 // ---------------------------------------------------------------------------

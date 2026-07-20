@@ -26,6 +26,10 @@ import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 import ChatPage from "../pages/ChatPage";
 import ProjectBudgetPage from "../pages/ProjectBudgetPage";
 import ContractorsPage from "../pages/ContractorsPage";
+import AdminPage from "../pages/AdminPage";
+import AdminUsersPage from "../pages/AdminUsersPage";
+import AdminColdMailsPage from "../pages/AdminColdMailsPage";
+import SuperAdminRoute from "./SuperAdminRoute";
 
 export default function AppRouter() {
   return (
@@ -274,6 +278,33 @@ export default function AppRouter() {
           <ProtectedRoute>
             <ContractorsPage />
           </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin"
+        element={
+          <SuperAdminRoute>
+            <AdminPage />
+          </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/users"
+        element={
+          <SuperAdminRoute>
+            <AdminUsersPage />
+          </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/cold-mails"
+        element={
+          <SuperAdminRoute>
+            <AdminColdMailsPage />
+          </SuperAdminRoute>
         }
       />
 

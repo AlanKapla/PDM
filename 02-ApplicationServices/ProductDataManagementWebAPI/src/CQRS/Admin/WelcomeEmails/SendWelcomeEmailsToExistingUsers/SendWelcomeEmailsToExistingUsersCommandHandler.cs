@@ -7,7 +7,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
-namespace CQRS.Users.SendWelcomeEmailsToExistingUsers
+namespace CQRS.Admin.WelcomeEmails.SendWelcomeEmailsToExistingUsers
 {
     public sealed class SendWelcomeEmailsToExistingUsersCommandHandler
         : IRequestHandler<SendWelcomeEmailsToExistingUsersCommand, SendWelcomeEmailsResultWeb>

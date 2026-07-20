@@ -1,5 +1,5 @@
 import { isDemoModeActive } from "../api/mock";
-import { msalInstance } from "../main";
+import { msalInstance } from "../auth/msalInstance";
 
 /** Demo bez konta MSAL — API mockowane, SignalR wyłączony. */
 export function isDemoOnlySession(): boolean {

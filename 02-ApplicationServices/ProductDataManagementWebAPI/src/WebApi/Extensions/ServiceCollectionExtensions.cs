@@ -18,6 +18,7 @@ using Entities.Models.CostEstimates;
 using Entities.Models.Costs;
 using Entities.Models.CostTrackers;
 using Entities.Models.AI;
+using Entities.Models.ColdMails;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
@@ -340,6 +341,8 @@ namespace WebApi.Extensions
                 .AddRepository<AICostImportBatch>()
                 .AddRepository<AICostImportItem>();
 
+            services
+                .AddRepository<ColdMailHistory>();
 
             return services;
         }
@@ -391,6 +394,7 @@ namespace WebApi.Extensions
             services.AddScoped<IWorkScheduleAIGeneratorService, WorkScheduleAIGeneratorService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IWelcomeEmailService, WelcomeEmailService>();
+            services.AddScoped<IColdMailHtmlBuilder, ColdMailHtmlBuilder>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<IProjectMembershipProvisioner, ProjectMembershipProvisioner>();
             services.AddSingleton<ICacheService, CacheService>();
@@ -506,10 +510,14 @@ namespace WebApi.Extensions
                     options.AddPolicy(permissionCode, policy =>
                         policy.Requirements.Add(new PermissionRequirement(permissionCode, scope)));
                 }
+
+                options.AddPolicy(AuthorizationPolicyNames.SuperAdminOnly, policy =>
+                    policy.Requirements.Add(new SuperAdminRequirement()));
             });
 
             // Permission-based handler
             services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+            services.AddScoped<IAuthorizationHandler, SuperAdminAuthorizationHandler>();
 
             return services;
         }

@@ -258,6 +258,64 @@ namespace Entities.Migrations
                     b.ToTable("MessageHistories");
                 });
 
+            modelBuilder.Entity("Entities.Models.ColdMails.ColdMailHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(100000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("HtmlBody")
+                        .IsRequired()
+                        .HasMaxLength(150000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SentByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("RecipientEmail");
+
+                    b.HasIndex("SentAt")
+                        .IsDescending();
+
+                    b.HasIndex("SentByUserId");
+
+                    b.ToTable("ColdMailHistories", (string)null);
+                });
+
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2164,6 +2222,17 @@ namespace Entities.Migrations
                     b.Navigation("Chat");
 
                     b.Navigation("ReplyToMessage");
+                });
+
+            modelBuilder.Entity("Entities.Models.ColdMails.ColdMailHistory", b =>
+                {
+                    b.HasOne("Entities.Models.Users.User", "SentByUser")
+                        .WithMany()
+                        .HasForeignKey("SentByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SentByUser");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimate", b =>

@@ -1,6 +1,6 @@
 ﻿import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { isDemoModeActive } from "../api/mock";
 import { Button, Flex, Spinner, Text, VStack } from "@chakra-ui/react";
@@ -32,15 +32,25 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
   const { inProgress } = useMsal();
   const location = useLocation();
   const [sessionStuck, setSessionStuck] = useState(false);
+  // Wall-clock start — nie resetuj przy każdej zmianie inProgress między stanami ≠ None
+  // (np. startup → handleRedirect), bo wtedy spinner nigdy nie pokaże resetu.
+  const busySinceRef = useRef<number | null>(null);
 
-  // Wykryj zawieszoną sesję MSAL, aby użytkownik nie utknął na zawsze na loaderze.
   useEffect(() => {
     if (inProgress === InteractionStatus.None) {
+      busySinceRef.current = null;
       setSessionStuck(false);
       return;
     }
 
-    const timer = setTimeout(() => setSessionStuck(true), STUCK_TIMEOUT_MS);
+    if (busySinceRef.current === null) {
+      busySinceRef.current = Date.now();
+    }
+
+    const elapsed: number = Date.now() - busySinceRef.current;
+    const remaining: number = Math.max(0, STUCK_TIMEOUT_MS - elapsed);
+
+    const timer = setTimeout(() => setSessionStuck(true), remaining);
     return () => clearTimeout(timer);
   }, [inProgress]);
 

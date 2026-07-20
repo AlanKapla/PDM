@@ -1,6 +1,6 @@
 import * as signalR from "@microsoft/signalr";
 import type { NotificationPayloadDto, NotificationMarkAsReadDto } from "../types/notification.types";
-import { msalInstance } from "../main";
+import { msalInstance } from "../auth/msalInstance";
 import { silentRequest } from "../config/authConfig";
 import { parseApiDateTime } from "../utils/dateTimeUtils";
 

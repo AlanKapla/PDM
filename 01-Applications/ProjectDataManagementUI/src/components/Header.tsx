@@ -15,11 +15,9 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
-import { User as UserIcon, RefreshCw, Building2, Home, LogIn } from "lucide-react";
+import { User as UserIcon, RefreshCw, Building2, Home, LogIn, Shield } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import NotificationBell from "./NotificationBell";
-import DemoModeMenuItem from "./DemoModeMenuItem";
-import { SendWelcomeEmailsMenuItem } from "./SendWelcomeEmailsMenuItem";
 import { useMyTenants } from "../hooks/queries";
 import { hasActiveTenant } from "../utils/tenantUtils";
 import { useAppSession } from "../hooks/useAppSession";
@@ -187,6 +185,15 @@ export default function Header(_props: HeaderProps): ReactElement {
                       </MenuItem>
                     )}
 
+                    {user.isSuperAdmin && (
+                      <>
+                        <MenuItem icon={<Shield size={16} aria-hidden />} onClick={() => navigate("/admin")}>
+                          Panel administratora
+                        </MenuItem>
+                        <MenuDivider />
+                      </>
+                    )}
+
                     <MenuItem icon={<UserIcon size={16} />} onClick={() => navigate("/profile")}>
                       Ustawienia profilu
                     </MenuItem>
@@ -203,9 +210,6 @@ export default function Header(_props: HeaderProps): ReactElement {
                         </MenuItem>
                       </>
                     )}
-
-                    <DemoModeMenuItem />
-                    <SendWelcomeEmailsMenuItem />
 
                     <MenuDivider />
 

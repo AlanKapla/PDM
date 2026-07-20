@@ -2,7 +2,7 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.Users;
-using CQRS.Users.SendWelcomeEmailsToExistingUsers;
+using CQRS.Admin.WelcomeEmails.SendWelcomeEmailsToExistingUsers;
 using Entities.Models.Users;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;

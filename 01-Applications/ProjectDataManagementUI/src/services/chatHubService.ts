@@ -1,5 +1,5 @@
 import * as signalR from "@microsoft/signalr";
-import { msalInstance } from "../main";
+import { msalInstance } from "../auth/msalInstance";
 import { silentRequest } from "../config/authConfig";
 import type {
   ChatWeb,

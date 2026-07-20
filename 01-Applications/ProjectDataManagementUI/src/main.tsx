@@ -3,16 +3,13 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import { ChakraProvider} from "@chakra-ui/react";
 import { MsalProvider } from "@azure/msal-react";
-import { PublicClientApplication, EventType } from "@azure/msal-browser";
+import { EventType } from "@azure/msal-browser";
 import type { EventMessage, AuthenticationResult } from "@azure/msal-browser";
 import App from "./App.tsx";
 import theme from "./theme.ts";
-import { msalConfig } from "./config/authConfig";
+import { msalInstance } from "./auth/msalInstance";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-
-// Initialize MSAL instance
-const msalInstance = new PublicClientApplication(msalConfig);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,8 +32,8 @@ async function initializeApp() {
   // Initialize MSAL before using it
   await msalInstance.initialize();
 
-  // Note: handleRedirectPromise is now handled in AuthCallback component
-  // This ensures proper routing after OAuth code exchange
+  // handleRedirectPromise: wywoływane przez MsalProvider przy mount.
+  // AuthCallback tylko czeka na inProgress === None i nawiguje dalej.
 
   // Default to using the first account if no account is active on page load
   if (!msalInstance.getActiveAccount() && msalInstance.getAllAccounts().length > 0) {
@@ -144,6 +141,3 @@ initializeApp().catch((error) => {
     console.error("Błąd inicjalizacji aplikacji:", error);
   }
 });
-
-// Export msalInstance for use in other modules (e.g., axios interceptors)
-export { msalInstance };

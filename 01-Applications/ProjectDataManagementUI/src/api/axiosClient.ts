@@ -1,6 +1,9 @@
 import axios from "axios";
-import { InteractionRequiredAuthError } from "@azure/msal-browser";
-import { msalInstance } from "../main";
+import {
+  BrowserAuthError,
+  InteractionRequiredAuthError,
+} from "@azure/msal-browser";
+import { msalInstance } from "../auth/msalInstance";
 import { silentRequest } from "../config/authConfig";
 import { setupMockInterceptors, isDemoModeActive } from "./mock";
 
@@ -22,6 +25,54 @@ const API_BASE_URL = requireEnvVar("VITE_API_BASE_URL");
 // `interaction_in_progress` w localStorage i trwale zablokować aplikację
 // na ekranie "Sprawdzanie sesji...".
 let interactiveRedirectTriggered = false;
+
+/** Czy MSAL ma już trwającą interakcję (localStorage / sessionStorage). */
+function isMsalInteractionInProgress(): boolean {
+  if (interactiveRedirectTriggered) {
+    return true;
+  }
+
+  try {
+    const storages: Storage[] = [sessionStorage, localStorage];
+    for (const storage of storages) {
+      for (let index = 0; index < storage.length; index++) {
+        const key: string | null = storage.key(index);
+        if (key === null || !key.includes("interaction.status")) {
+          continue;
+        }
+        const value: string | null = storage.getItem(key);
+        if (value !== null && value !== "" && value !== "none") {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // Storage niedostępny — zakładamy brak interakcji.
+  }
+
+  return false;
+}
+
+async function redirectToLoginSafely(): Promise<void> {
+  if (isMsalInteractionInProgress()) {
+    return;
+  }
+
+  interactiveRedirectTriggered = true;
+  try {
+    await msalInstance.loginRedirect(silentRequest);
+  } catch (redirectError: unknown) {
+    const isInteractionInProgress: boolean =
+      redirectError instanceof BrowserAuthError &&
+      redirectError.errorCode === "interaction_in_progress";
+
+    if (!isInteractionInProgress) {
+      interactiveRedirectTriggered = false;
+    }
+
+    throw redirectError;
+  }
+}
 
 export const axiosClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -47,28 +98,31 @@ axiosClient.interceptors.request.use(
     }
 
     const accounts = msalInstance.getAllAccounts();
-    
+
     if (accounts.length > 0) {
       const account = msalInstance.getActiveAccount() || accounts[0];
-      
+
       try {
         // Try to acquire token silently from cache
         const response = await msalInstance.acquireTokenSilent({
           ...silentRequest,
           account: account,
         });
-        
+
         // Add token to Authorization header
         config.headers.Authorization = `Bearer ${response.accessToken}`;
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Tylko InteractionRequiredAuthError oznacza, że użytkownik musi się zalogować interaktywnie.
         // Inne błędy (np. sieciowe) nie powinny wymuszać przekierowania do logowania.
         if (error instanceof InteractionRequiredAuthError) {
-          if (!interactiveRedirectTriggered) {
-            interactiveRedirectTriggered = true;
-            await msalInstance.loginRedirect(silentRequest);
+          try {
+            await redirectToLoginSafely();
+          } catch {
+            // Redirect failed or interaction already in progress — reject below.
           }
-          return Promise.reject(new Error("Token acquisition required - redirecting to login"));
+          return Promise.reject(
+            new Error("Token acquisition required - redirecting to login")
+          );
         }
         // Dla innych błędów odrzuć żądanie bez przekierowania
         return Promise.reject(error);
@@ -77,7 +131,7 @@ axiosClient.interceptors.request.use(
       // Don't add Authorization header - let the request proceed
       // Backend will return 401 and trigger error interceptor
     }
-    
+
     return config;
   },
   (error) => {
@@ -98,7 +152,7 @@ axiosClient.interceptors.response.use(
     // If 401 Unauthorized
     if (error.response?.status === 401) {
       // Special case: /user/sync-b2c failed - token is invalid
-      if (originalRequest.url?.includes('/user/sync-b2c')) {
+      if (originalRequest.url?.includes("/user/sync-b2c")) {
         // Don't redirect here - ProtectedRoute will handle it when user becomes null
       }
 
@@ -107,10 +161,10 @@ axiosClient.interceptors.response.use(
         originalRequest._retry = true;
 
         const accounts = msalInstance.getAllAccounts();
-        
+
         if (accounts.length > 0) {
           const account = msalInstance.getActiveAccount() || accounts[0];
-          
+
           try {
             // Try to acquire a new token
             const response = await msalInstance.acquireTokenSilent({
@@ -118,10 +172,10 @@ axiosClient.interceptors.response.use(
               account: account,
               forceRefresh: true, // Force refresh to get a new token
             });
-            
+
             // Update the Authorization header with new token
             originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
-            
+
             // Retry the original request
             return axiosClient(originalRequest);
           } catch (tokenError) {
