@@ -19,8 +19,9 @@ namespace Business.Implementation.Services
         private const string NumberFormat = "#,##0.00";
 
         private static readonly CultureInfo PlCulture = CultureInfo.GetCultureInfo("pl-PL");
+        // Cross-platform (Windows-safe) set — Path.GetInvalidFileNameChars() differs on Linux CI.
         private static readonly Regex InvalidFileNameChars = new(
-            $"[{Regex.Escape(new string(Path.GetInvalidFileNameChars()))}]",
+            "[<>:\"/\\\\|?*\\x00-\\x1F]",
             RegexOptions.Compiled);
 
         private readonly ILogger<CostEstimateExportService> logger;
