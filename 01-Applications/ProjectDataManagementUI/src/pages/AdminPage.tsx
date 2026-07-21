@@ -11,6 +11,7 @@ import {
 import { ArrowLeft, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../layout/MainLayout";
+import { ActivityLogsAdminPanel } from "../components/admin/ActivityLogsAdminPanel";
 import { ColdMailsAdminPanel } from "../components/admin/ColdMailsAdminPanel";
 import { DemoModePanel } from "../components/admin/DemoModePanel";
 import { UsersAdminPanel } from "../components/admin/UsersAdminPanel";
@@ -48,6 +49,7 @@ export default function AdminPage(): React.ReactElement {
             <DemoModePanel />
             <UsersAdminPanel />
             <ColdMailsAdminPanel />
+            <ActivityLogsAdminPanel />
           </SimpleGrid>
         </Box>
       </Box>

@@ -18,6 +18,7 @@ using Entities.Models.CostEstimates;
 using Entities.Models.Costs;
 using Entities.Models.CostTrackers;
 using Entities.Models.AI;
+using Entities.Models.Activity;
 using Entities.Models.ColdMails;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
@@ -342,7 +343,8 @@ namespace WebApi.Extensions
                 .AddRepository<AICostImportItem>();
 
             services
-                .AddRepository<ColdMailHistory>();
+                .AddRepository<ColdMailHistory>()
+                .AddRepository<UserActivityLog>();
 
             return services;
         }

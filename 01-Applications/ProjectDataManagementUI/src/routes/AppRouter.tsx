@@ -29,6 +29,7 @@ import ContractorsPage from "../pages/ContractorsPage";
 import AdminPage from "../pages/AdminPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminColdMailsPage from "../pages/AdminColdMailsPage";
+import AdminActivityLogsPage from "../pages/AdminActivityLogsPage";
 import SuperAdminRoute from "./SuperAdminRoute";
 
 export default function AppRouter() {
@@ -304,6 +305,15 @@ export default function AppRouter() {
         element={
           <SuperAdminRoute>
             <AdminColdMailsPage />
+          </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/activity-logs"
+        element={
+          <SuperAdminRoute>
+            <AdminActivityLogsPage />
           </SuperAdminRoute>
         }
       />

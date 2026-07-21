@@ -55,6 +55,11 @@ export function setupMockInterceptors(instance: AxiosInstance): void {
         return config;
       }
 
+      // Activity telemetry must hit the real API even while demo mocks other calls.
+      if (url.includes("/api/activity/demo") || url.includes("/activity/demo")) {
+        return config;
+      }
+
       try {
         const mockResult: MockResponse = await handleMockRequest(
           config.method || "get",

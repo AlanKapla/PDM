@@ -3,10 +3,24 @@ import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
+import { activityApi } from "../api/activityApi";
 import { isDemoModeActive, setDemoMode } from "../api/mock";
 import { notificationHubService } from "../services/notificationHubService";
 import { chatHubService } from "../services/chatHubService";
 import type { UserProfile } from "../types/auth.types";
+
+const LOGIN_ACTIVITY_RECORDED_KEY = "pdm:loginActivityRecorded";
+
+function recordLoginActivityOnce(): void {
+  if (sessionStorage.getItem(LOGIN_ACTIVITY_RECORDED_KEY)) {
+    return;
+  }
+  void activityApi
+    .recordLogin({ route: window.location.pathname })
+    .catch(() => {});
+  sessionStorage.setItem(LOGIN_ACTIVITY_RECORDED_KEY, "1");
+}
+
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -89,6 +103,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await axiosClient.post("/user/sync-b2c");
         }
         const response = await axiosClient.get("/user/me");
+
+        if (isAuthenticated) {
+          recordLoginActivityOnce();
+        }
 
         if (isMounted) {
           setUser(response.data);

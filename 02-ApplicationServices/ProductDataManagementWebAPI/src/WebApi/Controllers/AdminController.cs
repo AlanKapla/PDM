@@ -1,11 +1,13 @@
 using Business.Interfaces.WebModels.Admin;
 using Business.Interfaces.WebModels.Users;
+using CQRS.Admin.ActivityLogs.GetUserActivityLogs;
 using CQRS.Admin.ColdMails.GetColdMailHistory;
 using CQRS.Admin.ColdMails.GetColdMailTemplate;
 using CQRS.Admin.ColdMails.SendColdMails;
 using CQRS.Admin.Users.GetAdminUsers;
 using CQRS.Admin.Users.SendWelcomeEmailToUser;
 using CQRS.Admin.WelcomeEmails.SendWelcomeEmailsToExistingUsers;
+using Entities.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -93,6 +95,19 @@ public sealed class AdminController(IMediator mediator) : BaseApiController(medi
     {
         GetColdMailHistoryQuery query = new(email);
         IReadOnlyList<ColdMailHistoryWeb> result = await Send(query);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Returns user activity logs (login / demo), optionally filtered by event type. SuperAdmin only.
+    /// </summary>
+    [HttpGet("activity-logs")]
+    [ProducesResponseType(typeof(IReadOnlyList<UserActivityLogWeb>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetUserActivityLogs([FromQuery] UserActivityEventType? eventType)
+    {
+        GetUserActivityLogsQuery query = new(eventType);
+        IReadOnlyList<UserActivityLogWeb> result = await Send(query);
         return Ok(result);
     }
 }

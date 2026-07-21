@@ -7,12 +7,21 @@ import type {
   SendColdMailsResultWeb,
   SendWelcomeEmailsResultWeb,
 } from "../types/admin.types";
+import type { UserActivityLogWeb } from "../types/activity.types";
 
 export const adminApi = {
   getUsers: async (): Promise<AdminUserWeb[]> => {
     const response = await axiosClient.get<AdminUserWeb[]>("/admin/users");
     return response.data;
   },
+
+  getActivityLogs: async (): Promise<UserActivityLogWeb[]> => {
+    const response = await axiosClient.get<UserActivityLogWeb[]>(
+      "/admin/activity-logs"
+    );
+    return response.data;
+  },
+
 
   sendWelcomeEmailToUser: async (userId: string): Promise<AdminUserWeb> => {
     const response = await axiosClient.post<AdminUserWeb>(

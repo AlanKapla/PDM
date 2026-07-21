@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Logging;
+﻿using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.IdentityModel.Logging;
 using Business.AIAgent.Registration;
 using Chat.Registration;
 using WebApi.Extensions;
@@ -8,6 +9,14 @@ internal class Program
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders =
+                ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
 
         if (builder.Environment.IsDevelopment())
         {
@@ -40,6 +49,9 @@ internal class Program
         builder.Services.AddInfrastructure(builder.Configuration);
 
         var app = builder.Build();
+
+        // Must run before auth so RemoteIpAddress reflects the real client behind nginx.
+        app.UseForwardedHeaders();
 
         app.UseGlobalExceptionHandling();
 

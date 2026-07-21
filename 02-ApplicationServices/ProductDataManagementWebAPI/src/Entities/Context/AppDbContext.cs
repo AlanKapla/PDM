@@ -14,6 +14,7 @@ using Entities.Models.CostEstimates;
 using Entities.Models.CostTrackers;
 using Entities.Models.AI;
 using Entities.Models.ColdMails;
+using Entities.Models.Activity;
 
 namespace Entities.Context
 {
@@ -64,6 +65,7 @@ namespace Entities.Context
         public DbSet<AICostImportBatch> AICostImportBatches => Set<AICostImportBatch>();
         public DbSet<AICostImportItem> AICostImportItems => Set<AICostImportItem>();
         public DbSet<ColdMailHistory> ColdMailHistories => Set<ColdMailHistory>();
+        public DbSet<UserActivityLog> UserActivityLogs => Set<UserActivityLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

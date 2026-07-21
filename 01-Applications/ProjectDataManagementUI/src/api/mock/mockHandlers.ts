@@ -72,6 +72,34 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   if (pathOnly === "/api/user/auth-status" && method === "get") {
     return ok({ isAuthenticated: true, userId: MOCK_DATA.userProfile.id });
   }
+  if (pathOnly === "/api/activity/login" && method === "post") {
+    return noContent();
+  }
+  if (pathOnly === "/api/activity/demo" && method === "post") {
+    return noContent();
+  }
+  if (pathOnly === "/api/admin/activity-logs" && method === "get") {
+    return ok([
+      {
+        id: "demo-activity-001",
+        eventType: "Login",
+        ipAddress: "203.0.113.10",
+        occurredAtUtc: "2026-07-21T10:15:00Z",
+        route: "/dashboard",
+        userId: MOCK_DATA.userProfile.id,
+        azureAdB2CObjectId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      },
+      {
+        id: "demo-activity-002",
+        eventType: "DemoEnter",
+        ipAddress: "198.51.100.42",
+        occurredAtUtc: "2026-07-21T11:30:00Z",
+        route: "/",
+        userId: null,
+        azureAdB2CObjectId: null,
+      },
+    ]);
+  }
   if (pathOnly === "/api/admin/users" && method === "get") {
     return ok([
       {
