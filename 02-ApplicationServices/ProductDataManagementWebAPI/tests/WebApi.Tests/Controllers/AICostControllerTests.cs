@@ -1,3 +1,4 @@
+using Business.Interfaces.Helpers;
 using Business.Interfaces.WebModels.AI;
 using CQRS.AI.AcceptAICostImportItem;
 using CQRS.AI.AcceptAllAICostImportItems;
@@ -85,6 +86,49 @@ public sealed class AICostControllerTests : ControllerTestBase
 
         // Assert
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task ParseProjectCostDocument_WhenPdfFileIsValid_SendsQuery_ReturnsOk()
+    {
+        // Arrange
+        Guid tenantId = Guid.NewGuid();
+        Guid projectId = Guid.NewGuid();
+        Mock<IFormFile> file = BuildFormFile("invoice.pdf", "application/pdf", AICostImportTestFileBytes.Pdf);
+
+        ParsedCostDto parsed = new ParsedCostDto
+        {
+            Name = "Test",
+            Net = 100m,
+            Gross = 123m,
+            Confidence = 0.9
+        };
+
+        SetupMediatorReturns<ParseCostDocumentQuery, ParsedCostDto>(parsed);
+
+        // Act
+        IActionResult result = await _sut.ParseProjectCostDocument(tenantId, projectId, file.Object);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        VerifyMediatorCalledOnce<ParseCostDocumentQuery>(q =>
+            q.TenantId == tenantId && q.ProjectId == projectId);
+    }
+
+    [Fact]
+    public async Task ParseProjectCostDocument_WhenFileHasInvalidExtension_ReturnsBadRequest()
+    {
+        // Arrange
+        Guid tenantId = Guid.NewGuid();
+        Guid projectId = Guid.NewGuid();
+        Mock<IFormFile> file = BuildFormFile("invoice.txt", "text/plain", [0x74, 0x65, 0x78, 0x74]);
+
+        // Act
+        IActionResult result = await _sut.ParseProjectCostDocument(tenantId, projectId, file.Object);
+
+        // Assert
+        BadRequestObjectResult badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequest.Value.Should().Be($"Niedozwolony format pliku. {FileContentValidator.AllowedFormatsMessage}");
     }
 
     [Fact]
@@ -207,13 +251,23 @@ public sealed class AICostControllerTests : ControllerTestBase
             c.TenantId == tenantId && c.ProjectId == projectId);
     }
 
-    private static Mock<IFormFile> BuildFormFile(string fileName)
+    private static Mock<IFormFile> BuildFormFile(
+        string fileName,
+        string contentType = "image/jpeg",
+        byte[]? content = null)
     {
+        byte[] fileContent = content ?? AICostImportTestFileBytes.Jpeg;
         Mock<IFormFile> mock = new Mock<IFormFile>();
         mock.Setup(f => f.FileName).Returns(fileName);
-        mock.Setup(f => f.ContentType).Returns("image/jpeg");
-        mock.Setup(f => f.Length).Returns(1024);
-        mock.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(new byte[] { 1, 2, 3 }));
+        mock.Setup(f => f.ContentType).Returns(contentType);
+        mock.Setup(f => f.Length).Returns(fileContent.Length);
+        mock.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(fileContent));
         return mock;
     }
+}
+
+internal static class AICostImportTestFileBytes
+{
+    internal static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
+    internal static readonly byte[] Pdf = [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34];
 }

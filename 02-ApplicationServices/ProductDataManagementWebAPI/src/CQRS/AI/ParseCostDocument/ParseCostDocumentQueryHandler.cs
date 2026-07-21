@@ -1,3 +1,5 @@
+using Business.Interfaces.Exceptions;
+using Business.Interfaces.Helpers;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.AI;
 using MediatR;
@@ -23,14 +25,11 @@ namespace CQRS.AI.ParseCostDocument
             ParseCostDocumentQuery request,
             CancellationToken cancellationToken)
         {
-            using MemoryStream ms = new();
-            await request.File.CopyToAsync(ms, cancellationToken);
-            byte[] fileBytes = ms.ToArray();
+            byte[] fileBytes = await ReadFileBytesAsync(request.File, cancellationToken);
+            ValidateFileContent(fileBytes, request.File);
 
             string mediaType = request.File.ContentType.ToLowerInvariant();
-
-            ParsedCostDto result = await parserService.ParseAsync(
-                fileBytes, mediaType, cancellationToken);
+            ParsedCostDto result = await ParseDocumentAsync(fileBytes, mediaType, cancellationToken);
 
             result = await enrichmentService.EnrichWithContractorAsync(
                 result, request.TenantId, cancellationToken);
@@ -38,6 +37,43 @@ namespace CQRS.AI.ParseCostDocument
                 result, request.ProjectId, cancellationToken);
 
             return result;
+        }
+
+        private static async Task<byte[]> ReadFileBytesAsync(
+            IFormFile file,
+            CancellationToken cancellationToken)
+        {
+            using MemoryStream ms = new();
+            await file.CopyToAsync(ms, cancellationToken);
+            return ms.ToArray();
+        }
+
+        private static void ValidateFileContent(byte[] fileBytes, IFormFile file)
+        {
+            FileContentValidator.FileValidationResult validation = FileContentValidator.ValidateBytes(
+                fileBytes,
+                file.FileName,
+                file.ContentType);
+
+            if (!validation.IsSuccess)
+            {
+                throw new ValidationApiException(validation.FailureReason!);
+            }
+        }
+
+        private async Task<ParsedCostDto> ParseDocumentAsync(
+            byte[] fileBytes,
+            string mediaType,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await parserService.ParseAsync(fileBytes, mediaType, cancellationToken);
+            }
+            catch (PdfConversionException ex)
+            {
+                throw new ValidationApiException(ex.UserMessage);
+            }
         }
     }
 }

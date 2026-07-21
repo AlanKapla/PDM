@@ -157,7 +157,7 @@ public sealed class AICostImportNotificationServiceTests
     }
 
     [Fact]
-    public async Task NotifyBatchCompletedAsync_WhenUserNotFound_DoesNotEnqueue()
+    public async Task NotifyBatchCompletedAsync_WhenUserNotFound_EnqueuesFallbackNotification()
     {
         // Arrange
         AICostImportBatch batch = BuildBatch();
@@ -168,13 +168,23 @@ public sealed class AICostImportNotificationServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
 
+        _notificationRepoMock
+            .Setup(r => r.CountAsync(
+                It.IsAny<Expression<Func<Notification, bool>>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
         // Act
         await _sut.NotifyBatchCompletedAsync(batch, CancellationToken.None);
 
         // Assert
         _notificationSenderMock.Verify(
-            s => s.EnqueueAsync(It.IsAny<NotificationPayloadDto>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+            s => s.EnqueueAsync(
+                It.Is<NotificationPayloadDto>(payload =>
+                    payload.Notification.UserId == batch.CreatedByUserId
+                    && payload.Notification.AzureAdB2CObjectId == null),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

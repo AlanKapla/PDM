@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
+using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.AI;
@@ -47,6 +49,31 @@ namespace CQRS.AI.SubmitAICostImportBatch
             SubmitAICostImportBatchCommand request,
             CancellationToken cancellationToken)
         {
+            List<AICostImportRejectedFileWeb> rejectedFiles = new List<AICostImportRejectedFileWeb>();
+            List<IFormFile> acceptedFiles = new List<IFormFile>();
+
+            foreach (IFormFile file in request.Files)
+            {
+                FileContentValidator.FileValidationResult validation = FileContentValidator.Validate(file);
+                if (!validation.IsSuccess)
+                {
+                    rejectedFiles.Add(new AICostImportRejectedFileWeb
+                    {
+                        FileName = file.FileName,
+                        Reason = validation.FailureReason!
+                    });
+                    continue;
+                }
+
+                acceptedFiles.Add(file);
+            }
+
+            if (acceptedFiles.Count == 0)
+            {
+                throw new ValidationApiException(
+                    "Żaden z przesłanych plików nie ma dozwolonego formatu (JPG, PNG, PDF).");
+            }
+
             DateTimeOffset now = DateTimeOffset.UtcNow;
             EntityCostDocumentType entityCostType = AICostImportMapper.ToEntityCostDocumentType(request.CostDocumentType);
 
@@ -60,7 +87,7 @@ namespace CQRS.AI.SubmitAICostImportBatch
                     ? JsonSerializer.Serialize(request.TrackedCostContext)
                     : null,
                 Status = AICostImportBatchStatus.Queued,
-                TotalFiles = request.Files.Count,
+                TotalFiles = acceptedFiles.Count,
                 CreatedAt = now
             };
 
@@ -69,7 +96,7 @@ namespace CQRS.AI.SubmitAICostImportBatch
 
             List<AICostImportItem> items = new List<AICostImportItem>();
 
-            foreach (IFormFile file in request.Files)
+            foreach (IFormFile file in acceptedFiles)
             {
                 AICostImportItem item = new AICostImportItem
                 {
@@ -122,14 +149,15 @@ namespace CQRS.AI.SubmitAICostImportBatch
             }
 
             logger.LogInformation(
-                "Submitted AI cost import batch {BatchId} with {FileCount} files for project {ProjectId}",
-                batch.Id, batch.TotalFiles, request.ProjectId);
+                "Submitted AI cost import batch {BatchId} with {FileCount} files ({RejectedCount} rejected) for project {ProjectId}",
+                batch.Id, batch.TotalFiles, rejectedFiles.Count, request.ProjectId);
 
             return new AICostImportSubmitResultWeb
             {
                 BatchId = batch.Id,
                 TotalFiles = batch.TotalFiles,
-                Message = "Documents are being analyzed in the background."
+                Message = "Documents are being analyzed in the background.",
+                RejectedFiles = rejectedFiles
             };
         }
 

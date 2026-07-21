@@ -8,10 +8,16 @@ import {
 } from '@chakra-ui/react';
 import AppModal from '../ui/AppModal';
 import MultiDocumentDropzone from '../ui/MultiDocumentDropzone';
+import type { FileRejection } from '../ui/MultiDocumentDropzone';
 import { useAICostDocumentParser } from '../../hooks/useAICostDocumentParser';
 import { useAICostImportBatch } from '../../hooks/useAICostImportBatch';
 import { useToastNotification } from '../../hooks/useToastNotification';
-import type { CostDocumentType, ParsedCostDto, TrackedCostContext } from '../../types/ai.types';
+import type {
+  AICostImportRejectedFile,
+  CostDocumentType,
+  ParsedCostDto,
+  TrackedCostContext,
+} from '../../types/ai.types';
 
 interface AICostImportModalProps {
   isOpen: boolean;
@@ -23,6 +29,14 @@ interface AICostImportModalProps {
   onParsed: (data: ParsedCostDto, file: File) => void;
   /** Kontekst trackera przekazywany przy batch upload (TrackedCost) */
   trackedCostContext?: TrackedCostContext;
+}
+
+function formatRejectedFilesDescription(
+  rejected: ReadonlyArray<AICostImportRejectedFile | FileRejection>
+): string {
+  return rejected
+    .map((item: AICostImportRejectedFile | FileRejection) => `${item.fileName}: ${item.reason}`)
+    .join('\n');
 }
 
 export function AICostImportModal({
@@ -65,6 +79,13 @@ export function AICostImportModal({
     );
   };
 
+  const handleFilesRejected = (rejections: FileRejection[]): void => {
+    showError(
+      'Nieobsługiwane pliki',
+      formatRejectedFilesDescription(rejections)
+    );
+  };
+
   const handleAnalyze = async (): Promise<void> => {
     if (files.length === 0) {
       return;
@@ -82,15 +103,40 @@ export function AICostImportModal({
     }
 
     try {
-      await submitBatch({
+      const result = await submitBatch({
         files,
         costType,
         trackedCostContext,
       });
-      showInfo(
-        'Analiza w tle',
-        'Dokumenty są analizowane w tle. Otrzymasz powiadomienie po zakończeniu.'
-      );
+
+      const rejectedFiles: AICostImportRejectedFile[] = result.rejectedFiles ?? [];
+      const submittedCount = files.length;
+      const acceptedCount = result.totalFiles;
+
+      if (rejectedFiles.length > 0) {
+        showError(
+          'Niektóre pliki odrzucone',
+          formatRejectedFilesDescription(rejectedFiles)
+        );
+      }
+
+      if (acceptedCount > 0 && rejectedFiles.length > 0) {
+        showInfo(
+          'Analiza w tle',
+          `Do analizy przyjęto ${acceptedCount} z ${submittedCount} dokumentów. Otrzymasz powiadomienie po zakończeniu przetwarzania zaakceptowanych plików.`
+        );
+      } else if (acceptedCount > 0) {
+        showInfo(
+          'Analiza w tle',
+          'Dokumenty są analizowane w tle. Otrzymasz powiadomienie po zakończeniu.'
+        );
+      } else if (rejectedFiles.length > 0) {
+        showInfo(
+          'Brak plików do analizy',
+          'Żaden z przesłanych plików nie został zaakceptowany.'
+        );
+      }
+
       handleClose();
     } catch (err) {
       showApiError(err);
@@ -105,14 +151,15 @@ export function AICostImportModal({
     <AppModal isOpen={isOpen} onClose={handleClose} title="Importuj koszt z dokumentu" hideFooter>
       <VStack spacing={4} align="stretch">
         <Text fontSize="sm" color="neutral.600">
-          Załaduj fakturę lub rachunek w formacie JPG lub PNG. Jeden plik — natychmiastowa analiza.
-          Wiele plików — analiza w tle (łącznie do 50 MB).
+          JPG, PNG lub PDF. Jeden plik — natychmiastowa analiza. Wiele plików — analiza w tle
+          (łącznie do 50 MB).
         </Text>
 
         <MultiDocumentDropzone
           files={files}
           onChange={setFiles}
           onSizeExceeded={handleSizeExceeded}
+          onFilesRejected={handleFilesRejected}
           isDisabled={isBusy}
           maxTotalSizeMB={50}
         />

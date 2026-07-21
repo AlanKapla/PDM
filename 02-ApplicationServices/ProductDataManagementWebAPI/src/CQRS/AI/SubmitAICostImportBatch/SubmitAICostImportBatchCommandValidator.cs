@@ -8,11 +8,6 @@ namespace CQRS.AI.SubmitAICostImportBatch
     public sealed class SubmitAICostImportBatchCommandValidator
         : AbstractValidator<SubmitAICostImportBatchCommand>
     {
-        private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".jpg", ".jpeg", ".png"
-        };
-
         public SubmitAICostImportBatchCommandValidator(IOptions<AICostImportOptions> options)
         {
             AICostImportOptions config = options.Value;
@@ -32,15 +27,6 @@ namespace CQRS.AI.SubmitAICostImportBatch
                     long total = x.Files.Sum(f => f.Length);
                     return $"Total file size ({total} bytes) exceeds the limit of {config.MaxBatchTotalBytes} bytes.";
                 })
-                .When(x => x.Files is not null);
-
-            RuleForEach(x => x.Files)
-                .Must(file =>
-                {
-                    string ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-                    return AllowedExtensions.Contains(ext);
-                })
-                .WithMessage("Allowed formats: JPG, PNG.")
                 .When(x => x.Files is not null);
         }
     }

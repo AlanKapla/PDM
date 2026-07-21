@@ -13,4 +13,12 @@ public interface IAICompletionService
         bool jsonMode = false);
 
     Task<string> CompleteWithImageAsync(string systemPrompt, byte[] imageBytes, string mediaType, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Vision completion with one or more images (e.g. PDF pages as JPEG), preserved in list order.
+    /// </summary>
+    Task<string> CompleteWithImagesAsync(
+        string systemPrompt,
+        IReadOnlyList<(byte[] ImageBytes, string MediaType)> images,
+        CancellationToken cancellationToken);
 }

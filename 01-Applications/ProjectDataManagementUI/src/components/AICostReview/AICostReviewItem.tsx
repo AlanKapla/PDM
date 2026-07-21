@@ -88,6 +88,11 @@ export function AICostReviewItem({
   const isImagePreview =
     item.contentType.startsWith('image/') ||
     /\.(jpg|jpeg|png)$/i.test(item.originalFileName);
+  const isPdfPreview =
+    item.contentType === 'application/pdf' ||
+    /\.pdf$/i.test(item.originalFileName);
+  const canOpenPreview =
+    Boolean(item.previewUrl) && (isImagePreview || isPdfPreview);
 
   const handleAccept = async (): Promise<void> => {
     if (!editedData.name.trim()) {
@@ -180,10 +185,20 @@ export function AICostReviewItem({
               <Text fontSize="sm" fontWeight="medium" color="neutral.700">
                 Podgląd dokumentu
               </Text>
-              {item.previewUrl && isImagePreview && (
-                <Tooltip label="Otwórz w pełnym rozmiarze">
+              {canOpenPreview && (
+                <Tooltip
+                  label={
+                    isPdfPreview
+                      ? 'Otwórz PDF w nowej karcie'
+                      : 'Otwórz w pełnym rozmiarze'
+                  }
+                >
                   <IconButton
-                    aria-label={`Otwórz dokument w pełnym rozmiarze: ${item.originalFileName}`}
+                    aria-label={
+                      isPdfPreview
+                        ? `Otwórz PDF w nowej karcie: ${item.originalFileName}`
+                        : `Otwórz dokument w pełnym rozmiarze: ${item.originalFileName}`
+                    }
                     icon={<Eye size={16} aria-hidden="true" />}
                     size="sm"
                     variant="ghost"
@@ -202,6 +217,30 @@ export function AICostReviewItem({
                 mx="auto"
                 borderRadius="md"
               />
+            ) : item.previewUrl && isPdfPreview ? (
+              <VStack spacing={3} align="stretch">
+                <Box
+                  as="iframe"
+                  title={`Podgląd PDF: ${item.originalFileName}`}
+                  src={item.previewUrl}
+                  w="100%"
+                  maxH="400px"
+                  h="400px"
+                  border="none"
+                  borderRadius="md"
+                  bg="white"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorScheme="level2"
+                  leftIcon={<Eye size={16} aria-hidden="true" />}
+                  onClick={handleOpenFullSizePreview}
+                  aria-label={`Otwórz PDF w nowej karcie: ${item.originalFileName}`}
+                >
+                  Otwórz PDF
+                </Button>
+              </VStack>
             ) : (
               <Box
                 p={6}

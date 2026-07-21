@@ -2,6 +2,7 @@ using System.Text.Json;
 using Business.Interfaces.Configurations;
 using Business.Interfaces.Constants;
 using Business.Interfaces.DTO;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.AI;
 using Entities.Enums;
@@ -152,6 +153,16 @@ namespace Business.Implementation.Services.AI
 
                 await TryCompleteBatchAsync(batch, batchRepo, notificationService, stoppingToken);
             }
+            catch (PdfConversionException ex)
+            {
+                logger.LogWarning(ex,
+                    "PDF conversion failed for AI cost import item {ItemId}: {Reason}",
+                    item.Id, ex.Reason);
+
+                await HandlePdfConversionFailureAsync(
+                    item, batch, ex.UserMessage, itemRepo, batchRepo,
+                    notificationService, stoppingToken);
+            }
             catch (Exception ex)
             {
                 logger.LogWarning(ex,
@@ -184,13 +195,8 @@ namespace Business.Implementation.Services.AI
                 fileBytes = ms.ToArray();
             }
 
-            ParsedCostDto parsed = await parserService.ParseAsync(
-                fileBytes, item.ContentType, cancellationToken);
-
-            if (parsed.Confidence == 0)
-            {
-                throw new InvalidOperationException("Document parser returned zero confidence.");
-            }
+            ParsedCostDto parsed = await ParseDocumentWithRetryAsync(
+                parserService, fileBytes, item.ContentType, item.Id, cancellationToken);
 
             parsed = await enrichmentService.EnrichWithContractorAsync(
                 parsed, item.TenantId, cancellationToken);
@@ -219,6 +225,62 @@ namespace Business.Implementation.Services.AI
             batch.PendingCount++;
             await batchRepo.Update(batch);
             await itemRepo.SaveChangesAsync(cancellationToken);
+        }
+
+        private async Task<ParsedCostDto> ParseDocumentWithRetryAsync(
+            IDocumentParserService parserService,
+            byte[] fileBytes,
+            string contentType,
+            Guid itemId,
+            CancellationToken cancellationToken)
+        {
+            int maxAttempts = options.Value.MaxRetryAttempts;
+
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                ParsedCostDto parsed = await parserService.ParseAsync(
+                    fileBytes, contentType, cancellationToken);
+
+                if (parsed.Confidence > 0)
+                {
+                    return parsed;
+                }
+
+                logger.LogWarning(
+                    "Document parser returned zero confidence for AI cost import item {ItemId}, attempt {Attempt}/{MaxAttempts}",
+                    itemId, attempt, maxAttempts);
+
+                if (attempt < maxAttempts)
+                {
+                    double delaySeconds = 2 * Math.Pow(2, attempt - 1);
+                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                }
+            }
+
+            throw new InvalidOperationException("Document parser returned zero confidence.");
+        }
+
+        private async Task HandlePdfConversionFailureAsync(
+            AICostImportItem item,
+            AICostImportBatch batch,
+            string userMessage,
+            IRepository<AICostImportItem> itemRepo,
+            IRepository<AICostImportBatch> batchRepo,
+            IAICostImportNotificationService notificationService,
+            CancellationToken cancellationToken)
+        {
+            item.Status = AICostImportItemStatus.ErrorNeedsReview;
+            item.LastError = userMessage;
+            item.AnalyzedAt = DateTimeOffset.UtcNow;
+            item.UpdatedAt = DateTimeOffset.UtcNow;
+            await itemRepo.Update(item);
+
+            batch.ProcessedFiles++;
+            batch.ErrorCount++;
+            await batchRepo.Update(batch);
+            await itemRepo.SaveChangesAsync(cancellationToken);
+
+            await TryCompleteBatchAsync(batch, batchRepo, notificationService, cancellationToken);
         }
 
         private async Task HandleDuplicateAsync(

@@ -23,7 +23,12 @@ describe('aiCostApi', () => {
   it('submitImportBatch_wysylaMultipartFormData', async () => {
     const file1 = new File(['a'], 'a.jpg', { type: 'image/jpeg' });
     const file2 = new File(['b'], 'b.jpg', { type: 'image/jpeg' });
-    const batchResponse = { batchId: 'batch-1', totalFiles: 2, message: 'ok' };
+    const batchResponse = {
+      batchId: 'batch-1',
+      totalFiles: 2,
+      message: 'ok',
+      rejectedFiles: [],
+    };
 
     vi.mocked(axiosClient.post).mockResolvedValue({ data: batchResponse });
 
@@ -33,6 +38,7 @@ describe('aiCostApi', () => {
     });
 
     expect(result).toEqual(batchResponse);
+    expect(result.rejectedFiles).toEqual([]);
     expect(axiosClient.post).toHaveBeenCalledWith(
       `/tenants/${tenantId}/projects/${projectId}/ai/cost/import/batch`,
       expect.any(FormData),
@@ -45,6 +51,34 @@ describe('aiCostApi', () => {
     const formData = vi.mocked(axiosClient.post).mock.calls[0][1] as FormData;
     expect(formData.getAll('files')).toHaveLength(2);
     expect(formData.get('costDocumentType')).toBe('ProjectCost');
+  });
+
+  it('submitImportBatch_zwracaRejectedFiles', async () => {
+    const file1 = new File(['a'], 'a.jpg', { type: 'image/jpeg' });
+    const file2 = new File(['x'], 'invalid.txt', { type: 'text/plain' });
+    const batchResponse = {
+      batchId: 'batch-2',
+      totalFiles: 1,
+      message: 'Documents are being analyzed in the background.',
+      rejectedFiles: [
+        { fileName: 'invalid.txt', reason: 'Niedozwolony format pliku' },
+      ],
+    };
+
+    vi.mocked(axiosClient.post).mockResolvedValue({ data: batchResponse });
+
+    const result = await aiCostApi.submitImportBatch(tenantId, projectId, {
+      files: [file1, file2],
+      costType: 'ProjectCost',
+    });
+
+    expect(result.batchId).toBe('batch-2');
+    expect(result.totalFiles).toBe(1);
+    expect(result.rejectedFiles).toHaveLength(1);
+    expect(result.rejectedFiles?.[0]).toEqual({
+      fileName: 'invalid.txt',
+      reason: 'Niedozwolony format pliku',
+    });
   });
 
   it('getPendingImportItems_wywolujeGetEndpoint', async () => {

@@ -32,6 +32,30 @@ interface CostFormProps {
 }
 
 const MAX_FILE_SIZE = 52 * 1024 * 1024; // 52 MB
+const ACCEPTED_EXTENSIONS: readonly string[] = ['.jpg', '.jpeg', '.png', '.pdf'];
+const ACCEPTED_MIME_TYPES: readonly string[] = [
+  'image/jpeg',
+  'image/png',
+  'application/pdf',
+];
+const FILE_ACCEPT = '.jpg,.jpeg,.png,.pdf';
+
+function getFileExtension(file: File): string {
+  return file.name.includes('.')
+    ? `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`
+    : '';
+}
+
+function isAcceptedCostAttachment(file: File): boolean {
+  const extension = getFileExtension(file);
+  if (!ACCEPTED_EXTENSIONS.includes(extension)) {
+    return false;
+  }
+  if (file.type && !ACCEPTED_MIME_TYPES.includes(file.type)) {
+    return false;
+  }
+  return true;
+}
 
 function toAmount(value: number | string | undefined): number | undefined {
   if (value === undefined || value === "") {
@@ -69,14 +93,30 @@ export default function CostForm({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const all = Array.from(e.target.files ?? []);
-    const rejected = all.filter((f) => f.size > MAX_FILE_SIZE);
-    const picked = all.filter((f) => f.size <= MAX_FILE_SIZE);
-    if (rejected.length > 0) {
-      const names = rejected.map((f) => f.name).join(", ");
+    const all: File[] = Array.from(e.target.files ?? []);
+    const typeRejected: File[] = all.filter((f: File) => !isAcceptedCostAttachment(f));
+    const sizeRejected: File[] = all.filter(
+      (f: File) => isAcceptedCostAttachment(f) && f.size > MAX_FILE_SIZE
+    );
+    const picked: File[] = all.filter(
+      (f: File) => isAcceptedCostAttachment(f) && f.size <= MAX_FILE_SIZE
+    );
+
+    if (typeRejected.length > 0) {
+      const names: string = typeRejected.map((f: File) => f.name).join(", ");
+      showWarning(
+        "Niedozwolony format",
+        `Dozwolone: JPG, PNG, PDF. Odrzucono: ${names}`
+      );
+    }
+    if (sizeRejected.length > 0) {
+      const names: string = sizeRejected.map((f: File) => f.name).join(", ");
       showWarning("Plik za duży", `Przekroczono limit 52 MB: ${names}`);
     }
-    set({ newFiles: [...(values.newFiles ?? []), ...picked] });
+
+    if (picked.length > 0) {
+      set({ newFiles: [...(values.newFiles ?? []), ...picked] });
+    }
     e.target.value = "";
   };
 
@@ -227,6 +267,7 @@ export default function CostForm({
           ref={fileInputRef}
           type="file"
           multiple
+          accept={FILE_ACCEPT}
           style={{ display: "none" }}
           onChange={handleFileChange}
         />
@@ -257,8 +298,8 @@ export default function CostForm({
             ))}
           </VStack>
         )}
-        <Text fontSize="xs" color="neutral.500" mt={1}>
-          Maksymalny rozmiar pliku: 52 MB
+        <Text fontSize="xs" color="neutral.600" mt={1}>
+          JPG, PNG, PDF · maksymalny rozmiar pliku: 52 MB
         </Text>
       </Box>
     </VStack>

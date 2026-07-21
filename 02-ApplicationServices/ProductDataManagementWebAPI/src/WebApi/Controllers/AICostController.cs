@@ -1,4 +1,5 @@
 ﻿using Business.Interfaces.Constants;
+using Business.Interfaces.Helpers;
 using Business.Interfaces.WebModels.AI;
 using CQRS.AI.AcceptAICostImportItem;
 using CQRS.AI.AcceptAllAICostImportItems;
@@ -21,7 +22,7 @@ namespace WebApi.Controllers
     public sealed class AICostController(IMediator mediator) : BaseApiController(mediator)
     {
         /// <summary>
-        /// Parsuje dokument kosztowy (JPG, PNG) przez GPT-4o Vision dla kosztu projektu (ProjectCost).
+        /// Parsuje dokument kosztowy (JPG, PNG, PDF) przez GPT-4o Vision dla kosztu projektu (ProjectCost).
         /// Zwraca sugestię danych kosztu do zatwierdzenia przez użytkownika.
         /// NIE zapisuje kosztu — tylko parsuje.
         /// </summary>
@@ -42,7 +43,7 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// Parsuje dokument kosztowy (JPG, PNG) przez GPT-4o Vision dla kosztu trackera (TrackedCost).
+        /// Parsuje dokument kosztowy (JPG, PNG, PDF) przez GPT-4o Vision dla kosztu trackera (TrackedCost).
         /// Zwraca sugestię danych kosztu do zatwierdzenia przez użytkownika.
         /// NIE zapisuje kosztu — tylko parsuje.
         /// </summary>
@@ -249,10 +250,10 @@ namespace WebApi.Controllers
                 return BadRequest("Plik jest wymagany.");
             }
 
-            string ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (ext is not (".jpg" or ".jpeg" or ".png"))
+            FileContentValidator.FileValidationResult validation = FileContentValidator.Validate(file);
+            if (!validation.IsSuccess)
             {
-                return BadRequest("Dozwolone formaty: JPG, PNG.");
+                return BadRequest(validation.FailureReason);
             }
 
             ParseCostDocumentQuery query = new()

@@ -76,6 +76,19 @@ export interface SubmitAICostImportBatchRequest {
   trackedCostContext?: TrackedCostContext;
 }
 
+export interface AICostImportRejectedFile {
+  fileName: string;
+  reason: string;
+}
+
+/** Odpowiedź POST /ai/cost/import/batch (AICostImportSubmitResultWeb). */
+export interface AICostImportSubmitResultWeb {
+  batchId: string;
+  totalFiles: number;
+  message: string;
+  rejectedFiles?: AICostImportRejectedFile[];
+}
+
 export interface AICostImportBatchWeb {
   id: string;
   tenantId: string;

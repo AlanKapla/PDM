@@ -1,4 +1,5 @@
 using Business.Interfaces.Constants;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.AI;
@@ -69,6 +70,7 @@ public sealed class SubmitAICostImportBatchCommandHandlerTests
         result.Should().NotBeNull();
         result.TotalFiles.Should().Be(2);
         result.BatchId.Should().NotBe(Guid.Empty);
+        result.RejectedFiles.Should().BeEmpty();
 
         _batchRepoMock.Verify(r => r.Insert(It.IsAny<AICostImportBatch>()), Times.Once);
         _itemRepoMock.Verify(r => r.Insert(It.IsAny<AICostImportItem>()), Times.Exactly(2));
@@ -80,5 +82,65 @@ public sealed class SubmitAICostImportBatchCommandHandlerTests
                 null,
                 It.IsAny<CancellationToken>()),
             Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task Handle_WhenMixedBatch_RejectsInvalidFilesAndProcessesValidOnes()
+    {
+        // Arrange
+        Mock<IFormFile> validJpg = AICostImportTestHelpers.BuildFormFileMock("valid.jpg");
+        Mock<IFormFile> validPdf = AICostImportTestHelpers.BuildFormFileMock("valid.pdf");
+        Mock<IFormFile> invalidTxt = AICostImportTestHelpers.BuildFormFileMock("invalid.txt");
+
+        SubmitAICostImportBatchCommand command = new SubmitAICostImportBatchCommand
+        {
+            TenantId = AICostImportTestHelpers.TenantId,
+            ProjectId = AICostImportTestHelpers.ProjectId,
+            Files = new FormFileCollection { validJpg.Object, validPdf.Object, invalidTxt.Object },
+            CostDocumentType = CostDocumentType.ProjectCost
+        };
+
+        // Act
+        AICostImportSubmitResultWeb result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.TotalFiles.Should().Be(2);
+        result.RejectedFiles.Should().ContainSingle();
+        result.RejectedFiles[0].FileName.Should().Be("invalid.txt");
+        result.RejectedFiles[0].Reason.Should().Contain("Niedozwolony format pliku");
+
+        _itemRepoMock.Verify(r => r.Insert(It.IsAny<AICostImportItem>()), Times.Exactly(2));
+        _queueStorageMock.Verify(
+            q => q.EnqueueAsync(
+                QueueNames.AICostImportProcess,
+                It.IsAny<string>(),
+                null,
+                null,
+                It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task Handle_WhenAllFilesAreInvalid_ThrowsValidationApiException()
+    {
+        // Arrange
+        Mock<IFormFile> invalid1 = AICostImportTestHelpers.BuildFormFileMock("a.txt");
+        Mock<IFormFile> invalid2 = AICostImportTestHelpers.BuildFormFileMock("b.txt");
+
+        SubmitAICostImportBatchCommand command = new SubmitAICostImportBatchCommand
+        {
+            TenantId = AICostImportTestHelpers.TenantId,
+            ProjectId = AICostImportTestHelpers.ProjectId,
+            Files = new FormFileCollection { invalid1.Object, invalid2.Object },
+            CostDocumentType = CostDocumentType.ProjectCost
+        };
+
+        // Act
+        Func<Task> act = async () => await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<ValidationApiException>()
+            .WithMessage("*dozwolonego formatu*");
+        _batchRepoMock.Verify(r => r.Insert(It.IsAny<AICostImportBatch>()), Times.Never);
     }
 }

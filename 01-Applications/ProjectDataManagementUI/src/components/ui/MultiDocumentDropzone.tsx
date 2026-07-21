@@ -9,14 +9,34 @@ import {
 } from '@chakra-ui/react';
 import { FileUp, X } from 'lucide-react';
 
-const ACCEPTED_EXTENSIONS: readonly string[] = ['.jpg', '.jpeg', '.png'];
+const ACCEPTED_EXTENSIONS: readonly string[] = ['.jpg', '.jpeg', '.png', '.pdf'];
+const ACCEPTED_MIME_TYPES: readonly string[] = [
+  'image/jpeg',
+  'image/png',
+  'application/pdf',
+];
 const BYTES_PER_MB = 1024 * 1024;
 
-function isAcceptedImageFile(file: File): boolean {
-  const extension = file.name.includes('.')
+export interface FileRejection {
+  fileName: string;
+  reason: string;
+}
+
+function getFileExtension(file: File): string {
+  return file.name.includes('.')
     ? `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`
     : '';
-  return ACCEPTED_EXTENSIONS.includes(extension);
+}
+
+function validateFile(file: File): string | null {
+  const extension = getFileExtension(file);
+  if (!ACCEPTED_EXTENSIONS.includes(extension)) {
+    return `Niedozwolone rozszerzenie: ${extension || '(brak)'}`;
+  }
+  if (file.type && !ACCEPTED_MIME_TYPES.includes(file.type)) {
+    return `Niedozwolony typ pliku: ${file.type}`;
+  }
+  return null;
 }
 
 function formatFileSize(bytes: number): string {
@@ -29,15 +49,17 @@ export interface MultiDocumentDropzoneProps {
   files: File[];
   onChange: (files: File[]) => void;
   onSizeExceeded?: (currentBytes: number, limitBytes: number) => void;
+  onFilesRejected?: (rejections: FileRejection[]) => void;
   isDisabled?: boolean;
 }
 
 export default function MultiDocumentDropzone({
-  accept = '.jpg,.jpeg,.png',
+  accept = '.jpg,.jpeg,.png,.pdf',
   maxTotalSizeMB = 50,
   files,
   onChange,
   onSizeExceeded,
+  onFilesRejected,
   isDisabled = false,
 }: MultiDocumentDropzoneProps): React.ReactElement {
   const inputId = useId();
@@ -45,17 +67,37 @@ export default function MultiDocumentDropzone({
 
   const totalBytes = files.reduce((sum: number, file: File) => sum + file.size, 0);
 
-  const tryUpdateFiles = useCallback(
-    (nextFiles: File[]): void => {
-      const validFiles = nextFiles.filter(isAcceptedImageFile);
-      const nextTotal = validFiles.reduce((sum: number, file: File) => sum + file.size, 0);
+  const processNewFiles = useCallback(
+    (newFiles: File[]): void => {
+      const accepted: File[] = [];
+      const rejected: FileRejection[] = [];
+
+      for (const file of newFiles) {
+        const reason = validateFile(file);
+        if (reason) {
+          rejected.push({ fileName: file.name, reason });
+        } else {
+          accepted.push(file);
+        }
+      }
+
+      if (rejected.length > 0) {
+        onFilesRejected?.(rejected);
+      }
+
+      if (accepted.length === 0) {
+        return;
+      }
+
+      const nextFiles = [...files, ...accepted];
+      const nextTotal = nextFiles.reduce((sum: number, file: File) => sum + file.size, 0);
       if (nextTotal > limitBytes) {
         onSizeExceeded?.(nextTotal, limitBytes);
         return;
       }
-      onChange(validFiles);
+      onChange(nextFiles);
     },
-    [limitBytes, onChange, onSizeExceeded]
+    [files, limitBytes, onChange, onFilesRejected, onSizeExceeded]
   );
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -63,7 +105,7 @@ export default function MultiDocumentDropzone({
     if (selected.length === 0) {
       return;
     }
-    tryUpdateFiles([...files, ...selected]);
+    processNewFiles(selected);
     event.target.value = '';
   };
 
@@ -76,7 +118,7 @@ export default function MultiDocumentDropzone({
     if (dropped.length === 0) {
       return;
     }
-    tryUpdateFiles([...files, ...dropped]);
+    processNewFiles(dropped);
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLLabelElement>): void => {
@@ -133,7 +175,7 @@ export default function MultiDocumentDropzone({
               : 'Przeciągnij pliki lub kliknij, aby wybrać'}
           </Text>
           <Text fontSize="xs" color="gray.500">
-            JPG, PNG · łącznie maks. {maxTotalSizeMB} MB
+            JPG, PNG, PDF · łącznie maks. {maxTotalSizeMB} MB
           </Text>
           {hasFiles && (
             <Text fontSize="xs" color="gray.500">

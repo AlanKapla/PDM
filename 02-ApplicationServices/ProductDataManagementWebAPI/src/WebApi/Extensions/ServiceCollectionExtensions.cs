@@ -411,7 +411,9 @@ namespace WebApi.Extensions
             services.AddHostedService<StartupSeederService>();
 
             services.AddScoped<IDocumentParserService, DocumentParserService>();
+            services.AddScoped<IPdfToImageConverter, PdfToImageConverter>();
             services.AddScoped<ICostEstimateAIGeneratorService, CostEstimateAIGeneratorService>();
+
 
             services.AddScoped<IAICostDocumentEnrichmentService, Business.Implementation.Services.AI.AICostDocumentEnrichmentService>();
             services.AddScoped<IAICostImportBlobService, Business.Implementation.Services.AI.AICostImportBlobService>();
