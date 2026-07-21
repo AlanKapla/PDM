@@ -20,6 +20,8 @@ import type {
   ReorderItemDto,
   ReorderItemChildDto,
   ReorderGroupDto,
+  CostEstimateExportFormat,
+  CostEstimateExportFile,
 } from '../../types/costEstimate.types.new';
 
 export const costEstimateKeys = {
@@ -396,5 +398,22 @@ export function useReorderCostEstimateGroups(
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
     },
+  });
+}
+
+/**
+ * Mutation: eksportuje kosztorys do PDF lub XLSX.
+ * Bez invalidacji cache — operacja tylko do odczytu (download).
+ */
+export function useExportCostEstimate(
+  tenantId: string,
+  projectId: string,
+  costEstimateId: string,
+) {
+  return useMutation({
+    mutationFn: (format: CostEstimateExportFormat): Promise<CostEstimateExportFile> =>
+      format === 'xlsx'
+        ? costEstimateApi.exportXlsx(tenantId, projectId, costEstimateId)
+        : costEstimateApi.exportPdf(tenantId, projectId, costEstimateId),
   });
 }

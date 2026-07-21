@@ -3,8 +3,8 @@
 //   Odczytuje sessionStorage "demoMode"
 // ============================================
 
-import type { AxiosInstance, InternalAxiosRequestConfig } from "axios";
-import { handleMockRequest } from "./mockHandlers";
+import type { AxiosInstance, AxiosResponseHeaders, InternalAxiosRequestConfig } from "axios";
+import { handleMockRequest, type MockResponse } from "./mockHandlers";
 
 const STORAGE_KEY = "demoMode";
 
@@ -23,15 +23,21 @@ export function setDemoMode(active: boolean): void {
 function applyMockAdapter(
   config: InternalAxiosRequestConfig,
   status: number,
-  mockData: unknown
+  mockData: unknown,
+  responseHeaders?: Record<string, string>
 ): void {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    ...responseHeaders,
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (config as any).adapter = () =>
     Promise.resolve({
       data: mockData,
       status,
       statusText: "OK (mock)",
-      headers: { "content-type": "application/json" },
+      headers: headers as AxiosResponseHeaders,
       config,
     });
 }
@@ -50,12 +56,15 @@ export function setupMockInterceptors(instance: AxiosInstance): void {
       }
 
       try {
-        const [status, mockData] = await handleMockRequest(
+        const mockResult: MockResponse = await handleMockRequest(
           config.method || "get",
           url,
           config.data
         );
-        applyMockAdapter(config, status, mockData);
+        const status: number = mockResult[0];
+        const mockData: unknown = mockResult[1];
+        const responseHeaders: Record<string, string> | undefined = mockResult[2];
+        applyMockAdapter(config, status, mockData, responseHeaders);
       } catch (err) {
         console.error("[PDMDemo] Mock handler error:", err);
         applyMockAdapter(config, 200, []);

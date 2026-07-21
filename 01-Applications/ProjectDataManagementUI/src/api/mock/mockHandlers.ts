@@ -9,7 +9,7 @@ function delay(): Promise<void> {
   return new Promise((r) => setTimeout(r, 25));
 }
 
-type MockResponse = [number, unknown];
+export type MockResponse = [number, unknown, Record<string, string>?];
 
 function ok<T>(data: T): MockResponse {
   return [200, data];
@@ -17,6 +17,21 @@ function ok<T>(data: T): MockResponse {
 
 function noContent(): MockResponse {
   return [204, null];
+}
+
+function okBlob(
+  blob: Blob,
+  fileName: string,
+  contentType: string
+): MockResponse {
+  return [
+    200,
+    blob,
+    {
+      "content-type": contentType,
+      "content-disposition": `attachment; filename="${fileName}"`,
+    },
+  ];
 }
 
 /** Wyciągnij parametr z URL po indeksie segmentu */
@@ -231,6 +246,24 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/cost-estimate\/details\/[^/]+$/.test(pathOnly) && method === "get") {
     const ceId = pathOnly.split("/").pop() || "ce-001";
     return ok(getCostEstimateDetailsById(ceId));
+  }
+  // GET .../cost-estimate/{id}/export/xlsx
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/cost-estimate\/[^/]+\/export\/xlsx$/.test(pathOnly) && method === "get") {
+    const blob = new Blob(["PK\u0003\u0004mock-xlsx"], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    return okBlob(
+      blob,
+      `Kosztorys_20260721.xlsx`,
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+  }
+  // GET .../cost-estimate/{id}/export/pdf
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/cost-estimate\/[^/]+\/export\/pdf$/.test(pathOnly) && method === "get") {
+    const blob = new Blob(["%PDF-1.4 mock cost estimate"], {
+      type: "application/pdf",
+    });
+    return okBlob(blob, `Kosztorys_20260721.pdf`, "application/pdf");
   }
   // AI preview
   if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/cost-estimate\/generate-ai-preview$/.test(pathOnly) && method === "post") {

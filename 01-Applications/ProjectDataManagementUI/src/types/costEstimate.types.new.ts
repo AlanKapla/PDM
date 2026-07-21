@@ -38,6 +38,16 @@ export enum CostEstimateAccessLevel {
   Full = 3,
 }
 
+/** Format eksportu kosztorysu (PDF / XLSX). */
+export type CostEstimateExportFormat = 'pdf' | 'xlsx';
+
+/** Plik binarny zwrócony przez endpoint eksportu. */
+export interface CostEstimateExportFile {
+  blob: Blob;
+  fileName: string;
+  contentType: string;
+}
+
 /**
  * Wpis udostępnienia kosztorysu użytkownikowi
  */

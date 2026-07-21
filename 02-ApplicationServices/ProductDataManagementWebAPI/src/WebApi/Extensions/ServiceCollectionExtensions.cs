@@ -382,6 +382,7 @@ namespace WebApi.Extensions
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<IProjectCostAccessService, ProjectCostAccessService>();
             services.AddScoped<ICostEstimateShareService, CostEstimateShareService>();
+            services.AddScoped<ICostEstimateExportService, CostEstimateExportService>();
             services.AddScoped<IContractorService, ContractorService>();
             services.AddSingleton<ICostTrackerFinancialService, CostTrackerFinancialService>();
             services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
@@ -494,7 +495,8 @@ namespace WebApi.Extensions
                         .WithOrigins(origins)
                         .AllowAnyHeader()
                         .AllowAnyMethod()
-                        .AllowCredentials();
+                        .AllowCredentials()
+                        .WithExposedHeaders("Content-Disposition");
                 });
             });
 

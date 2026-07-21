@@ -1,3 +1,4 @@
+import axios, { type AxiosError, type AxiosResponse } from "axios";
 import { axiosClient } from "./axiosClient";
 import type {
   CostEstimateListItemWeb,
@@ -13,10 +14,89 @@ import type {
   MoveItemRequestDto,
   CostEstimateAdditionalFieldWeb,
   AdditionalFieldType,
+  CostEstimateExportFile,
+  CostEstimateExportFormat,
 } from "../types/costEstimate.types.new";
+import type { ApiExceptionResponse } from "../types/apiError.types";
+import { parseContentDispositionFileName } from "../utils/downloadBlob";
 
 // Import ResourceScope from projectApi
 import { ResourceScope } from "./projectApi";
+
+const EXPORT_TIMEOUT_MS = 120_000;
+
+/**
+ * Gdy responseType=blob, błędy 4xx/5xx przychodzą jako Blob z JSON.
+ * Parsujemy je z powrotem do obiektu, żeby handleApiError działał normalnie.
+ */
+async function rethrowBlobApiError(error: unknown): Promise<never> {
+  if (!axios.isAxiosError(error)) {
+    throw error;
+  }
+
+  const axiosError: AxiosError<unknown> = error;
+  const data: unknown = axiosError.response?.data;
+
+  if (data instanceof Blob) {
+    try {
+      const text: string = await data.text();
+      const parsed: unknown = JSON.parse(text);
+      if (
+        axiosError.response &&
+        parsed !== null &&
+        typeof parsed === "object" &&
+        "error" in parsed
+      ) {
+        axiosError.response.data = parsed as ApiExceptionResponse;
+      }
+    } catch {
+      // Zostaw oryginalny Blob — handleApiError użyje status HTTP.
+    }
+  }
+
+  throw axiosError;
+}
+
+async function exportCostEstimateFile(
+  tenantId: string,
+  projectId: string,
+  id: string,
+  format: CostEstimateExportFormat
+): Promise<CostEstimateExportFile> {
+  const extension: string = format === "xlsx" ? "xlsx" : "pdf";
+  const fallbackFileName: string = `kosztorys_${id}.${extension}`;
+  const defaultContentType: string =
+    format === "xlsx"
+      ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      : "application/pdf";
+
+  try {
+    const response: AxiosResponse<Blob> = await axiosClient.get<Blob>(
+      `/tenants/${tenantId}/projects/${projectId}/cost-estimate/${id}/export/${format}`,
+      {
+        responseType: "blob",
+        timeout: EXPORT_TIMEOUT_MS,
+      }
+    );
+
+    const contentDisposition: string | undefined =
+      (response.headers["content-disposition"] as string | undefined) ??
+      (response.headers["Content-Disposition"] as string | undefined);
+    const parsedName: string | null =
+      parseContentDispositionFileName(contentDisposition);
+    const contentTypeHeader: string | undefined =
+      (response.headers["content-type"] as string | undefined) ??
+      (response.headers["Content-Type"] as string | undefined);
+
+    return {
+      blob: response.data,
+      fileName: parsedName ?? fallbackFileName,
+      contentType: contentTypeHeader ?? defaultContentType,
+    };
+  } catch (error: unknown) {
+    return rethrowBlobApiError(error);
+  }
+}
 
 // Helper to convert enum to route string
 const resourceScopeToRoute = (scope: ResourceScope): string => {
@@ -311,6 +391,32 @@ export const costEstimateApi = {
     await axiosClient.post(
       `/tenants/${tenantId}/projects/${projectId}/cost-estimate/${costEstimateId}/recalculate`
     );
+  },
+
+  // ============================================================
+  // EXPORT
+  // ============================================================
+
+  /**
+   * Eksportuje kosztorys do pliku XLSX (blob + nazwa z Content-Disposition).
+   */
+  exportXlsx: async (
+    tenantId: string,
+    projectId: string,
+    id: string
+  ): Promise<CostEstimateExportFile> => {
+    return exportCostEstimateFile(tenantId, projectId, id, "xlsx");
+  },
+
+  /**
+   * Eksportuje kosztorys do pliku PDF (blob + nazwa z Content-Disposition).
+   */
+  exportPdf: async (
+    tenantId: string,
+    projectId: string,
+    id: string
+  ): Promise<CostEstimateExportFile> => {
+    return exportCostEstimateFile(tenantId, projectId, id, "pdf");
   },
 
   // ============================================================
