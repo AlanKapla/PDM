@@ -28,6 +28,21 @@ namespace Business.Interfaces.WebModels.CostEstimates
         decimal? TotalVat,
         DateTime ExportedAtUtc);
 
+    /// <summary>
+    /// Etykiety kolumn eksportu — FieldName ze schematu kosztorysu (rename użytkownika).
+    /// </summary>
+    public sealed record CostEstimateExportColumnLabels(
+        string Name,
+        string Quantity,
+        string Unit,
+        string UnitPriceNet,
+        string VatRate,
+        string UnitPriceGross,
+        string NetValue,
+        string VatValue,
+        string GrossValue,
+        string IsSelected);
+
     public sealed record CostEstimateExportRow(
         CostEstimateExportRowType RowType,
         int Level,

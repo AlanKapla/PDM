@@ -54,14 +54,13 @@ namespace CQRS.CostEstimates.ExportCostEstimate
                 c => c.ProjectId == costEstimate.ProjectId,
                 cancellationToken);
 
-            List<CostEstimateAdditionalFieldWeb> additionalFields = await LoadAdditionalFieldsAsync(
-                request.CostEstimateId);
+            List<CostEstimateFieldSchemaWeb> fieldSchemas = await LoadFieldSchemasAsync(request.CostEstimateId);
 
             return exportService.Export(
                 costEstimate,
                 groupsDict.Values.ToList(),
                 itemsDict.Values.ToList(),
-                additionalFields,
+                fieldSchemas,
                 projectCurrency?.Code,
                 projectCurrency?.Symbol,
                 request.Format);
@@ -95,15 +94,14 @@ namespace CQRS.CostEstimates.ExportCostEstimate
             }
         }
 
-        private async Task<List<CostEstimateAdditionalFieldWeb>> LoadAdditionalFieldsAsync(Guid costEstimateId)
+        private async Task<List<CostEstimateFieldSchemaWeb>> LoadFieldSchemasAsync(Guid costEstimateId)
         {
             IEnumerable<CostEstimateFieldSchema> fieldSchemas = await fieldSchemaRepository.GetBySearch(
                 f => f.CostEstimateId == costEstimateId);
 
             return fieldSchemas
-                .Where(f => f.IsAdditionalField)
                 .OrderBy(f => f.Order)
-                .Select(GetAdditionalFieldsQueryHandler.MapToAdditionalFieldWeb)
+                .Select(GetAdditionalFieldsQueryHandler.MapToFieldSchemaWeb)
                 .ToList();
         }
     }

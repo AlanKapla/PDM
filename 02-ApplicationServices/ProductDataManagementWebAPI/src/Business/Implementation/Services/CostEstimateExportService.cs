@@ -18,6 +18,19 @@ namespace Business.Implementation.Services
         private const string PdfContentType = "application/pdf";
         private const string NumberFormat = "#,##0.00";
 
+        /// <summary>Domyślne etykiety (fallback gdy brak wpisu w schemacie).</summary>
+        private static readonly CostEstimateExportColumnLabels DefaultColumnLabels = new(
+            Name: "Nazwa",
+            Quantity: "Ilość",
+            Unit: "Jednostka",
+            UnitPriceNet: "Cena netto",
+            VatRate: "Stawka VAT",
+            UnitPriceGross: "Cena brutto",
+            NetValue: "Wartość netto",
+            VatValue: "Wartość VAT",
+            GrossValue: "Wartość brutto",
+            IsSelected: "Sumuj");
+
         private static readonly CultureInfo PlCulture = CultureInfo.GetCultureInfo("pl-PL");
         // Cross-platform (Windows-safe) set — Path.GetInvalidFileNameChars() differs on Linux CI.
         private static readonly Regex InvalidFileNameChars = new(
@@ -40,16 +53,15 @@ namespace Business.Implementation.Services
             CostEstimate costEstimate,
             IReadOnlyList<CostEstimateGroup> allGroups,
             IReadOnlyList<CostEstimateItem> allItems,
-            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields,
+            IReadOnlyList<CostEstimateFieldSchemaWeb> fieldSchemas,
             string? currencyCode,
             string? currencySymbol,
             CostEstimateExportFormat format,
             DateTime? exportedAtUtc = null)
         {
             DateTime exportedAt = exportedAtUtc ?? DateTime.UtcNow;
-            IReadOnlyList<CostEstimateAdditionalFieldWeb> orderedFields = additionalFields
-                .OrderBy(f => f.Order)
-                .ToList();
+            CostEstimateExportColumnLabels columnLabels = ResolveColumnLabels(fieldSchemas);
+            IReadOnlyList<CostEstimateAdditionalFieldWeb> orderedFields = MapAdditionalFields(fieldSchemas);
 
             IReadOnlyList<CostEstimateExportRow> rows = Flatten(allGroups, allItems, orderedFields);
             WarnIfLargeExport(costEstimate.Id, rows.Count);
@@ -59,10 +71,64 @@ namespace Business.Implementation.Services
 
             return format switch
             {
-                CostEstimateExportFormat.Xlsx => BuildXlsx(meta, rows, orderedFields, fileName),
-                CostEstimateExportFormat.Pdf => BuildPdf(meta, rows, orderedFields, fileName),
+                CostEstimateExportFormat.Xlsx => BuildXlsx(meta, rows, orderedFields, columnLabels, fileName),
+                CostEstimateExportFormat.Pdf => BuildPdf(meta, rows, orderedFields, columnLabels, fileName),
                 _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported export format.")
             };
+        }
+
+        internal static CostEstimateExportColumnLabels ResolveColumnLabels(
+            IReadOnlyList<CostEstimateFieldSchemaWeb> fieldSchemas)
+        {
+            Dictionary<string, string> labelsByKey = fieldSchemas
+                .Where(f => !string.IsNullOrWhiteSpace(f.FieldKey) && !string.IsNullOrWhiteSpace(f.FieldName))
+                .GroupBy(f => f.FieldKey, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(f => f.Order).First().FieldName.Trim(),
+                    StringComparer.OrdinalIgnoreCase);
+
+            return new CostEstimateExportColumnLabels(
+                Name: ResolveLabel(labelsByKey, "name", DefaultColumnLabels.Name),
+                Quantity: ResolveLabel(labelsByKey, "quantity", DefaultColumnLabels.Quantity),
+                Unit: ResolveLabel(labelsByKey, "unit", DefaultColumnLabels.Unit),
+                UnitPriceNet: ResolveLabel(labelsByKey, "unitPriceNet", DefaultColumnLabels.UnitPriceNet),
+                VatRate: ResolveLabel(labelsByKey, "vatRate", DefaultColumnLabels.VatRate),
+                UnitPriceGross: ResolveLabel(labelsByKey, "unitPriceGross", DefaultColumnLabels.UnitPriceGross),
+                NetValue: ResolveLabel(labelsByKey, "netValue", DefaultColumnLabels.NetValue),
+                VatValue: ResolveLabel(labelsByKey, "vatValue", DefaultColumnLabels.VatValue),
+                GrossValue: ResolveLabel(labelsByKey, "grossValue", DefaultColumnLabels.GrossValue),
+                IsSelected: ResolveLabel(labelsByKey, "isSelected", DefaultColumnLabels.IsSelected));
+        }
+
+        private static string ResolveLabel(
+            IReadOnlyDictionary<string, string> labelsByKey,
+            string fieldKey,
+            string fallback)
+        {
+            if (labelsByKey.TryGetValue(fieldKey, out string? label) && !string.IsNullOrWhiteSpace(label))
+            {
+                return label;
+            }
+
+            return fallback;
+        }
+
+        private static IReadOnlyList<CostEstimateAdditionalFieldWeb> MapAdditionalFields(
+            IReadOnlyList<CostEstimateFieldSchemaWeb> fieldSchemas)
+        {
+            return fieldSchemas
+                .Where(f => f.IsAdditionalField)
+                .OrderBy(f => f.Order)
+                .Select(f => new CostEstimateAdditionalFieldWeb(
+                    Id: f.Id,
+                    CostEstimateId: f.CostEstimateId,
+                    Name: f.FieldName,
+                    FieldType: f.FieldType,
+                    Order: f.Order,
+                    CreatedAt: f.CreatedAt,
+                    UpdatedAt: f.UpdatedAt))
+                .ToList();
         }
 
         internal IReadOnlyList<CostEstimateExportRow> Flatten(
@@ -341,11 +407,12 @@ namespace Business.Implementation.Services
             CostEstimateExportMeta meta,
             IReadOnlyList<CostEstimateExportRow> rows,
             IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields,
+            CostEstimateExportColumnLabels columnLabels,
             string fileName)
         {
             using XLWorkbook workbook = new XLWorkbook();
             WriteSummarySheet(workbook, meta);
-            WriteKosztorysSheet(workbook, rows, additionalFields);
+            WriteKosztorysSheet(workbook, rows, additionalFields, columnLabels);
 
             using MemoryStream stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -373,10 +440,11 @@ namespace Business.Implementation.Services
         private static void WriteKosztorysSheet(
             XLWorkbook workbook,
             IReadOnlyList<CostEstimateExportRow> rows,
-            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields)
+            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields,
+            CostEstimateExportColumnLabels columnLabels)
         {
             IXLWorksheet sheet = workbook.Worksheets.Add("Kosztorys");
-            WriteKosztorysHeaders(sheet, additionalFields);
+            WriteKosztorysHeaders(sheet, additionalFields, columnLabels);
 
             int rowIndex = 2;
             foreach (CostEstimateExportRow row in rows)
@@ -391,14 +459,10 @@ namespace Business.Implementation.Services
 
         private static void WriteKosztorysHeaders(
             IXLWorksheet sheet,
-            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields)
+            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields,
+            CostEstimateExportColumnLabels columnLabels)
         {
-            string[] headers =
-            [
-                "Poziom", "Typ", "Nazwa", "Ilość", "Jm", "Cena netto", "VAT %", "Cena brutto",
-                "Wartość netto", "Wartość VAT", "Wartość brutto", "Zaznaczono"
-            ];
-
+            string[] headers = BuildXlsxFixedHeaders(columnLabels);
             for (int i = 0; i < headers.Length; i++)
             {
                 sheet.Cell(1, i + 1).Value = headers[i];
@@ -410,6 +474,43 @@ namespace Business.Implementation.Services
             }
 
             sheet.Row(1).Style.Font.Bold = true;
+        }
+
+        private static string[] BuildXlsxFixedHeaders(CostEstimateExportColumnLabels columnLabels)
+        {
+            return
+            [
+                "Poziom",
+                "Typ",
+                columnLabels.Name,
+                columnLabels.Quantity,
+                columnLabels.Unit,
+                columnLabels.UnitPriceNet,
+                columnLabels.VatRate,
+                columnLabels.UnitPriceGross,
+                columnLabels.NetValue,
+                columnLabels.VatValue,
+                columnLabels.GrossValue,
+                columnLabels.IsSelected
+            ];
+        }
+
+        private static string[] BuildPdfFixedHeaders(CostEstimateExportColumnLabels columnLabels)
+        {
+            return
+            [
+                "Typ",
+                columnLabels.Name,
+                columnLabels.Quantity,
+                columnLabels.Unit,
+                columnLabels.UnitPriceNet,
+                columnLabels.VatRate,
+                columnLabels.UnitPriceGross,
+                columnLabels.NetValue,
+                columnLabels.VatValue,
+                columnLabels.GrossValue,
+                columnLabels.IsSelected
+            ];
         }
 
         private static void WriteKosztorysDataRow(
@@ -460,16 +561,17 @@ namespace Business.Implementation.Services
             CostEstimateExportMeta meta,
             IReadOnlyList<CostEstimateExportRow> rows,
             IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields,
+            CostEstimateExportColumnLabels columnLabels,
             string fileName)
         {
-            bool landscape = additionalFields.Count > 2;
+            bool landscape = true;
             byte[] content = Document.Create(container =>
             {
                 container.Page(page =>
                 {
                     ConfigurePdfPage(page, landscape);
                     page.Header().Element(h => ComposePdfHeader(h, meta));
-                    page.Content().Element(c => ComposePdfTable(c, rows, additionalFields));
+                    page.Content().Element(c => ComposePdfTable(c, rows, additionalFields, columnLabels));
                     page.Footer().AlignCenter().Text(text =>
                     {
                         text.Span("Strona ");
@@ -508,12 +610,13 @@ namespace Business.Implementation.Services
         private static void ComposePdfTable(
             IContainer container,
             IReadOnlyList<CostEstimateExportRow> rows,
-            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields)
+            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields,
+            CostEstimateExportColumnLabels columnLabels)
         {
             container.Table(table =>
             {
                 DefinePdfColumns(table, additionalFields.Count);
-                table.Header(header => WritePdfHeaderCells(header, additionalFields));
+                table.Header(header => WritePdfHeaderCells(header, additionalFields, columnLabels));
 
                 foreach (CostEstimateExportRow row in rows)
                 {
@@ -528,13 +631,15 @@ namespace Business.Implementation.Services
             {
                 columns.ConstantColumn(28);
                 columns.RelativeColumn(3);
+                columns.ConstantColumn(36);
+                columns.ConstantColumn(42);
+                columns.ConstantColumn(44);
                 columns.ConstantColumn(40);
-                columns.ConstantColumn(28);
-                columns.ConstantColumn(48);
+                columns.ConstantColumn(44);
+                columns.ConstantColumn(44);
                 columns.ConstantColumn(40);
-                columns.ConstantColumn(48);
-                columns.ConstantColumn(48);
-                columns.ConstantColumn(40);
+                columns.ConstantColumn(44);
+                columns.ConstantColumn(32);
                 for (int i = 0; i < additionalFieldCount; i++)
                 {
                     columns.RelativeColumn(2);
@@ -544,17 +649,13 @@ namespace Business.Implementation.Services
 
         private static void WritePdfHeaderCells(
             TableCellDescriptor header,
-            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields)
+            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields,
+            CostEstimateExportColumnLabels columnLabels)
         {
-            header.Cell().Element(PdfHeaderCell).Text("Typ");
-            header.Cell().Element(PdfHeaderCell).Text("Nazwa");
-            header.Cell().Element(PdfHeaderCell).Text("Ilość");
-            header.Cell().Element(PdfHeaderCell).Text("Jm");
-            header.Cell().Element(PdfHeaderCell).Text("Cena n.");
-            header.Cell().Element(PdfHeaderCell).Text("VAT");
-            header.Cell().Element(PdfHeaderCell).Text("Netto");
-            header.Cell().Element(PdfHeaderCell).Text("Brutto");
-            header.Cell().Element(PdfHeaderCell).Text("Zazn.");
+            foreach (string title in BuildPdfFixedHeaders(columnLabels))
+            {
+                header.Cell().Element(PdfHeaderCell).Text(title);
+            }
 
             foreach (CostEstimateAdditionalFieldWeb field in additionalFields)
             {
@@ -587,7 +688,9 @@ namespace Business.Implementation.Services
             table.Cell().Element(PdfBodyCell).Text(row.Unit ?? string.Empty);
             table.Cell().Element(PdfBodyCell).AlignRight().Text(FormatDecimal(row.UnitPriceNet));
             table.Cell().Element(PdfBodyCell).AlignRight().Text(FormatVatPercent(row.VatRate));
+            table.Cell().Element(PdfBodyCell).AlignRight().Text(FormatDecimal(row.UnitPriceGross));
             table.Cell().Element(PdfBodyCell).AlignRight().Text(FormatDecimal(row.NetValue));
+            table.Cell().Element(PdfBodyCell).AlignRight().Text(FormatDecimal(row.VatValue));
             table.Cell().Element(PdfBodyCell).AlignRight().Text(FormatDecimal(row.GrossValue));
             table.Cell().Element(PdfBodyCell).Text(FormatIsSelected(row.IsSelected));
 

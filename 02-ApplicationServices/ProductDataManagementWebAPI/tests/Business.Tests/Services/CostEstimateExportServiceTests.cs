@@ -105,8 +105,18 @@ public sealed class CostEstimateExportServiceTests
     {
         // Arrange
         Guid fieldId = Guid.NewGuid();
-        CostEstimateAdditionalFieldWeb field = new(
-            fieldId, Guid.NewGuid(), "Uwagi", 0, 1, DateTime.UtcNow, null);
+        Guid costEstimateId = Guid.NewGuid();
+        CostEstimateFieldSchemaWeb field = new(
+            Id: fieldId,
+            CostEstimateId: costEstimateId,
+            FieldName: "Uwagi",
+            FieldKey: "uwagi",
+            FieldType: 0,
+            IsBasicField: false,
+            IsAdditionalField: true,
+            Order: 1,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: null);
         CostEstimate estimate = BuildEstimate();
         (List<CostEstimateGroup> groups, List<CostEstimateItem> items) = BuildTree(fieldId, isSelected: true);
 
@@ -120,6 +130,56 @@ public sealed class CostEstimateExportServiceTests
         ClosedXML.Excel.IXLWorksheet sheet = workbook.Worksheet("Kosztorys");
         sheet.Cell(1, 13).GetString().Should().Be("Uwagi");
         sheet.Cell(3, 13).GetString().Should().Be("wartość");
+    }
+
+    [Fact]
+    public void Export_WhenSchemaHasRenamedBasicFields_UsesCustomHeaderLabels()
+    {
+        // Arrange
+        CostEstimate estimate = BuildEstimate();
+        (List<CostEstimateGroup> groups, List<CostEstimateItem> items) = BuildTree(Guid.NewGuid(), isSelected: true);
+        List<CostEstimateFieldSchemaWeb> schemas =
+        [
+            BuildBasicSchema(estimate.Id, "name", "Nazwa haha", 100, 0),
+            BuildBasicSchema(estimate.Id, "unit", "Jednostka haha", 102, 3),
+            BuildBasicSchema(estimate.Id, "isSelected", "Sumuj custom", 109, 10),
+        ];
+
+        // Act
+        CostEstimateExportFile file = _sut.Export(
+            estimate, groups, items, schemas, "PLN", "zł", CostEstimateExportFormat.Xlsx);
+        CostEstimateExportColumnLabels labels = CostEstimateExportService.ResolveColumnLabels(schemas);
+
+        // Assert
+        labels.Name.Should().Be("Nazwa haha");
+        labels.Unit.Should().Be("Jednostka haha");
+        labels.IsSelected.Should().Be("Sumuj custom");
+
+        using ClosedXML.Excel.XLWorkbook workbook = new(new MemoryStream(file.Content));
+        ClosedXML.Excel.IXLWorksheet sheet = workbook.Worksheet("Kosztorys");
+        sheet.Cell(1, 3).GetString().Should().Be("Nazwa haha");
+        sheet.Cell(1, 5).GetString().Should().Be("Jednostka haha");
+        sheet.Cell(1, 12).GetString().Should().Be("Sumuj custom");
+    }
+
+    private static CostEstimateFieldSchemaWeb BuildBasicSchema(
+        Guid costEstimateId,
+        string fieldKey,
+        string fieldName,
+        int fieldType,
+        int order)
+    {
+        return new CostEstimateFieldSchemaWeb(
+            Id: Guid.NewGuid(),
+            CostEstimateId: costEstimateId,
+            FieldName: fieldName,
+            FieldKey: fieldKey,
+            FieldType: fieldType,
+            IsBasicField: true,
+            IsAdditionalField: false,
+            Order: order,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: null);
     }
 
     private static CostEstimate BuildEstimate() =>

@@ -9,7 +9,7 @@ namespace Business.Interfaces.Services
             CostEstimate costEstimate,
             IReadOnlyList<CostEstimateGroup> allGroups,
             IReadOnlyList<CostEstimateItem> allItems,
-            IReadOnlyList<CostEstimateAdditionalFieldWeb> additionalFields,
+            IReadOnlyList<CostEstimateFieldSchemaWeb> fieldSchemas,
             string? currencyCode,
             string? currencySymbol,
             CostEstimateExportFormat format,
