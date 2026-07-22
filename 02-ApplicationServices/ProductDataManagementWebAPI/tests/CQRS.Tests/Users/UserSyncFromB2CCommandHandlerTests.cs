@@ -172,7 +172,7 @@ public sealed class UserSyncFromB2CCommandHandlerTests
         capturedUser.Should().NotBeNull();
         capturedUser!.WelcomeEmailSentAt.Should().NotBeNull();
         _userRepoMock.Verify(r => r.Insert(It.IsAny<User>()), Times.Once);
-        _userRepoMock.Verify(r => r.Update(It.IsAny<User>()), Times.Once);
+        _userRepoMock.Verify(r => r.Update(It.IsAny<User>()), Times.Never);
         _welcomeEmailServiceMock.Verify(
             s => s.SendWelcomeEmailAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Once);

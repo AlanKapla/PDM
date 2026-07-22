@@ -2,21 +2,14 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using Entities.Enums;
-using Entities.Models.Chats;
-using Entities.Models.Costs;
-using Entities.Models.Files;
-using Entities.Models.Notifications;
-using Entities.Models.Projects;
-using Entities.Models.Tenants;
 using Entities.Models.Users;
-using Entities.Models.WorkSchedules;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Repositories.Repository.Interfaces;
 
 namespace CQRS.Users.UserSyncFromB2C
 {
-    public class UserSyncFromB2CCommandHandler : IRequestHandler<UserSyncFromB2CCommand, Guid>
+    public sealed class UserSyncFromB2CCommandHandler : IRequestHandler<UserSyncFromB2CCommand, Guid>
     {
         private readonly IReadRepository<User> userReadRepo;
         private readonly IRepository<User> userRepo;
@@ -111,11 +104,9 @@ namespace CQRS.Users.UserSyncFromB2C
                 CreatedAt = DateTime.UtcNow
             };
 
-            await userRepo.Insert(newUser);
-
             await welcomeEmailService.SendWelcomeEmailAsync(newUser, cancellationToken);
             newUser.WelcomeEmailSentAt = DateTime.UtcNow;
-            await userRepo.Update(newUser);
+            await userRepo.Insert(newUser);
 
             logger.LogInformation(
                 "Created new user {UserId} from Azure B2C with Object ID {ObjectId}",
