@@ -28,15 +28,59 @@ public class FileAccessGuardTests
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private static ProjectFile BuildFile(Guid tenantId, Guid projectId, Guid ownerId)
+    private static ProjectFile BuildFile(Guid tenantId, Guid projectId, Guid ownerId, Guid? packageId = null)
         => new ProjectFile
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             ProjectId = projectId,
+            ProjectFilePackageId = packageId ?? Guid.NewGuid(),
             OwnerId = ownerId,
             FileName = "test.pdf"
         };
+
+    private static SharedProjectFile BuildShare(
+        Guid tenantId,
+        Guid projectId,
+        Guid packageId,
+        Guid sharedWithUserId,
+        Guid? projectFileId,
+        ProjectFileAccess access = ProjectFileAccess.Allow)
+        => new SharedProjectFile
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ProjectId = projectId,
+            ProjectFilePackageId = packageId,
+            ProjectFileId = projectFileId,
+            SharedWithUserId = sharedWithUserId,
+            SharedByUserId = Guid.NewGuid(),
+            Access = access
+        };
+
+    private void SetupNoAdmin(Guid tenantId, Guid projectId)
+    {
+        _currentUserMock
+            .Setup(u => u.IsTenantOrProjectAdminAsync(tenantId, projectId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+    }
+
+    private void SetupFile(ProjectFile file)
+    {
+        _fileRepoMock
+            .Setup(r => r.GetFirstBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<ProjectFile, bool>>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(file);
+    }
+
+    private void SetupShares(params SharedProjectFile[] shares)
+    {
+        _sharedRepoMock
+            .Setup(r => r.GetBySearch(
+                It.IsAny<System.Linq.Expressions.Expression<Func<SharedProjectFile, bool>>>()))
+            .ReturnsAsync(shares);
+    }
 
     private static ProjectFilePackage BuildPackage(Guid tenantId, Guid projectId, Guid ownerId)
         => new ProjectFilePackage
@@ -130,7 +174,7 @@ public class FileAccessGuardTests
     [Theory]
     [InlineData(FileAccessKind.Read)]
     [InlineData(FileAccessKind.Write)]
-    public async Task EnsureCanAccessFileAsync_UserHasShareAccess_DoesNotThrow(FileAccessKind kind)
+    public async Task EnsureCanAccessFileAsync_UserHasFileAllowShare_DoesNotThrow(FileAccessKind kind)
     {
         // Arrange
         Guid userId = Guid.NewGuid();
@@ -140,21 +184,15 @@ public class FileAccessGuardTests
         ProjectFile file = BuildFile(tenantId, projectId, ownerId);
 
         _currentUserMock.Setup(u => u.Id).Returns(userId);
-        _fileRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<System.Linq.Expressions.Expression<Func<ProjectFile, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(file);
-
-        _currentUserMock
-            .Setup(u => u.IsTenantOrProjectAdminAsync(tenantId, projectId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        _sharedRepoMock
-            .Setup(r => r.AnyAsync(
-                It.IsAny<System.Linq.Expressions.Expression<Func<SharedProjectFile, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        SetupFile(file);
+        SetupNoAdmin(tenantId, projectId);
+        SetupShares(BuildShare(
+            tenantId,
+            projectId,
+            file.ProjectFilePackageId,
+            userId,
+            file.Id,
+            ProjectFileAccess.Allow));
 
         // Act
         Func<Task> act = async () => await _sut.EnsureCanAccessFileAsync(
@@ -162,6 +200,61 @@ public class FileAccessGuardTests
 
         // Assert
         await act.Should().NotThrowAsync();
+    }
+
+    [Theory]
+    [InlineData(FileAccessKind.Read)]
+    [InlineData(FileAccessKind.Write)]
+    public async Task EnsureCanAccessFileAsync_UserHasPackageShare_DoesNotThrow(FileAccessKind kind)
+    {
+        // Arrange
+        Guid userId = Guid.NewGuid();
+        Guid ownerId = Guid.NewGuid();
+        Guid tenantId = Guid.NewGuid();
+        Guid projectId = Guid.NewGuid();
+        ProjectFile file = BuildFile(tenantId, projectId, ownerId);
+
+        _currentUserMock.Setup(u => u.Id).Returns(userId);
+        SetupFile(file);
+        SetupNoAdmin(tenantId, projectId);
+        SetupShares(BuildShare(
+            tenantId,
+            projectId,
+            file.ProjectFilePackageId,
+            userId,
+            projectFileId: null));
+
+        // Act
+        Func<Task> act = async () => await _sut.EnsureCanAccessFileAsync(
+            tenantId, projectId, file.Id, kind, CancellationToken.None);
+
+        // Assert
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task EnsureCanAccessFileAsync_PackageShareWithFileDeny_ThrowsForbiddenApiException()
+    {
+        // Arrange
+        Guid userId = Guid.NewGuid();
+        Guid ownerId = Guid.NewGuid();
+        Guid tenantId = Guid.NewGuid();
+        Guid projectId = Guid.NewGuid();
+        ProjectFile file = BuildFile(tenantId, projectId, ownerId);
+
+        _currentUserMock.Setup(u => u.Id).Returns(userId);
+        SetupFile(file);
+        SetupNoAdmin(tenantId, projectId);
+        SetupShares(
+            BuildShare(tenantId, projectId, file.ProjectFilePackageId, userId, projectFileId: null),
+            BuildShare(tenantId, projectId, file.ProjectFilePackageId, userId, file.Id, ProjectFileAccess.Deny));
+
+        // Act
+        Func<Task> act = async () => await _sut.EnsureCanAccessFileAsync(
+            tenantId, projectId, file.Id, FileAccessKind.Write, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<ForbiddenApiException>();
     }
 
     [Fact]
@@ -175,21 +268,9 @@ public class FileAccessGuardTests
         ProjectFile file = BuildFile(tenantId, projectId, ownerId);
 
         _currentUserMock.Setup(u => u.Id).Returns(userId);
-        _fileRepoMock
-            .Setup(r => r.GetFirstBySearch(
-                It.IsAny<System.Linq.Expressions.Expression<Func<ProjectFile, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(file);
-
-        _currentUserMock
-            .Setup(u => u.IsTenantOrProjectAdminAsync(tenantId, projectId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        _sharedRepoMock
-            .Setup(r => r.AnyAsync(
-                It.IsAny<System.Linq.Expressions.Expression<Func<SharedProjectFile, bool>>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        SetupFile(file);
+        SetupNoAdmin(tenantId, projectId);
+        SetupShares();
 
         // Act
         Func<Task> act = async () => await _sut.EnsureCanAccessFileAsync(

@@ -405,6 +405,7 @@ namespace WebApi.Extensions
             services.AddScoped<IFileAccessGuard, FileAccessGuard>();
             services.AddSingleton<IFileShareDiffService, Business.Implementation.Services.Files.FileShareDiffService>();
             services.AddScoped<IFileShareNotificationService, Business.Implementation.Services.Files.FileShareNotificationService>();
+            services.AddScoped<IFileActivityNotificationService, Business.Implementation.Services.Files.FileActivityNotificationService>();
             services.AddSingleton<IFileVersionWebMapper, Business.Implementation.Services.Files.FileVersionWebMapper>();
             services.AddScoped<IDashboardDataLoader, DashboardDataLoader>();
             services.AddScoped<IScheduleSummaryBuilder, ScheduleSummaryBuilder>();

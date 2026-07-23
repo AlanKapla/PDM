@@ -52,9 +52,6 @@ function resolveNotificationRoute(metadata: NotificationMetadata | undefined): s
     return `/projects/${contextualMatch[1]}/${contextualMatch[2]}/ai-review`;
   }
 
-  if (metadata.route.startsWith('/projects/')) {
-    return metadata.route;
-  }
   return metadata.route;
 }
 

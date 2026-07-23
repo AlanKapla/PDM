@@ -1,5 +1,5 @@
-﻿import React, { useState, useContext, useMemo } from "react";
-import { useParams } from "react-router-dom";
+﻿import React, { useState, useContext, useMemo, useEffect, useRef } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   Box,
   Heading,
@@ -76,6 +76,25 @@ const extractSasExpiry = (sasUrl: string): Date | null => {
     const se = url.searchParams.get("se");
     if (se) return new Date(se);
   } catch { /* niepoprawny URL */ }
+  return null;
+};
+
+/** Finds packageId in catalog tree and returns path of ancestor package ids (inclusive). */
+const findPackagePath = (
+  packages: ProjectFilePackageWeb[],
+  packageId: string,
+  path: string[] = []
+): string[] | null => {
+  for (const pkg of packages) {
+    const nextPath = [...path, pkg.id];
+    if (pkg.id === packageId) {
+      return nextPath;
+    }
+    const nested = findPackagePath(pkg.subCatalogs ?? [], packageId, nextPath);
+    if (nested) {
+      return nested;
+    }
+  }
   return null;
 };
 
@@ -156,6 +175,7 @@ interface VersionCommentsSectionProps {
   onCommentChange: (value: string) => void;
   onSubmitComment: () => void;
   isSubmitting: boolean;
+  highlightCommentId?: string | null;
 }
 
 const VersionCommentsSection: React.FC<VersionCommentsSectionProps> = ({
@@ -171,6 +191,7 @@ const VersionCommentsSection: React.FC<VersionCommentsSectionProps> = ({
   onCommentChange,
   onSubmitComment,
   isSubmitting,
+  highlightCommentId,
 }) => {
   const { data: comments, isLoading } = useVersionComments(
     tenantId,
@@ -180,11 +201,29 @@ const VersionCommentsSection: React.FC<VersionCommentsSectionProps> = ({
     scope,
     isExpanded
   );
+  const didScrollRef = useRef(false);
+  const list = comments ?? [];
+
+  useEffect(() => {
+    didScrollRef.current = false;
+  }, [highlightCommentId]);
+
+  useEffect(() => {
+    if (!isExpanded || isLoading || !highlightCommentId || didScrollRef.current) {
+      return;
+    }
+
+    const element = document.getElementById(`file-comment-${highlightCommentId}`);
+    if (!element) {
+      return;
+    }
+
+    didScrollRef.current = true;
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [isExpanded, isLoading, highlightCommentId, list]);
 
   if (!isExpanded) return null;
   if (isLoading) return <Box mt={3}><LoadingSpinner /></Box>;
-
-  const list = comments ?? [];
 
   return (
     <Box mt={3}>
@@ -192,9 +231,11 @@ const VersionCommentsSection: React.FC<VersionCommentsSectionProps> = ({
         <VStack align="stretch" spacing={3} mb={3}>
           {list.map((comment) => {
             const isMyComment = currentUserId === comment.userId;
+            const isHighlighted = highlightCommentId === comment.id;
             return (
               <HStack
                 key={comment.id}
+                id={`file-comment-${comment.id}`}
                 justify={isMyComment ? "flex-end" : "flex-start"}
                 w="100%"
               >
@@ -206,6 +247,9 @@ const VersionCommentsSection: React.FC<VersionCommentsSectionProps> = ({
                   borderRadius="lg"
                   borderBottomRightRadius={isMyComment ? "sm" : "lg"}
                   borderBottomLeftRadius={isMyComment ? "lg" : "sm"}
+                  borderWidth={isHighlighted ? "2px" : "0"}
+                  borderColor={isHighlighted ? "primary.400" : undefined}
+                  boxShadow={isHighlighted ? "md" : undefined}
                 >
                   <VStack align="stretch" spacing={1}>
                     <HStack justify="space-between">
@@ -280,6 +324,7 @@ interface FileRowProps {
   onCommentChange: (commentKey: string, value: string) => void;
   onSubmitComment: (keyFileId: string, apiFileId: string, versionId: string) => void;
   submittingComment: string | null;
+  highlightCommentId?: string | null;
 }
 
 const FileRow: React.FC<FileRowProps> = ({
@@ -303,6 +348,7 @@ const FileRow: React.FC<FileRowProps> = ({
   onCommentChange,
   onSubmitComment,
   submittingComment,
+  highlightCommentId,
 }) => {
   const fileId = file.id;
   const expandedBg = useColorModeValue("gray.50", "gray.900");
@@ -510,6 +556,7 @@ const FileRow: React.FC<FileRowProps> = ({
                               onSubmitComment(file.id, version.projectFileId ?? file.id, version.id)
                             }
                             isSubmitting={submittingComment === commentKey}
+                            highlightCommentId={highlightCommentId}
                           />
                         </Box>
                       </Box>
@@ -551,6 +598,7 @@ interface PackageFilesProps {
   onCommentChange: (commentKey: string, value: string) => void;
   onSubmitComment: (keyFileId: string, apiFileId: string, versionId: string) => void;
   submittingComment: string | null;
+  highlightCommentId?: string | null;
 }
 
 const PackageFiles: React.FC<PackageFilesProps> = ({
@@ -575,6 +623,7 @@ const PackageFiles: React.FC<PackageFilesProps> = ({
   onCommentChange,
   onSubmitComment,
   submittingComment,
+  highlightCommentId,
 }) => {
   const { data: files, isLoading } = usePackageFiles(
     tenantId,
@@ -620,6 +669,7 @@ const PackageFiles: React.FC<PackageFilesProps> = ({
           onCommentChange={onCommentChange}
           onSubmitComment={onSubmitComment}
           submittingComment={submittingComment}
+          highlightCommentId={highlightCommentId}
         />
       ))}
     </>
@@ -662,6 +712,7 @@ interface DirectoryNodeProps {
   submittingComment: string | null;
   onCreateDirectory?: (parentId: string | undefined) => void;
   onUploadFiles?: (catalogId: string) => void;
+  highlightCommentId?: string | null;
 }
 
 const DirectoryNode: React.FC<DirectoryNodeProps> = ({
@@ -689,6 +740,7 @@ const DirectoryNode: React.FC<DirectoryNodeProps> = ({
   submittingComment,
   onCreateDirectory,
   onUploadFiles,
+  highlightCommentId,
 }) => {
   const isExpanded = expandedPackageIds.has(catalog.id);
 
@@ -773,6 +825,7 @@ const DirectoryNode: React.FC<DirectoryNodeProps> = ({
                     submittingComment={submittingComment}
                     onCreateDirectory={onCreateDirectory}
                     onUploadFiles={onUploadFiles}
+                    highlightCommentId={highlightCommentId}
                   />
                 ))}
               </Box>
@@ -812,6 +865,7 @@ const DirectoryNode: React.FC<DirectoryNodeProps> = ({
                     onCommentChange={onCommentChange}
                     onSubmitComment={onSubmitComment}
                     submittingComment={submittingComment}
+                    highlightCommentId={highlightCommentId}
                   />
                 </Tbody>
               </Table>
@@ -853,6 +907,7 @@ interface FilesTabProps {
   onUploadModalOpen?: () => void;
   onCreateDirectory?: (parentId: string | undefined) => void;
   onUploadFiles?: (catalogId: string) => void;
+  highlightCommentId?: string | null;
 }
 
 const FilesTab: React.FC<FilesTabProps> = ({
@@ -881,6 +936,7 @@ const FilesTab: React.FC<FilesTabProps> = ({
   onUploadModalOpen,
   onCreateDirectory,
   onUploadFiles,
+  highlightCommentId,
 }) => {
   const config = SCOPE_CONFIG[scope];
   const perms = scope === "all" ? resourcePerms.all
@@ -963,6 +1019,7 @@ const FilesTab: React.FC<FilesTabProps> = ({
               submittingComment={submittingComment}
               onCreateDirectory={onCreateDirectory}
               onUploadFiles={onUploadFiles}
+              highlightCommentId={highlightCommentId}
             />
           ))}
         </VStack>
@@ -977,6 +1034,7 @@ const FilesTab: React.FC<FilesTabProps> = ({
 
 export default function ProjectFiles() {
   const { projectId } = useParams<{ projectId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useContext(AuthContext);
   const {showError, showWarning, showApiSuccess, showApiError } = useToastNotification();
   const { isOpen: isUploadModalOpen, onOpen: onUploadModalOpen, onClose: onUploadModalClose } = useDisclosure();
@@ -989,6 +1047,7 @@ export default function ProjectFiles() {
   const [expandedPackageIds, setExpandedPackageIds] = useState<Set<string>>(new Set());
   const [expandedVersionFileIds, setExpandedVersionFileIds] = useState<Set<string>>(new Set());
   const [expandedCommentKeys, setExpandedCommentKeys] = useState<Set<string>>(new Set());
+  const [highlightCommentId, setHighlightCommentId] = useState<string | null>(null);
   const [fileForNewVersion, setFileForNewVersion] = useState<any | null>(null);
   const [fileToManageShare, setFileToManageShare] = useState<any | null>(null);
   const [newComments, setNewComments] = useState<Map<string, string>>(new Map());
@@ -1064,6 +1123,72 @@ export default function ProjectFiles() {
     if (activeTabIndex === sharedFilesTabIndex) return ResourceScope.Shared;
     return ResourceScope.Mine;
   };
+
+  // Deep-link from notification: ?fileId=&packageId=&versionId=&commentId=
+  useEffect(() => {
+    if (loading || !projectId) {
+      return;
+    }
+
+    const fileId = searchParams.get("fileId");
+    const packageId = searchParams.get("packageId");
+    const versionId = searchParams.get("versionId");
+    const commentId = searchParams.get("commentId");
+
+    if (!fileId || !packageId) {
+      return;
+    }
+
+    const candidates: Array<{ tabIndex: number; packages: ProjectFilePackageWeb[] }> = [];
+    if (sharedFilesTabIndex >= 0) {
+      candidates.push({ tabIndex: sharedFilesTabIndex, packages: sharedFilesData });
+    }
+    if (myFilesTabIndex >= 0) {
+      candidates.push({ tabIndex: myFilesTabIndex, packages: myFilesData });
+    }
+    if (allFilesTabIndex >= 0) {
+      candidates.push({ tabIndex: allFilesTabIndex, packages: allFilesData });
+    }
+
+    let resolvedPath: string[] | null = null;
+    let resolvedTabIndex: number | null = null;
+
+    for (const candidate of candidates) {
+      const path = findPackagePath(candidate.packages, packageId);
+      if (path) {
+        resolvedPath = path;
+        resolvedTabIndex = candidate.tabIndex;
+        break;
+      }
+    }
+
+    if (!resolvedPath || resolvedTabIndex === null) {
+      return;
+    }
+
+    setActiveTabIndex(resolvedTabIndex);
+    setExpandedPackageIds(new Set(resolvedPath));
+    setExpandedVersionFileIds(new Set([fileId]));
+
+    if (versionId) {
+      setExpandedCommentKeys(new Set([`${fileId}-${versionId}`]));
+    }
+
+    setHighlightCommentId(commentId);
+
+    setSearchParams({}, { replace: true });
+  }, [
+    loading,
+    projectId,
+    searchParams,
+    setSearchParams,
+    sharedFilesTabIndex,
+    myFilesTabIndex,
+    allFilesTabIndex,
+    sharedFilesData,
+    myFilesData,
+    allFilesData,
+  ]);
 
   // === Refresh: invaliduje wszystkie zapytania domeny plików ===
   const refreshData = () => {
@@ -1275,7 +1400,12 @@ export default function ProjectFiles() {
             />
           </Box>
         ) : (
-          <Tabs colorScheme="level2" variant="enclosed" onChange={setActiveTabIndex}>
+          <Tabs
+            colorScheme="level2"
+            variant="enclosed"
+            index={activeTabIndex}
+            onChange={setActiveTabIndex}
+          >
             <TabList>
               {resourcePerms.tabs.showAll && (
                 <Tab fontWeight="bold">
@@ -1338,6 +1468,7 @@ export default function ProjectFiles() {
                       onUploadModalOpen={onUploadModalOpen}
                       onCreateDirectory={handleOpenCreateDirectory}
                       onUploadFiles={handleOpenUploadForDirectory}
+                      highlightCommentId={highlightCommentId}
                     />
                   )}
                 </TabPanel>
@@ -1373,6 +1504,7 @@ export default function ProjectFiles() {
                       onUploadModalOpen={onUploadModalOpen}
                       onCreateDirectory={handleOpenCreateDirectory}
                       onUploadFiles={handleOpenUploadForDirectory}
+                      highlightCommentId={highlightCommentId}
                     />
                   )}
                 </TabPanel>
@@ -1404,6 +1536,7 @@ export default function ProjectFiles() {
                       onCommentChange={handleCommentChange}
                       onSubmitComment={handleAddComment}
                       submittingComment={submittingComment}
+                      highlightCommentId={highlightCommentId}
                     />
                   )}
                 </TabPanel>
