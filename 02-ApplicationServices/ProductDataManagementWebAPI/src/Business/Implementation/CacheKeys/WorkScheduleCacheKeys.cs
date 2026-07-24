@@ -2,7 +2,7 @@
 {
     public static class WorkScheduleCacheKeys
     {
-        private const string Prefix = "work-schedule";
+        private const string Prefix = "work-schedule:v2";
 
         public static string Schedule(Guid id) => $"{Prefix}:{id}";
         public static string Work(Guid scheduleId, Guid workId) => $"{Prefix}:{scheduleId}:work:{workId}";

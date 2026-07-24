@@ -33,6 +33,8 @@ namespace CQRS.WorkSchedules.GetUserAssignedWorks
                      && a.Tenant.IsActive
                      && a.Project.IsActive
                      && !a.Work.Stage.WorkSchedule.IsDeleted
+                     && a.TenantMember != null
+                     && a.ProjectMember != null
                      && a.TenantMember.UserId == currentUser.Id
                      && a.ProjectMember.UserId == currentUser.Id,
                 a => new AssignmentRow(

@@ -5,6 +5,7 @@ import { usePeriodsValidation } from "./usePeriodsValidation";
 import { G } from "./ganttTokens";
 import { toLocalDateStr, fmtShortDate } from "./ganttRowUtils";
 import type { WorkScheduleStageWorkWeb, WorkScheduleStageWorkPeriodWeb } from "../../types/workSchedule.types";
+import { getAssigneeDisplayName } from "../../types/workSchedule.types";
 
 interface GanttBarProps {
   work: WorkScheduleStageWorkWeb;
@@ -106,8 +107,23 @@ function GanttBar({
   const firstPeriod = periods[0];
   const lastPeriod = periods[periods.length - 1];
 
-  const { mode, setPeriods: savePeriods } = useGantt();
+  const { mode, setPeriods: savePeriods, members } = useGantt();
   const { validate } = usePeriodsValidation();
+
+  const assigneeLabels = React.useMemo(
+    () => {
+      const companyByUserId = new Map(
+        members.map(m => [m.userId, m.companyName?.trim() || null])
+      );
+      return (work.assignees ?? []).map(a =>
+        getAssigneeDisplayName({
+          ...a,
+          companyName: a.companyName?.trim() || (a.userId ? companyByUserId.get(a.userId) : null) || null,
+        })
+      ).join(", ");
+    },
+    [work.assignees, members]
+  );
 
   const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null);
   const [showHandles, setShowHandles] = useState(false);
@@ -506,7 +522,7 @@ function GanttBar({
                 fontWeight: 500,
               }}
             >
-              {work.assignees.map(a => a.userName).join(", ")}
+              {assigneeLabels}
             </span>
           )}
           {isEditing && (
@@ -558,7 +574,7 @@ function GanttBar({
           {(work.assignees ?? []).length > 0 && (
             <>
               <div style={{ borderTop: "1px solid rgba(255,255,255,.15)", margin: "6px 0" }} />
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,.7)" }}>{work.assignees.map(a => a.userName).join(", ")}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,.7)" }}>{assigneeLabels}</div>
             </>
           )}
           <div style={{ marginTop: 6, fontSize: 10, color: "rgba(255,255,255,.4)" }}>Klik → zarządzaj okresami</div>
@@ -581,6 +597,23 @@ export default React.memo(GanttBar, (prev, next) => {
   for (let i = 0; i < prev.periods.length; i++) {
     const p = prev.periods[i], n = next.periods[i];
     if (p.id !== n.id || p.startDate !== n.startDate || p.endDate !== n.endDate || p.isClosed !== n.isClosed) return false;
+  }
+  // members są w kontekście — porównanie work.assignees.companyName wystarczy po enrich
+  const prevAssignees = prev.work.assignees ?? [];
+  const nextAssignees = next.work.assignees ?? [];
+  if (prevAssignees.length !== nextAssignees.length) return false;
+  for (let i = 0; i < prevAssignees.length; i++) {
+    const pa = prevAssignees[i];
+    const na = nextAssignees[i];
+    if (
+      pa.userId !== na.userId
+      || pa.contractorId !== na.contractorId
+      || pa.userName !== na.userName
+      || pa.contractorName !== na.contractorName
+      || pa.companyName !== na.companyName
+    ) {
+      return false;
+    }
   }
   return true;
 });

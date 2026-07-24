@@ -39,6 +39,7 @@ namespace CQRS.Projects.GetProjectMembers
                         Email = m.Email,
                         FirstName = m.FirstName,
                         LastName = m.LastName,
+                        CompanyName = m.CompanyName,
                         JoinedAt = m.JoinedAt,
                         IsAdmin = entity?.IsAdmin ?? false,
                         Modules = entity?.ModulePermissions

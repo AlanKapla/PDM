@@ -84,6 +84,7 @@ export interface ProjectMemberWeb {
   email: string;
   firstName: string;
   lastName: string;
+  companyName?: string | null;
   joinedAt: string;
   isAdmin: boolean;
   modules: number[];

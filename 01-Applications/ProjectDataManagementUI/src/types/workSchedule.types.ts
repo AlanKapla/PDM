@@ -178,8 +178,21 @@ export interface WorkScheduleStageWorkWeb {
 }
 
 export interface WorkScheduleStageWorkAssigneeWeb {
-  userId: string;
-  userName: string;
+  userId?: string | null;
+  userName?: string | null;
+  contractorId?: string | null;
+  contractorName?: string | null;
+  companyName?: string | null;
+}
+
+export function getAssigneeKey(a: WorkScheduleStageWorkAssigneeWeb): string {
+  return a.userId ?? a.contractorId ?? "";
+}
+
+export function getAssigneeDisplayName(a: WorkScheduleStageWorkAssigneeWeb): string {
+  const name = a.userName ?? a.contractorName ?? "Unknown";
+  const company = a.companyName?.trim();
+  return company ? `${name} (${company})` : name;
 }
 
 // Lokalne typy edycyjne — rozszerzają Web modele o opcjonalne ID nowo dodanych elementów przed zapisem

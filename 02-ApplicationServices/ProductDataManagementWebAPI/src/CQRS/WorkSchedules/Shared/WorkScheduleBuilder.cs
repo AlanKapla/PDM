@@ -16,6 +16,7 @@ namespace CQRS.WorkSchedules.Shared
         private readonly IRepository<WorkScheduleStageWorkComment> commentRepo;
         private readonly IRepository<WorkScheduleStageWorkDependency> dependencyRepo;
         private readonly IUserService userService;
+        private readonly IContractorService contractorService;
 
         public WorkScheduleBuilder(
             IRepository<WorkSchedule> workScheduleRepo,
@@ -25,7 +26,8 @@ namespace CQRS.WorkSchedules.Shared
             IRepository<WorkScheduleStageWorkAssignment> assignmentRepo,
             IRepository<WorkScheduleStageWorkComment> commentRepo,
             IRepository<WorkScheduleStageWorkDependency> dependencyRepo,
-            IUserService userService)
+            IUserService userService,
+            IContractorService contractorService)
         {
             this.workScheduleRepo = workScheduleRepo;
             this.stageRepo = stageRepo;
@@ -35,6 +37,7 @@ namespace CQRS.WorkSchedules.Shared
             this.commentRepo = commentRepo;
             this.dependencyRepo = dependencyRepo;
             this.userService = userService;
+            this.contractorService = contractorService;
         }
 
         public async Task<WorkScheduleDetailsWeb> BuildAsync(
@@ -84,7 +87,7 @@ namespace CQRS.WorkSchedules.Shared
             List<AssigneeRow> assignees = workIds.Count > 0
                 ? await assignmentRepo.SelectAsync(
                     a => workIds.Contains(a.WorkScheduleStageWorkId),
-                    a => new AssigneeRow(a.WorkScheduleStageWorkId, a.UserId),
+                    a => new AssigneeRow(a.WorkScheduleStageWorkId, a.UserId, a.ContractorId),
                     ct)
                 : new List<AssigneeRow>();
 
@@ -100,9 +103,20 @@ namespace CQRS.WorkSchedules.Shared
                 d => new DependencyRow(d.Id, d.PredecessorWorkId, d.SuccessorWorkId, d.DependencyType, d.LagDays),
                 ct);
 
-            // Step 5: load user names
-            Dictionary<Guid, string> membersDict = (await userService.GetProjectMembersAsync(tenantId, projectId, ct))
+            // Step 5: load user and contractor names
+            List<ProjectMemberUserInfo> projectMembers = await userService.GetProjectMembersAsync(tenantId, projectId, ct);
+            Dictionary<Guid, string> membersDict = projectMembers
                 .ToDictionary(m => m.UserId, m => m.FullName);
+            Dictionary<Guid, string?> memberCompaniesDict = projectMembers
+                .ToDictionary(m => m.UserId, m => m.CompanyName);
+
+            HashSet<Guid> contractorIds = assignees
+                .Where(a => a.ContractorId.HasValue)
+                .Select(a => a.ContractorId!.Value)
+                .ToHashSet();
+
+            Dictionary<Guid, string> contractorsDict = await contractorService.GetNamesByIdsAsync(
+                contractorIds, tenantId, ct);
 
             // Step 6: group child collections by parent id
             Dictionary<Guid, List<PeriodRow>> periodsByWork = periods
@@ -131,7 +145,7 @@ namespace CQRS.WorkSchedules.Shared
                     ParentStageId: s.ParentStageId,
                     CostEstimateGroupId: s.CostEstimateGroupId,
                     Works: worksByStage.TryGetValue(s.Id, out List<WorkRow>? stageWorks)
-                        ? stageWorks.Select(w => MapWork(w, periodsByWork, assigneesByWork, commentsByWork, membersDict)).ToList()
+                        ? stageWorks.Select(w => MapWork(w, periodsByWork, assigneesByWork, commentsByWork, membersDict, memberCompaniesDict, contractorsDict)).ToList()
                         : new List<WorkScheduleStageWorkWeb>(),
                     ChildStages: new List<WorkScheduleStageWeb>()));
 
@@ -171,7 +185,9 @@ namespace CQRS.WorkSchedules.Shared
             Dictionary<Guid, List<PeriodRow>> periodsByWork,
             Dictionary<Guid, List<AssigneeRow>> assigneesByWork,
             Dictionary<Guid, List<CommentRow>> commentsByWork,
-            Dictionary<Guid, string> membersDict)
+            Dictionary<Guid, string> membersDict,
+            Dictionary<Guid, string?> memberCompaniesDict,
+            Dictionary<Guid, string> contractorsDict)
         {
             List<PeriodRow> workPeriods = periodsByWork.TryGetValue(w.Id, out List<PeriodRow>? p) ? p : new();
             List<AssigneeRow> workAssignees = assigneesByWork.TryGetValue(w.Id, out List<AssigneeRow>? a) ? a : new();
@@ -191,9 +207,7 @@ namespace CQRS.WorkSchedules.Shared
                     StartDate: pr.StartDate,
                     EndDate: pr.EndDate,
                     IsClosed: pr.IsClosed)).ToList(),
-                Assignees: workAssignees.Select(as_ => new WorkScheduleStageWorkAssigneeWeb(
-                    UserId: as_.UserId,
-                    UserName: membersDict.TryGetValue(as_.UserId, out string? userName) ? userName : "Unknown")).ToList(),
+                Assignees: workAssignees.Select(as_ => MapAssignee(as_, membersDict, memberCompaniesDict, contractorsDict)).ToList(),
                 Comments: workComments.Select(cm => new WorkScheduleStageWorkCommentWeb(
                     Id: cm.Id,
                     Content: cm.Content,
@@ -202,11 +216,39 @@ namespace CQRS.WorkSchedules.Shared
                     CreatedAt: cm.CreatedAt)).ToList());
         }
 
+        private static WorkScheduleStageWorkAssigneeWeb MapAssignee(
+            AssigneeRow assignee,
+            Dictionary<Guid, string> membersDict,
+            Dictionary<Guid, string?> memberCompaniesDict,
+            Dictionary<Guid, string> contractorsDict)
+        {
+            if (assignee.UserId.HasValue)
+            {
+                Guid userId = assignee.UserId.Value;
+                return new WorkScheduleStageWorkAssigneeWeb(
+                    UserId: userId,
+                    UserName: membersDict.TryGetValue(userId, out string? userName) ? userName : "Unknown",
+                    ContractorId: null,
+                    ContractorName: null,
+                    CompanyName: memberCompaniesDict.TryGetValue(userId, out string? companyName) ? companyName : null);
+            }
+
+            Guid contractorId = assignee.ContractorId!.Value;
+            return new WorkScheduleStageWorkAssigneeWeb(
+                UserId: null,
+                UserName: null,
+                ContractorId: contractorId,
+                ContractorName: contractorsDict.TryGetValue(contractorId, out string? contractorName)
+                    ? contractorName
+                    : "Unknown",
+                CompanyName: null);
+        }
+
         private sealed record ScheduleRow(Guid Id, Guid TenantId, Guid ProjectId, string Name, DateTime CreatedAt, Guid CreatedByUserId, Guid? CostEstimateId);
         private sealed record StageRow(Guid Id, string Name, int Order, Guid? ParentStageId, Guid? CostEstimateGroupId);
         private sealed record WorkRow(Guid Id, Guid WorkScheduleStageId, Guid? CostEstimateItemId, string Name, int Order, string ColorRgb, DateTime? PlannedStartDate, DateTime? PlannedEndDate);
         private sealed record PeriodRow(Guid Id, Guid WorkScheduleStageWorkId, DateTime StartDate, DateTime EndDate, bool IsClosed);
-        private sealed record AssigneeRow(Guid WorkScheduleStageWorkId, Guid UserId);
+        private sealed record AssigneeRow(Guid WorkScheduleStageWorkId, Guid? UserId, Guid? ContractorId);
         private sealed record CommentRow(Guid Id, Guid WorkScheduleStageWorkId, string Content, Guid CreatedByUserId, DateTime CreatedAt);
         private sealed record DependencyRow(Guid Id, Guid PredecessorWorkId, Guid SuccessorWorkId, WorkDependencyType DependencyType, int LagDays);
     }

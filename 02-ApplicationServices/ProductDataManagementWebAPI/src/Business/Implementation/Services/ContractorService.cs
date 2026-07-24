@@ -28,6 +28,21 @@ namespace Business.Implementation.Services
             return contractorsDict.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Name);
         }
 
+        public async Task<bool> AreAllInTenantAsync(
+            Guid tenantId, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+        {
+            if (ids.Count == 0)
+            {
+                return true;
+            }
+
+            int count = await contractorRepo.CountAsync(
+                c => ids.Contains(c.Id) && c.TenantId == tenantId && !c.IsDeleted,
+                cancellationToken);
+
+            return count == ids.Count;
+        }
+
         public async Task<Contractor?> SearchByProfileAsync(
             string? name,
             string? taxId,

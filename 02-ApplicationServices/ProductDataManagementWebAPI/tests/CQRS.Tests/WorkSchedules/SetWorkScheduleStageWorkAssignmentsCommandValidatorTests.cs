@@ -216,6 +216,7 @@ public sealed class SetWorkScheduleStageWorkAssignmentsCommandValidatorTests
         ProjectId = Guid.NewGuid(),
         WorkScheduleId = Guid.NewGuid(),
         WorkScheduleStageWorkId = Guid.NewGuid(),
-        UserIds = new List<Guid> { Guid.NewGuid() }
+        UserIds = new List<Guid> { Guid.NewGuid() },
+        ContractorIds = new List<Guid>()
     };
 }

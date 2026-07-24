@@ -13,6 +13,8 @@ namespace CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments
             RuleFor(x => x.WorkScheduleStageWorkId).RequiredId();
             RuleFor(x => x.UserIds).NotNull().UniqueIds();
             RuleForEach(x => x.UserIds).NotEmpty();
+            RuleFor(x => x.ContractorIds).NotNull().UniqueIds();
+            RuleForEach(x => x.ContractorIds).NotEmpty();
         }
     }
 }

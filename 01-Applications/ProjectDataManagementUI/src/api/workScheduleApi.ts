@@ -171,9 +171,15 @@ export const workScheduleApi = {
     wsId: string,
     stageId: string,
     workId: string,
-    assignedUserIds: string[]
+    assignedUserIds: string[],
+    assignedContractorIds: string[] = []
   ) => axiosClient.put(`${worksBase(tenantId, projectId, wsId, stageId, workId)}/assignments`, {
-    tenantId, projectId, workScheduleId: wsId, workScheduleStageWorkId: workId, userIds: assignedUserIds,
+    tenantId,
+    projectId,
+    workScheduleId: wsId,
+    workScheduleStageWorkId: workId,
+    userIds: assignedUserIds,
+    contractorIds: assignedContractorIds,
   }),
 
   // ──────────────────────────────────────────────────────────────────

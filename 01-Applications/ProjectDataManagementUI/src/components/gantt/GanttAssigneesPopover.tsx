@@ -1,23 +1,28 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { G } from "./ganttTokens";
-import type { GanttMember } from "./GanttContext";
+import type { GanttContractor, GanttMember } from "./GanttContext";
 
 interface GanttAssigneesPopoverProps {
-  assigneeIds: string[];
+  selectedUserIds: string[];
+  selectedContractorIds: string[];
   members: GanttMember[];
+  contractors: GanttContractor[];
   onClose: () => void;
-  onSave: (userIds: string[]) => void;
+  onSave: (userIds: string[], contractorIds: string[]) => void;
 }
 
-/** Modal do przypisywania osób — wyśrodkowany na ekranie */
+/** Modal do przypisywania osób i kontahentów — wyśrodkowany na ekranie */
 export default function GanttAssigneesPopover({
-  assigneeIds,
+  selectedUserIds,
+  selectedContractorIds,
   members,
+  contractors,
   onClose,
   onSave,
 }: GanttAssigneesPopoverProps) {
-  const [selected, setSelected] = useState<string[]>(assigneeIds);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>(selectedUserIds);
+  const [selectedContractors, setSelectedContractors] = useState<string[]>(selectedContractorIds);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,15 +31,24 @@ export default function GanttAssigneesPopover({
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const toggle = (userId: string) =>
-    setSelected(prev =>
+  const toggleUser = (userId: string) =>
+    setSelectedUsers(prev =>
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId],
     );
 
-  const getName = (m: GanttMember) =>
-    [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email;
+  const toggleContractor = (contractorId: string) =>
+    setSelectedContractors(prev =>
+      prev.includes(contractorId)
+        ? prev.filter(id => id !== contractorId)
+        : [...prev, contractorId],
+    );
 
-  const getInitial = (m: GanttMember) =>
+  const getMemberName = (m: GanttMember) => {
+    const name = [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email;
+    return m.companyName?.trim() ? `${name} (${m.companyName.trim()})` : name;
+  };
+
+  const getMemberInitial = (m: GanttMember) =>
     (m.firstName?.[0] ?? m.email?.[0] ?? "?").toUpperCase();
 
   const btnBase: React.CSSProperties = {
@@ -44,14 +58,99 @@ export default function GanttAssigneesPopover({
     cursor: "pointer",
   };
 
+  const renderRow = (
+    key: string,
+    label: string,
+    initial: string,
+    isSelected: boolean,
+    onToggle: () => void,
+  ) => (
+    <div
+      key={key}
+      onClick={onToggle}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 18px",
+        cursor: "pointer",
+        background: "transparent",
+        transition: "background .1s",
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = G.surface2)}
+      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+    >
+      <div
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 4,
+          border: `2px solid ${isSelected ? G.accent : G.borderStrong}`,
+          background: isSelected ? G.accent : "transparent",
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {isSelected && (
+          <span style={{ color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>✓</span>
+        )}
+      </div>
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          background: G.accentLight,
+          color: G.accent,
+          fontSize: 14,
+          fontWeight: 700,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {initial}
+      </div>
+      <span
+        style={{
+          fontSize: 14,
+          color: G.text,
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+
+  const sectionHeader = (title: string) => (
+    <div
+      style={{
+        padding: "10px 18px 6px",
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        color: G.text3,
+      }}
+    >
+      {title}
+    </div>
+  );
+
   return createPortal(
     <>
-      {/* Backdrop */}
       <div
         onClick={onClose}
         style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 199 }}
       />
-      {/* Modal */}
       <div
         ref={ref}
         style={{
@@ -72,7 +171,6 @@ export default function GanttAssigneesPopover({
           overflow: "hidden",
         }}
       >
-      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -91,83 +189,40 @@ export default function GanttAssigneesPopover({
         </button>
       </div>
 
-      {/* Lista */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {members.map(m => (
-          <div
-            key={m.userId}
-            onClick={() => toggle(m.userId)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "10px 18px",
-              cursor: "pointer",
-              background: "transparent",
-              transition: "background .1s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = G.surface2)}
-            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-          >
-            {/* Checkbox */}
-            <div
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 4,
-                border: `2px solid ${selected.includes(m.userId) ? G.accent : G.borderStrong}`,
-                background: selected.includes(m.userId) ? G.accent : "transparent",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {selected.includes(m.userId) && (
-                <span style={{ color: "#fff", fontSize: 11, fontWeight: 700, lineHeight: 1 }}>✓</span>
-              )}
-            </div>
-            {/* Avatar */}
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: G.accentLight,
-                color: G.accent,
-                fontSize: 14,
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              {getInitial(m)}
-            </div>
-            <span
-              style={{
-                fontSize: 14,
-                color: G.text,
-                flex: 1,
-                minWidth: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {getName(m)}
-            </span>
-          </div>
-        ))}
+        {sectionHeader("Zespół projektu")}
+        {members.map(m =>
+          renderRow(
+            m.userId,
+            getMemberName(m),
+            getMemberInitial(m),
+            selectedUsers.includes(m.userId),
+            () => toggleUser(m.userId),
+          )
+        )}
         {members.length === 0 && (
-          <div style={{ padding: 12, color: G.text3, fontSize: 12, textAlign: "center" }}>
+          <div style={{ padding: "4px 18px 12px", color: G.text3, fontSize: 12 }}>
             Brak członków projektu
+          </div>
+        )}
+
+        {sectionHeader("Kontahenci")}
+        {contractors.map(c =>
+          renderRow(
+            c.id,
+            c.name,
+            (c.name?.[0] ?? "?").toUpperCase(),
+            selectedContractors.includes(c.id),
+            () => toggleContractor(c.id),
+          )
+        )}
+        {contractors.length === 0 && (
+          <div style={{ padding: "4px 18px 12px", color: G.text3, fontSize: 12 }}>
+            Brak kontahentów
           </div>
         )}
       </div>
 
-      {/* Footer */}
       <div
         style={{
           display: "flex",
@@ -184,7 +239,7 @@ export default function GanttAssigneesPopover({
           Anuluj
         </button>
         <button
-          onClick={() => { onSave(selected); onClose(); }}
+          onClick={() => { onSave(selectedUsers, selectedContractors); onClose(); }}
           style={{ ...btnBase, padding: "8px 18px", fontSize: 13, border: "none", background: G.accent, color: "#fff" }}
         >
           Zapisz

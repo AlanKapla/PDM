@@ -13,7 +13,7 @@ import { G } from "./ganttTokens";
 import { stageProgress, workCheckState, fmtCompactDate, getStageRange, type FlatRow } from "./ganttRowUtils";
 import { getStageDeleteDialogCopy } from "./ganttStageDeleteDialog";
 import type { WorkScheduleStageWeb, WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
-import { WorkDependencyType } from "../../types/workSchedule.types";
+import { WorkDependencyType, getAssigneeKey, getAssigneeDisplayName } from "../../types/workSchedule.types";
 
 const WORK_COLORS = [
   "#3182CE", "#E53E3E", "#38A169", "#C05621",
@@ -38,6 +38,7 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH, onRo
   const {
     mode,
     members,
+    contractors,
     expandedStages,
     collapsedWorks,
     toggleStage,
@@ -630,8 +631,8 @@ const noPeriods = (work.periods ?? []).length === 0;
           <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
             {assignees.slice(0, 3).map((a, i) => (
               <div
-                key={a.userId}
-                title={a.userName}
+                key={getAssigneeKey(a)}
+                title={getAssigneeDisplayName(a)}
                 style={{
                   width: 22, height: 22, borderRadius: "50%",
                   background: G.accentLight, color: G.accent,
@@ -643,7 +644,7 @@ const noPeriods = (work.periods ?? []).length === 0;
                   position: "relative",
                 }}
               >
-                {a.userName?.[0]?.toUpperCase() ?? "?"}
+                {getAssigneeDisplayName(a)?.[0]?.toUpperCase() ?? "?"}
               </div>
             ))}
           </div>
@@ -908,11 +909,17 @@ const noPeriods = (work.periods ?? []).length === 0;
       {/* Popover przypisanych */}
       {assigneesFor && (
         <GanttAssigneesPopover
-          assigneeIds={assigneesFor.work.assignees.map(a => a.userId)}
+          selectedUserIds={assigneesFor.work.assignees
+            .map(a => a.userId)
+            .filter((id): id is string => !!id)}
+          selectedContractorIds={assigneesFor.work.assignees
+            .map(a => a.contractorId)
+            .filter((id): id is string => !!id)}
           members={members}
+          contractors={contractors}
           onClose={() => setAssigneesFor(null)}
-          onSave={async userIds => {
-            await setAssignments(assigneesFor.stageId, assigneesFor.work.id, userIds);
+          onSave={async (userIds, contractorIds) => {
+            await setAssignments(assigneesFor.stageId, assigneesFor.work.id, userIds, contractorIds);
           }}
         />
       )}

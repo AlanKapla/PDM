@@ -4,6 +4,7 @@ import type { WorkScheduleDetailsWeb, WorkScheduleStageWeb, WorkScheduleStageWor
 import type { ProjectMemberWeb } from "../../types/project.types";
 import { workScheduleApi } from "../../api/workScheduleApi";
 import { projectApi } from "../../api/projectApi";
+import { contractorApi } from "../../api/contractorApi";
 import { getApiErrorMessage } from "../../utils/apiErrorUtils";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import type { ResourcePermissions } from "../../hooks/useResourcePermissions";
@@ -17,6 +18,12 @@ export interface GanttMember {
   email: string;
   firstName: string;
   lastName: string;
+  companyName?: string | null;
+}
+
+export interface GanttContractor {
+  id: string;
+  name: string;
 }
 
 export type GanttMode = "view" | "edit";
@@ -88,6 +95,7 @@ interface GanttContextValue {
   // Dane
   schedule: WorkScheduleDetailsWeb | null;
   members: GanttMember[];
+  contractors: GanttContractor[];
   isLoading: boolean;
   isMutating: Set<string>; // klucze mutujących się elementów – do spinnerów
 
@@ -142,7 +150,7 @@ interface GanttContextValue {
   setWorkColor: (stageId: string, workId: string, colorRgb: string) => Promise<void>;
   setWorkIsClosed: (stageId: string, workId: string, isClosed: boolean) => Promise<void>;
   setPeriodIsClosed: (stageId: string, workId: string, periodId: string, isClosed: boolean) => Promise<void>;
-  setAssignments: (stageId: string, workId: string, userIds: string[]) => Promise<void>;
+  setAssignments: (stageId: string, workId: string, userIds: string[], contractorIds: string[]) => Promise<void>;
   addComment: (stageId: string, workId: string, content: string) => Promise<void>;
   updateComment: (stageId: string, workId: string, commentId: string, content: string) => Promise<void>;
   deleteComment: (stageId: string, workId: string, commentId: string) => Promise<void>;
@@ -216,6 +224,7 @@ export function GanttProvider({
   const [isLoading, setIsLoading] = useState(!isPreloaded);
   const [initialError, setInitialError] = useState<string | null>(null);
   const [members, setMembers] = useState<GanttMember[]>([]);
+  const [contractors, setContractors] = useState<GanttContractor[]>([]);
   const [isMutating, setIsMutating] = useState<Set<string>>(new Set());
   const canEditPermission = permissions?.mine.canEdit || permissions?.all.canEdit || permissions?.shared.canEdit;
   // W trybie "my-works" (preloaded) wymuszamy tryb view — edycja jest kontrolowana przez ganttPermissions
@@ -330,11 +339,30 @@ export function GanttProvider({
           email: m.email,
           firstName: m.firstName,
           lastName: m.lastName,
+          companyName: m.companyName ?? null,
         })));
       })
       .catch(() => { /* Błąd pobierania uczestników nie blokuje renderowania */ });
+    contractorApi.getAll(tenantId)
+      .then(list => {
+        setContractors(list.map(c => ({ id: c.id, name: c.name })));
+      })
+      .catch(() => { /* Błąd pobierania kontrahentów nie blokuje renderowania */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, projectId, workScheduleId]);
+
+  // Uzupełnij companyName na assignee z listy członków (cache API może jeszcze nie mieć pola)
+  useEffect(() => {
+    if (members.length === 0) {
+      return;
+    }
+    setSchedule(prev => {
+      if (!prev) {
+        return prev;
+      }
+      return enrichScheduleAssigneesWithCompany(prev, members) ?? prev;
+    });
+  }, [members]);
 
   // Gdy zmienią się dane preloadedSchedule z zewnątrz — aktualizujemy stan
   useEffect(() => {
@@ -596,23 +624,46 @@ export function GanttProvider({
       prev);
   }, [tenantId, projectId, workScheduleId, runDebounced]);
 
-  const setAssignments = useCallback(async (stageId: string, workId: string, userIds: string[]) => {
+  const setAssignments = useCallback(async (
+    stageId: string,
+    workId: string,
+    userIds: string[],
+    contractorIds: string[]
+  ) => {
     const prev = scheduleRef.current!;
     const memberMap = new Map(members.map(m => [m.userId, m]));
+    const contractorMap = new Map(contractors.map(c => [c.id, c]));
+
     set(s => ({
       ...s,
       stages: updateWorkInTree(s.stages, workId, w => ({
         ...w,
-        assignees: userIds.map(uid => ({
-          userId: uid,
-          userName: (() => { const m = memberMap.get(uid); return m ? [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email : uid; })(),
-        })),
+        assignees: [
+          ...userIds.map(uid => {
+            const m = memberMap.get(uid);
+            return {
+              userId: uid,
+              userName: m ? [m.firstName, m.lastName].filter(Boolean).join(' ') || m.email : uid,
+              contractorId: null,
+              contractorName: null,
+              companyName: m?.companyName ?? null,
+            };
+          }),
+          ...contractorIds.map(cid => ({
+            userId: null,
+            userName: null,
+            contractorId: cid,
+            contractorName: contractorMap.get(cid)?.name ?? cid,
+            companyName: null,
+          })),
+        ],
       })),
     }));
     runDebounced(`setAssignments-${workId}`, 300,
-      () => workScheduleApi.setAssignments(tenantId, projectId, workScheduleId, stageId, workId, userIds),
+      () => workScheduleApi.setAssignments(
+        tenantId, projectId, workScheduleId, stageId, workId, userIds, contractorIds),
       prev);
-  }, [tenantId, projectId, workScheduleId, members, runDebounced]);
+  }, [tenantId, projectId, workScheduleId, members, contractors, runDebounced]);
 
   const addComment = useCallback(async (stageId: string, workId: string, content: string) => {
     const tempId = `temp-${Date.now()}`;
@@ -719,6 +770,7 @@ export function GanttProvider({
   const value: GanttContextValue = useMemo(() => ({
     schedule,
     members,
+    contractors,
     isLoading,
     isMutating,
     mode,
@@ -768,7 +820,7 @@ export function GanttProvider({
     setDependencies,
     syncWithEstimate,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [schedule, members, isLoading, isMutating, mode, canEdit, permissions, resolvedGanttPermissions, tenantId, projectId, workScheduleId,
+  }), [schedule, members, contractors, isLoading, isMutating, mode, canEdit, permissions, resolvedGanttPermissions, tenantId, projectId, workScheduleId,
     expandedStages, collapsedWorks, showComments, showDependencies, mobileModal, searchQuery, setSearchQuery,
     fetchSchedule, refreshSchedule, setMode, toggleStage, expandAll, collapseAll, toggleWorkPeriods, setShowComments, setShowDependencies,
     openMobileModal, closeMobileModal, renameSchedule, addStage, deleteStage, renameStage, reorderStages, moveStage,
@@ -822,6 +874,41 @@ function updateWorkInTree(
     works: s.works.map(w => w.id === workId ? update(w) : w),
     childStages: updateWorkInTree(s.childStages ?? [], workId, update),
   }));
+}
+
+function enrichScheduleAssigneesWithCompany(
+  schedule: WorkScheduleDetailsWeb,
+  members: GanttMember[]
+): WorkScheduleDetailsWeb | null {
+  const companyByUserId = new Map(
+    members.map(m => [m.userId, m.companyName?.trim() || null])
+  );
+  let changed = false;
+
+  const enrichStages = (stages: WorkScheduleStageWeb[]): WorkScheduleStageWeb[] =>
+    stages.map(stage => ({
+      ...stage,
+      works: stage.works.map(work => {
+        let workChanged = false;
+        const assignees = (work.assignees ?? []).map(a => {
+          if (!a.userId) {
+            return a;
+          }
+          const companyName = companyByUserId.get(a.userId) ?? null;
+          if ((a.companyName ?? null) === companyName) {
+            return a;
+          }
+          workChanged = true;
+          changed = true;
+          return { ...a, companyName };
+        });
+        return workChanged ? { ...work, assignees } : work;
+      }),
+      childStages: enrichStages(stage.childStages ?? []),
+    }));
+
+  const stages = enrichStages(schedule.stages);
+  return changed ? { ...schedule, stages } : null;
 }
 
 function findStageInTree(stages: WorkScheduleStageWeb[], stageId: string): WorkScheduleStageWeb | null {

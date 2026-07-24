@@ -35,6 +35,7 @@ public sealed class GetWorkScheduleQueryHandlerTests
         Mock<IRepository<WorkScheduleStageWorkComment>> builderCommentRepoMock = new();
         Mock<IRepository<WorkScheduleStageWorkDependency>> builderDependencyRepoMock = new();
         Mock<IUserService> builderUserServiceMock = new();
+        Mock<IContractorService> builderContractorServiceMock = new();
 
         WorkScheduleBuilder scheduleBuilder = new WorkScheduleBuilder(
             builderWorkScheduleRepoMock.Object,
@@ -44,7 +45,8 @@ public sealed class GetWorkScheduleQueryHandlerTests
             builderAssignmentRepoMock.Object,
             builderCommentRepoMock.Object,
             builderDependencyRepoMock.Object,
-            builderUserServiceMock.Object);
+            builderUserServiceMock.Object,
+            builderContractorServiceMock.Object);
 
         _handler = new GetWorkScheduleQueryHandler(
             _scheduleCacheMock.Object,

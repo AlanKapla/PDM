@@ -81,7 +81,7 @@ export default function GanttWorkRow({
   work, stageId, depth, dates, columnWidth, rowHeight, treeColumnWidth,
 }: GanttWorkRowProps) {
   const {
-    mode, renameWork, deleteWork, setWorkIsClosed, setAssignments, setPeriods, members, isMutating,
+    mode, renameWork, deleteWork, setWorkIsClosed, setAssignments, setPeriods, members, contractors, isMutating,
   } = useGantt();
 
   const [isEditingName, setIsEditingName] = useState(false);
@@ -98,12 +98,24 @@ export default function GanttWorkRow({
   const [cellSelection, setCellSelection] = useState<{ startIdx: number; endIdx: number } | null>(null);
 
   // Lokalne zaznaczenie przypisanych — debounce przed wysłaniem do API
-  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>(
-    () => (work.assignees ?? []).map(a => a.userId)
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
+    () => (work.assignees ?? []).map(a => a.userId).filter((id): id is string => !!id)
   );
+  const [selectedContractorIds, setSelectedContractorIds] = useState<string[]>(
+    () => (work.assignees ?? []).map(a => a.contractorId).filter((id): id is string => !!id)
+  );
+  const selectedUserIdsRef = useRef(selectedUserIds);
+  const selectedContractorIdsRef = useRef(selectedContractorIds);
+  selectedUserIdsRef.current = selectedUserIds;
+  selectedContractorIdsRef.current = selectedContractorIds;
   useEffect(() => {
     if (!assignmentDebounceRef.current) {
-      setSelectedAssigneeIds((work.assignees ?? []).map(a => a.userId));
+      setSelectedUserIds(
+        (work.assignees ?? []).map(a => a.userId).filter((id): id is string => !!id)
+      );
+      setSelectedContractorIds(
+        (work.assignees ?? []).map(a => a.contractorId).filter((id): id is string => !!id)
+      );
     }
   }, [work.id, work.assignees?.length]);
 
@@ -199,21 +211,37 @@ export default function GanttWorkRow({
   };
 
   // ─── Assignees z debounce 700ms ──────────────────────────────────────────────
+  const scheduleAssignmentSave = (userIds: string[], contractorIds: string[]) => {
+    if (assignmentDebounceRef.current) clearTimeout(assignmentDebounceRef.current);
+    assignmentDebounceRef.current = setTimeout(() => {
+      setAssignments(stageId, work.id, userIds, contractorIds);
+    }, 700);
+  };
+
   const handleToggleAssignee = (userId: string) => {
-    setSelectedAssigneeIds(prev => {
+    setSelectedUserIds(prev => {
       const newIds = prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId];
-      if (assignmentDebounceRef.current) clearTimeout(assignmentDebounceRef.current);
-      assignmentDebounceRef.current = setTimeout(() => {
-        setAssignments(stageId, work.id, newIds);
-      }, 700);
+      scheduleAssignmentSave(newIds, selectedContractorIdsRef.current);
       return newIds;
     });
   };
 
-  const getMemberDisplayName = (m: typeof members[0]) =>
-    [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email;
+  const handleToggleContractor = (contractorId: string) => {
+    setSelectedContractorIds(prev => {
+      const newIds = prev.includes(contractorId)
+        ? prev.filter(id => id !== contractorId)
+        : [...prev, contractorId];
+      scheduleAssignmentSave(selectedUserIdsRef.current, newIds);
+      return newIds;
+    });
+  };
+
+  const getMemberDisplayName = (m: typeof members[0]) => {
+    const name = [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email;
+    return m.companyName?.trim() ? `${name} (${m.companyName.trim()})` : name;
+  };
 
   // ─── Tworzenie okresu przez zaznaczenie komórek ──────────────────────────────
   const toLocalDateStr = (d: Date) =>
@@ -382,13 +410,20 @@ export default function GanttWorkRow({
             <Popover placement="bottom-end">
               <PopoverTrigger>
                 <Box cursor={isEditing ? "pointer" : "default"} flexShrink={0}>
-                  {selectedAssigneeIds.length > 0 ? (
+                  {(selectedUserIds.length + selectedContractorIds.length) > 0 ? (
                     <AvatarGroup size="xs" max={3}>
                       {members
-                        .filter(m => selectedAssigneeIds.includes(m.userId))
+                        .filter(m => selectedUserIds.includes(m.userId))
                         .map(m => (
                           <Tooltip key={m.userId} label={getMemberDisplayName(m)}>
                             <Avatar name={getMemberDisplayName(m)} size="xs" />
+                          </Tooltip>
+                        ))}
+                      {contractors
+                        .filter(c => selectedContractorIds.includes(c.id))
+                        .map(c => (
+                          <Tooltip key={c.id} label={c.name}>
+                            <Avatar name={c.name} size="xs" />
                           </Tooltip>
                         ))}
                     </AvatarGroup>
@@ -407,21 +442,35 @@ export default function GanttWorkRow({
                 </Box>
               </PopoverTrigger>
               {isEditing && (
-                <PopoverContent w="220px" zIndex={1500}>
+                <PopoverContent w="240px" zIndex={1500}>
                   <PopoverArrow />
                   <PopoverBody>
                     <VStack align="start" spacing={1}>
-                      <Text fontSize="xs" fontWeight="semibold" mb={1}>Przypisani</Text>
+                      <Text fontSize="xs" fontWeight="semibold" mb={1}>Zespół projektu</Text>
                       {members.map(m => (
                         <Checkbox
                           key={m.userId}
-                          isChecked={selectedAssigneeIds.includes(m.userId)}
+                          isChecked={selectedUserIds.includes(m.userId)}
                           onChange={() => handleToggleAssignee(m.userId)}
                           size="sm"
                         >
                           <Text fontSize="xs">{getMemberDisplayName(m)}</Text>
                         </Checkbox>
                       ))}
+                      <Text fontSize="xs" fontWeight="semibold" mb={1} mt={2}>Kontahenci</Text>
+                      {contractors.map(c => (
+                        <Checkbox
+                          key={c.id}
+                          isChecked={selectedContractorIds.includes(c.id)}
+                          onChange={() => handleToggleContractor(c.id)}
+                          size="sm"
+                        >
+                          <Text fontSize="xs">{c.name}</Text>
+                        </Checkbox>
+                      ))}
+                      {contractors.length === 0 && (
+                        <Text fontSize="xs" color="neutral.400">Brak kontahentów</Text>
+                      )}
                     </VStack>
                   </PopoverBody>
                 </PopoverContent>
