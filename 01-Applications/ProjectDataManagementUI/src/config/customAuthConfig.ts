@@ -11,16 +11,25 @@ const clientId: string =
 
 /**
  * Proxy CORS dla Native Auth API (Entra nie wysyła CORS).
- * Dev (zalecane): `npm run dev:cors` → http://localhost:3001/api
+ * - Dev: `npm run dev:cors` → http://localhost:3001/api
+ * - Prod (Azure SWA): WebAPI `/api/native-auth` (VITE_API_BASE_URL)
+ * - Docker (same origin): opcjonalnie `/native-auth` na nginx + VITE_NATIVE_AUTH_PROXY_URL
  */
 function resolveAuthApiProxyUrl(): string {
   const configured: string | undefined = import.meta.env.VITE_NATIVE_AUTH_PROXY_URL;
   if (configured) {
     return configured.replace(/\/$/, "");
   }
+
   if (import.meta.env.DEV) {
     return "http://localhost:3001/api";
   }
+
+  const apiBase: string | undefined = import.meta.env.VITE_API_BASE_URL;
+  if (apiBase) {
+    return `${apiBase.replace(/\/$/, "")}/api/native-auth`;
+  }
+
   return `${window.location.origin}/native-auth`;
 }
 

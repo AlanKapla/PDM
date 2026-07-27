@@ -72,6 +72,12 @@ namespace WebApi.Extensions
                 .AddHttpContextAccessor()
                 .AddControllers();
 
+            services.AddHttpClient("NativeAuthProxy")
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+                {
+                    AllowAutoRedirect = false
+                });
+
             services.Configure<FormOptions>(options =>
             {
                 options.MultipartBodyLengthLimit = 52428800;
