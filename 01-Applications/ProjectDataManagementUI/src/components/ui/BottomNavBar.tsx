@@ -16,13 +16,15 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChatUnreadContext } from "../../context/ChatUnreadContext";
+import { useAssignedWorksConflicts } from "../../hooks/useAssignedWorksConflicts";
 
 interface NavItem {
   label: string;
   icon: React.ElementType;
   to: string;
   matchPrefix?: boolean;
-  badge?: number;
+  badge?: number | string;
+  badgeColorScheme?: string;
 }
 
 /**
@@ -37,6 +39,7 @@ export default function BottomNavBar({
   const location = useLocation();
   const navigate = useNavigate();
   const { totalUnread } = useContext(ChatUnreadContext);
+  const { hasConflicts: hasAssignedWorksConflicts } = useAssignedWorksConflicts();
 
   const bg = useColorModeValue("white", "gray.900");
   const border = useColorModeValue("gray.200", "gray.700");
@@ -66,6 +69,8 @@ export default function BottomNavBar({
       label: "Prace",
       icon: CalendarClock,
       to: "/assigned-works",
+      badge: hasAssignedWorksConflicts ? "!" : undefined,
+      badgeColorScheme: "orange",
     },
     {
       label: "Ustawienia",
@@ -131,7 +136,7 @@ export default function BottomNavBar({
                 </Box>
                 {item.badge !== undefined && (
                   <Badge
-                    colorScheme={item.to === "/chat" ? "primary" : "red"}
+                    colorScheme={item.badgeColorScheme ?? (item.to === "/chat" ? "primary" : "red")}
                     borderRadius="full"
                     fontSize="2xs"
                     minW="16px"
@@ -143,7 +148,7 @@ export default function BottomNavBar({
                     top="2px"
                     right="2px"
                   >
-                    {item.badge > 99 ? "99+" : item.badge}
+                    {typeof item.badge === "number" && item.badge > 99 ? "99+" : item.badge}
                   </Badge>
                 )}
               </Box>

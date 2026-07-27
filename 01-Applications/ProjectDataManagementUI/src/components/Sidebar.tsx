@@ -29,6 +29,7 @@ import { useLocation, Link as RouterLink } from "react-router-dom";
 import { useContext } from "react";
 import { InvitationStatus } from "../types/auth.types";
 import { useActiveInvitations, useActiveProjectInvitations } from "../hooks/queries";
+import { useAssignedWorksConflicts } from "../hooks/useAssignedWorksConflicts";
 import { ChatUnreadContext } from "../context/ChatUnreadContext";
 import { useAppSession } from "../hooks/useAppSession";
 
@@ -47,6 +48,7 @@ export function SidebarContent() {
   const invitationsCount =
     invitations.filter((inv) => inv.status === InvitationStatus.Pending).length +
     projectInvitations.filter((inv) => inv.status === InvitationStatus.Pending).length;
+  const { hasConflicts: hasAssignedWorksConflicts } = useAssignedWorksConflicts();
 
   const activeBg = useColorModeValue("primary.100", "primary.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
@@ -169,6 +171,17 @@ export function SidebarContent() {
         textDecoration="none"
       >
         Zaplanowane prace
+        {hasAssignedWorksConflicts && (
+          <Badge
+            colorScheme="orange"
+            borderRadius="full"
+            fontSize="xs"
+            ml="auto"
+            aria-label="Konflikt terminów w zaplanowanych pracach"
+          >
+            !
+          </Badge>
+        )}
       </Button>
 
       {/* Zaplanowane prace */}

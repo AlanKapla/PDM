@@ -185,6 +185,52 @@ export interface WorkScheduleStageWorkAssigneeWeb {
   companyName?: string | null;
 }
 
+export interface WorkScheduleAssignableMemberWeb {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyName?: string | null;
+  assignments: WorkScheduleAssigneeBusyPeriodWeb[];
+}
+
+export interface WorkScheduleAssignableContractorWeb {
+  id: string;
+  name: string;
+  assignments: WorkScheduleAssigneeBusyPeriodWeb[];
+}
+
+export interface WorkScheduleAssignableAssigneesWeb {
+  members: WorkScheduleAssignableMemberWeb[];
+  contractors: WorkScheduleAssignableContractorWeb[];
+}
+
+export interface WorkScheduleAssigneeBusyPeriodWeb {
+  workId: string;
+  workName: string;
+  workScheduleId: string;
+  workScheduleName: string;
+  projectId: string;
+  projectName: string;
+  startDate: string;
+  endDate: string;
+}
+
+/** Konflikt wyliczony lokalnie na podstawie busy periods z assignable-assignees */
+export interface WorkScheduleAssignmentConflictWeb {
+  userId?: string | null;
+  contractorId?: string | null;
+  assigneeName: string;
+  conflictingWorkId: string;
+  conflictingWorkName: string;
+  conflictingWorkScheduleId: string;
+  conflictingWorkScheduleName: string;
+  conflictingProjectId: string;
+  conflictingProjectName: string;
+  overlapStart: string;
+  overlapEnd: string;
+}
+
 export function getAssigneeKey(a: WorkScheduleStageWorkAssigneeWeb): string {
   return a.userId ?? a.contractorId ?? "";
 }

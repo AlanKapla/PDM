@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Box,
   Text,
@@ -36,6 +36,12 @@ import GanttBar from "./GanttBar";
 import { GanttTruncatedName } from "./GanttTruncatedName";
 import { makeDateColMap } from "./ganttRowUtils";
 import GanttCommentPopover from "./GanttCommentPopover";
+import { AssignmentConflictAlertDialog } from "./AssignmentConflictAlertDialog";
+import { AssigneeConflictWarningIcon } from "./AssigneeConflictWarningIcon";
+import {
+  useAssignmentConflictCheck,
+} from "../../hooks/useAssignmentConflictCheck";
+import { detectAssigneeConflicts } from "../../utils/detectAssigneeConflicts";
 import type { WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
 
 // ─── Stałe ────────────────────────────────────────────────────────────────────
@@ -90,6 +96,50 @@ export default function GanttWorkRow({
   const [showInlineComments, setShowInlineComments] = useState(false);
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const [isConflictOpen, setIsConflictOpen] = useState(false);
+  const [pendingUserIds, setPendingUserIds] = useState<string[]>([]);
+  const [pendingContractorIds, setPendingContractorIds] = useState<string[]>([]);
+
+  const { conflicts, checkConflicts, clearConflicts } = useAssignmentConflictCheck();
+
+  const conflictsByUserId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof detectAssigneeConflicts>>();
+    for (const m of members) {
+      const name = [m.firstName, m.lastName].filter(Boolean).join(" ") || m.email;
+      const found = detectAssigneeConflicts({
+        workId: work.id,
+        workPeriods: work.periods ?? [],
+        candidates: [{
+          userId: m.userId,
+          assigneeName: name,
+          assignments: m.assignments ?? [],
+        }],
+      });
+      if (found.length > 0) {
+        map.set(m.userId, found);
+      }
+    }
+    return map;
+  }, [members, work.id, work.periods]);
+
+  const conflictsByContractorId = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof detectAssigneeConflicts>>();
+    for (const c of contractors) {
+      const found = detectAssigneeConflicts({
+        workId: work.id,
+        workPeriods: work.periods ?? [],
+        candidates: [{
+          contractorId: c.id,
+          assigneeName: c.name,
+          assignments: c.assignments ?? [],
+        }],
+      });
+      if (found.length > 0) {
+        map.set(c.id, found);
+      }
+    }
+    return map;
+  }, [contractors, work.id, work.periods]);
 
   const renameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assignmentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -218,24 +268,74 @@ export default function GanttWorkRow({
     }, 700);
   };
 
+  const applyAssigneeSelection = (userIds: string[], contractorIds: string[]) => {
+    setSelectedUserIds(userIds);
+    setSelectedContractorIds(contractorIds);
+    scheduleAssignmentSave(userIds, contractorIds);
+  };
+
   const handleToggleAssignee = (userId: string) => {
-    setSelectedUserIds(prev => {
-      const newIds = prev.includes(userId)
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId];
-      scheduleAssignmentSave(newIds, selectedContractorIdsRef.current);
-      return newIds;
-    });
+    const isRemoving = selectedUserIds.includes(userId);
+    const newIds = isRemoving
+      ? selectedUserIds.filter(id => id !== userId)
+      : [...selectedUserIds, userId];
+
+    if (isRemoving) {
+      applyAssigneeSelection(newIds, selectedContractorIdsRef.current);
+      return;
+    }
+
+    const member = members.find(m => m.userId === userId);
+    const found = checkConflicts(
+      [{
+        userId,
+        assigneeName: member
+          ? [member.firstName, member.lastName].filter(Boolean).join(" ") || member.email
+          : userId,
+        assignments: member?.assignments ?? [],
+      }],
+      work.id,
+      work.periods ?? []
+    );
+    if (found.length > 0) {
+      setPendingUserIds(newIds);
+      setPendingContractorIds(selectedContractorIdsRef.current);
+      setIsConflictOpen(true);
+      return;
+    }
+
+    applyAssigneeSelection(newIds, selectedContractorIdsRef.current);
   };
 
   const handleToggleContractor = (contractorId: string) => {
-    setSelectedContractorIds(prev => {
-      const newIds = prev.includes(contractorId)
-        ? prev.filter(id => id !== contractorId)
-        : [...prev, contractorId];
-      scheduleAssignmentSave(selectedUserIdsRef.current, newIds);
-      return newIds;
-    });
+    const isRemoving = selectedContractorIds.includes(contractorId);
+    const newIds = isRemoving
+      ? selectedContractorIds.filter(id => id !== contractorId)
+      : [...selectedContractorIds, contractorId];
+
+    if (isRemoving) {
+      applyAssigneeSelection(selectedUserIdsRef.current, newIds);
+      return;
+    }
+
+    const contractor = contractors.find(c => c.id === contractorId);
+    const found = checkConflicts(
+      [{
+        contractorId,
+        assigneeName: contractor?.name ?? contractorId,
+        assignments: contractor?.assignments ?? [],
+      }],
+      work.id,
+      work.periods ?? []
+    );
+    if (found.length > 0) {
+      setPendingUserIds(selectedUserIdsRef.current);
+      setPendingContractorIds(newIds);
+      setIsConflictOpen(true);
+      return;
+    }
+
+    applyAssigneeSelection(selectedUserIdsRef.current, newIds);
   };
 
   const getMemberDisplayName = (m: typeof members[0]) => {
@@ -416,7 +516,10 @@ export default function GanttWorkRow({
                         .filter(m => selectedUserIds.includes(m.userId))
                         .map(m => (
                           <Tooltip key={m.userId} label={getMemberDisplayName(m)}>
-                            <Avatar name={getMemberDisplayName(m)} size="xs" />
+                            <Avatar
+                              name={[m.firstName, m.lastName].filter(Boolean).join(" ") || m.email}
+                              size="xs"
+                            />
                           </Tooltip>
                         ))}
                       {contractors
@@ -442,31 +545,41 @@ export default function GanttWorkRow({
                 </Box>
               </PopoverTrigger>
               {isEditing && (
-                <PopoverContent w="240px" zIndex={1500}>
+                <PopoverContent w="280px" zIndex={1500}>
                   <PopoverArrow />
                   <PopoverBody>
-                    <VStack align="start" spacing={1}>
+                    <VStack align="stretch" spacing={1}>
                       <Text fontSize="xs" fontWeight="semibold" mb={1}>Zespół projektu</Text>
                       {members.map(m => (
-                        <Checkbox
-                          key={m.userId}
-                          isChecked={selectedUserIds.includes(m.userId)}
-                          onChange={() => handleToggleAssignee(m.userId)}
-                          size="sm"
-                        >
-                          <Text fontSize="xs">{getMemberDisplayName(m)}</Text>
-                        </Checkbox>
+                        <HStack key={m.userId} spacing={2} w="100%">
+                          <Checkbox
+                            isChecked={selectedUserIds.includes(m.userId)}
+                            onChange={() => handleToggleAssignee(m.userId)}
+                            size="sm"
+                            flex={1}
+                          >
+                            <Text fontSize="xs">{getMemberDisplayName(m)}</Text>
+                          </Checkbox>
+                          <AssigneeConflictWarningIcon
+                            conflicts={conflictsByUserId.get(m.userId) ?? []}
+                          />
+                        </HStack>
                       ))}
                       <Text fontSize="xs" fontWeight="semibold" mb={1} mt={2}>Kontahenci</Text>
                       {contractors.map(c => (
-                        <Checkbox
-                          key={c.id}
-                          isChecked={selectedContractorIds.includes(c.id)}
-                          onChange={() => handleToggleContractor(c.id)}
-                          size="sm"
-                        >
-                          <Text fontSize="xs">{c.name}</Text>
-                        </Checkbox>
+                        <HStack key={c.id} spacing={2} w="100%">
+                          <Checkbox
+                            isChecked={selectedContractorIds.includes(c.id)}
+                            onChange={() => handleToggleContractor(c.id)}
+                            size="sm"
+                            flex={1}
+                          >
+                            <Text fontSize="xs">{c.name}</Text>
+                          </Checkbox>
+                          <AssigneeConflictWarningIcon
+                            conflicts={conflictsByContractorId.get(c.id) ?? []}
+                          />
+                        </HStack>
                       ))}
                       {contractors.length === 0 && (
                         <Text fontSize="xs" color="neutral.400">Brak kontahentów</Text>
@@ -579,6 +692,20 @@ export default function GanttWorkRow({
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      <AssignmentConflictAlertDialog
+        isOpen={isConflictOpen}
+        onClose={() => {
+          setIsConflictOpen(false);
+          clearConflicts();
+        }}
+        onConfirm={() => {
+          setIsConflictOpen(false);
+          clearConflicts();
+          applyAssigneeSelection(pendingUserIds, pendingContractorIds);
+        }}
+        conflicts={conflicts}
+      />
     </>
   );
 }

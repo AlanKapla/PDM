@@ -1,21 +1,13 @@
 import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
-  ModalBody,
-  ModalCloseButton,
-  Button,
   VStack,
   Checkbox,
   Text,
   Box,
 } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
+import AppModal from "./ui/AppModal";
 import type { ProjectMemberWeb } from "../types/project.types";
 import { projectApi } from "../api/projectApi";
-import { handleApiError } from "../utils/handleApiError";
 import { useToastNotification } from "../hooks/useToastNotification";
 
 interface ManageFileShareModalProps {
@@ -45,7 +37,7 @@ export const ManageFileShareModal = ({
   ownerUserId,
   onShareUpdated,
 }: ManageFileShareModalProps) => {
-  const {showSuccess, showError, showWarning, showInfo, toast, showApiError } = useToastNotification();
+  const { showSuccess, showApiError } = useToastNotification();
   const [loading, setLoading] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
@@ -65,6 +57,12 @@ export const ManageFileShareModal = ({
     setSelectedUserIds(newSelection);
   };
 
+  const handleClose = () => {
+    if (!loading) {
+      onClose();
+    }
+  };
+
   const handleSave = async () => {
     try {
       setLoading(true);
@@ -81,61 +79,54 @@ export const ManageFileShareModal = ({
     }
   };
 
-  // Filtruj członków - usuń aktualnego użytkownika i właściciela pliku
   const excludeIds = new Set([currentUserId, ownerUserId].filter(Boolean));
   const availableMembers = members.filter(
     (member) => !excludeIds.has(member.userId)
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "md" }}>
-      <ModalOverlay />
-      <ModalContent mx={{ base: 0, md: "auto" }}>
-        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>Udostępnij</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <VStack align="stretch" spacing={4}>
-            <Box>
-              <Text fontWeight="bold" mb={2}>
-                Plik: {fileName}
-              </Text>
-              <Text fontSize="sm" color="gray.600">
-                Wybierz członków projektu, którym chcesz udostępnić ten plik
-              </Text>
-            </Box>
+    <AppModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Udostępnij"
+      actionLabel="Zapisz"
+      actionColorScheme="primary"
+      onAction={handleSave}
+      isActionLoading={loading}
+      isActionDisabled={availableMembers.length === 0}
+      desktopSize="md"
+    >
+      <VStack align="stretch" spacing={4}>
+        <Box>
+          <Text fontWeight="bold" mb={2} wordBreak="break-word">
+            Plik: {fileName}
+          </Text>
+          <Text fontSize="sm" color="neutral.600">
+            Wybierz członków projektu, którym chcesz udostępnić ten plik
+          </Text>
+        </Box>
 
-            {availableMembers.length === 0 ? (
-              <Text color="gray.500">Brak członków projektu do udostępnienia</Text>
-            ) : (
-              <VStack align="stretch" spacing={2} maxH="300px" overflowY="auto">
-                {availableMembers.map((member) => (
-                  <Checkbox
-                    key={member.userId}
-                    isChecked={selectedUserIds.has(member.userId)}
-                    onChange={() => toggleUser(member.userId)}
-                  >
-                    {member.firstName} {member.lastName} ({member.email})
-                  </Checkbox>
-                ))}
-              </VStack>
-            )}
+        {availableMembers.length === 0 ? (
+          <Text color="neutral.600">Brak członków projektu do udostępnienia</Text>
+        ) : (
+          <VStack align="stretch" spacing={2} maxH={{ base: "50dvh", md: "300px" }} overflowY="auto">
+            {availableMembers.map((member) => (
+              <Checkbox
+                key={member.userId}
+                isChecked={selectedUserIds.has(member.userId)}
+                onChange={() => toggleUser(member.userId)}
+                minH="44px"
+                alignItems="flex-start"
+                py={2}
+              >
+                <Text fontSize="sm" wordBreak="break-word">
+                  {member.firstName} {member.lastName} ({member.email})
+                </Text>
+              </Checkbox>
+            ))}
           </VStack>
-        </ModalBody>
-
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={onClose} isDisabled={loading}>
-            Anuluj
-          </Button>
-          <Button
-            colorScheme="primary"
-            onClick={handleSave}
-            isLoading={loading}
-            isDisabled={availableMembers.length === 0}
-          >
-            Zapisz
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        )}
+      </VStack>
+    </AppModal>
   );
 };

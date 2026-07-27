@@ -1,10 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { Box, Center, VStack, Spinner, Text, Alert, AlertIcon, Button } from "@chakra-ui/react";
-import type { WorkScheduleDetailsWeb, WorkScheduleStageWeb, WorkScheduleStageWorkWeb, WorkScheduleStageWorkPeriodWeb, WorkScheduleWorkDependencyWeb } from "../../types/workSchedule.types";
-import type { ProjectMemberWeb } from "../../types/project.types";
+import type { WorkScheduleDetailsWeb, WorkScheduleStageWeb, WorkScheduleStageWorkWeb, WorkScheduleStageWorkPeriodWeb, WorkScheduleWorkDependencyWeb, WorkScheduleAssigneeBusyPeriodWeb } from "../../types/workSchedule.types";
 import { workScheduleApi } from "../../api/workScheduleApi";
-import { projectApi } from "../../api/projectApi";
-import { contractorApi } from "../../api/contractorApi";
 import { getApiErrorMessage } from "../../utils/apiErrorUtils";
 import { useToastNotification } from "../../hooks/useToastNotification";
 import type { ResourcePermissions } from "../../hooks/useResourcePermissions";
@@ -19,11 +16,13 @@ export interface GanttMember {
   firstName: string;
   lastName: string;
   companyName?: string | null;
+  assignments: WorkScheduleAssigneeBusyPeriodWeb[];
 }
 
 export interface GanttContractor {
   id: string;
   name: string;
+  assignments: WorkScheduleAssigneeBusyPeriodWeb[];
 }
 
 export type GanttMode = "view" | "edit";
@@ -183,6 +182,26 @@ function findStageForWork(stages: WorkScheduleStageWeb[], workId: string): strin
   return null;
 }
 
+function findWorkInSchedule(
+  schedule: WorkScheduleDetailsWeb,
+  workId: string
+): WorkScheduleStageWorkWeb | null {
+  const search = (stages: WorkScheduleStageWeb[]): WorkScheduleStageWorkWeb | null => {
+    for (const stage of stages) {
+      const work = (stage.works ?? []).find(w => w.id === workId);
+      if (work) {
+        return work;
+      }
+      const nested = search(stage.childStages ?? []);
+      if (nested) {
+        return nested;
+      }
+    }
+    return null;
+  };
+  return search(schedule.stages ?? []);
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 interface GanttProviderProps {
@@ -331,23 +350,24 @@ export function GanttProvider({
     }
     if (!tenantId || !projectId || !workScheduleId) return;
     fetchSchedule();
-    projectApi.getProjectMembers(tenantId, projectId)
+    workScheduleApi.getAssignableAssignees(tenantId, projectId)
       .then(res => {
-        const raw: ProjectMemberWeb[] = res.data ?? [];
-        setMembers(raw.map(m => ({
+        const data = res.data;
+        setMembers((data.members ?? []).map(m => ({
           userId: m.userId,
           email: m.email,
           firstName: m.firstName,
           lastName: m.lastName,
           companyName: m.companyName ?? null,
+          assignments: m.assignments ?? [],
+        })));
+        setContractors((data.contractors ?? []).map(c => ({
+          id: c.id,
+          name: c.name,
+          assignments: c.assignments ?? [],
         })));
       })
-      .catch(() => { /* Błąd pobierania uczestników nie blokuje renderowania */ });
-    contractorApi.getAll(tenantId)
-      .then(list => {
-        setContractors(list.map(c => ({ id: c.id, name: c.name })));
-      })
-      .catch(() => { /* Błąd pobierania kontrahentów nie blokuje renderowania */ });
+      .catch(() => { /* Błąd pobierania assignable nie blokuje renderowania */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, projectId, workScheduleId]);
 
@@ -633,6 +653,42 @@ export function GanttProvider({
     const prev = scheduleRef.current!;
     const memberMap = new Map(members.map(m => [m.userId, m]));
     const contractorMap = new Map(contractors.map(c => [c.id, c]));
+    const work = findWorkInSchedule(prev, workId);
+    const workName = work?.name ?? workId;
+    const scheduleName = prev.name;
+    const busyForWork: WorkScheduleAssigneeBusyPeriodWeb[] = (work?.periods ?? [])
+      .filter(p => !p.isClosed)
+      .map(p => ({
+      workId,
+      workName,
+      workScheduleId: workScheduleId,
+      workScheduleName: scheduleName,
+      projectId,
+      projectName: "",
+      startDate: p.startDate,
+      endDate: p.endDate,
+    }));
+    const selectedUsers = new Set(userIds);
+    const selectedContractors = new Set(contractorIds);
+
+    setMembers(prevMembers => prevMembers.map(m => {
+      const withoutCurrent = (m.assignments ?? []).filter(a => a.workId !== workId);
+      return {
+        ...m,
+        assignments: selectedUsers.has(m.userId)
+          ? [...withoutCurrent, ...busyForWork]
+          : withoutCurrent,
+      };
+    }));
+    setContractors(prevContractors => prevContractors.map(c => {
+      const withoutCurrent = (c.assignments ?? []).filter(a => a.workId !== workId);
+      return {
+        ...c,
+        assignments: selectedContractors.has(c.id)
+          ? [...withoutCurrent, ...busyForWork]
+          : withoutCurrent,
+      };
+    }));
 
     set(s => ({
       ...s,

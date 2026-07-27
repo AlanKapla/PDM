@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, Plus, Trash2, MoreHorizontal, ArrowRight, GripVertical, X, MessageCircle, Users, Link2 } from "lucide-react";
-import { Button, IconButton } from "@chakra-ui/react";
+import { Button, IconButton, Avatar, AvatarGroup } from "@chakra-ui/react";
 import ConfirmDialog from "../common/ConfirmDialog";
 import { AddInlineButton } from "../CostEstimate/PrototypeActionButtons";
 import { useGantt } from "./GanttContext";
@@ -628,26 +628,15 @@ const noPeriods = (work.periods ?? []).length === 0;
 
         {/* Avatary */}
         {assignees.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-            {assignees.slice(0, 3).map((a, i) => (
-              <div
+          <AvatarGroup size="xs" max={3} flexShrink={0}>
+            {assignees.map((a) => (
+              <Avatar
                 key={getAssigneeKey(a)}
+                name={getAssigneeDisplayName(a)}
                 title={getAssigneeDisplayName(a)}
-                style={{
-                  width: 22, height: 22, borderRadius: "50%",
-                  background: G.accentLight, color: G.accent,
-                  fontSize: 9, fontWeight: 700,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  border: `1.5px solid ${G.surface}`,
-                  marginLeft: i > 0 ? -6 : 0,
-                  zIndex: assignees.length - i,
-                  position: "relative",
-                }}
-              >
-                {getAssigneeDisplayName(a)?.[0]?.toUpperCase() ?? "?"}
-              </div>
+              />
             ))}
-          </div>
+          </AvatarGroup>
         )}
 
         {/* Menu kontekstowe zakresu (⋯) — zastępuje osobne guziki akcji */}
@@ -909,6 +898,13 @@ const noPeriods = (work.periods ?? []).length === 0;
       {/* Popover przypisanych */}
       {assigneesFor && (
         <GanttAssigneesPopover
+          stageId={assigneesFor.stageId}
+          workId={assigneesFor.work.id}
+          workPeriods={(assigneesFor.work.periods ?? []).map(p => ({
+            startDate: p.startDate,
+            endDate: p.endDate,
+            isClosed: p.isClosed,
+          }))}
           selectedUserIds={assigneesFor.work.assignees
             .map(a => a.userId)
             .filter((id): id is string => !!id)}

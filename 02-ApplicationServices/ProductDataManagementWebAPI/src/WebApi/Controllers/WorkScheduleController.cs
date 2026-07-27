@@ -17,6 +17,7 @@ using CQRS.WorkSchedules.DeleteWorkScheduleStageWork;
 using CQRS.WorkSchedules.DeleteWorkScheduleStageWorkComment;
 using CQRS.WorkSchedules.GetMyWorkSchedules;
 using CQRS.WorkSchedules.GetWorkSchedule;
+using CQRS.WorkSchedules.GetWorkScheduleAssignableAssignees;
 using CQRS.WorkSchedules.GetWorkSchedules;
 using CQRS.WorkSchedules.SetWorkScheduleDependencies;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments;
@@ -94,6 +95,22 @@ namespace WebApi.Controllers
         {
             GetMyWorkSchedulesQuery query = new GetMyWorkSchedulesQuery { TenantId = tenantId, ProjectId = projectId };
             List<MyWorkSchedulesTenantDto> result = await Send(query);
+            return Ok(result);
+        }
+
+        [HttpGet("assignable-assignees")]
+        [Authorize(Policy = PermissionCodes.ProjectSchedule)]
+        [ProducesResponseType(typeof(WorkScheduleAssignableAssigneesWeb), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAssignableAssignees(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId)
+        {
+            GetWorkScheduleAssignableAssigneesQuery query = new GetWorkScheduleAssignableAssigneesQuery
+            {
+                TenantId = tenantId,
+                ProjectId = projectId
+            };
+            WorkScheduleAssignableAssigneesWeb result = await Send(query);
             return Ok(result);
         }
 

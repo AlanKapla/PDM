@@ -1,5 +1,8 @@
 import { axiosClient } from "./axiosClient";
-import type { WorkScheduleDetailsWeb } from "../types/workSchedule.types";
+import type {
+  WorkScheduleAssignableAssigneesWeb,
+  WorkScheduleDetailsWeb,
+} from "../types/workSchedule.types";
 
 const base = (tenantId: string, projectId: string, wsId: string) =>
   `/tenants/${tenantId}/projects/${projectId}/work-schedule/${wsId}`;
@@ -23,6 +26,12 @@ export const workScheduleApi = {
   getDetails: (tenantId: string, projectId: string, wsId: string) =>
     axiosClient.get<WorkScheduleDetailsWeb>(
       `/tenants/${tenantId}/projects/${projectId}/work-schedule/details/${wsId}`
+    ),
+
+  /** GET /assignable-assignees — członkowie projektu + kontrahenci tenanta */
+  getAssignableAssignees: (tenantId: string, projectId: string) =>
+    axiosClient.get<WorkScheduleAssignableAssigneesWeb>(
+      `/tenants/${tenantId}/projects/${projectId}/work-schedule/assignable-assignees`
     ),
 
   // ──────────────────────────────────────────────────────────────────
