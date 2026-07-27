@@ -15,11 +15,11 @@ export function DemoModeBanner(): ReactElement | null {
     return null;
   }
 
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<void> => {
     setIsLeaving(true);
     try {
       await exitDemoMode();
-      navigate("/");
+      navigate("/login");
     } finally {
       setIsLeaving(false);
     }

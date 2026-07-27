@@ -212,9 +212,23 @@ export default function Profile() {
                   <Text fontSize="lg" color={cardText}>{user.country || "—"}</Text>
                 </Box>
 
-                <Button colorScheme="primary" onClick={handleEdit} mt={4}>
-                  Edytuj profil
-                </Button>
+                <HStack spacing={3} mt={4} flexWrap="wrap">
+                  <Button colorScheme="primary" onClick={handleEdit}>
+                    Edytuj profil
+                  </Button>
+                  <Button
+                    variant="outline"
+                    colorScheme="primary"
+                    onClick={() => {
+                      const emailQuery = user.email
+                        ? `?email=${encodeURIComponent(user.email)}`
+                        : "";
+                      navigate(`/reset-password${emailQuery}`);
+                    }}
+                  >
+                    Zmień hasło
+                  </Button>
+                </HStack>
               </>
             ) : (
               <>

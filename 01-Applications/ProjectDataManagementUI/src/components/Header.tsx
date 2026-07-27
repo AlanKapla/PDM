@@ -215,9 +215,8 @@ export default function Header(_props: HeaderProps): ReactElement {
 
                     <MenuItem
                       color="red.500"
-                      onClick={async () => {
-                        await logout();
-                        navigate("/");
+                      onClick={() => {
+                        void logout();
                       }}
                     >
                       Wyloguj się

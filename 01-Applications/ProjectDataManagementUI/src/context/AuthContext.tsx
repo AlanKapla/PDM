@@ -1,12 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
+import { useQueryClient } from "@tanstack/react-query";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
 import { activityApi } from "../api/activityApi";
 import { isDemoModeActive, setDemoMode } from "../api/mock";
 import { notificationHubService } from "../services/notificationHubService";
 import { chatHubService } from "../services/chatHubService";
+import { logoutMsalSession } from "../auth/logoutSession";
+import { msalInstance } from "../auth/msalInstance";
 import type { UserProfile } from "../types/auth.types";
 
 const LOGIN_ACTIVITY_RECORDED_KEY = "pdm:loginActivityRecorded";
@@ -48,6 +51,7 @@ export const AuthContext = createContext<AuthContextType>({
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { instance, accounts, inProgress } = useMsal();
+  const queryClient = useQueryClient();
   const isAuthenticated = useIsAuthenticated();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -248,57 +252,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [isAuthenticated]);
 
-  // Legacy login method - now deprecated, redirects to B2C
+  // Legacy login — native auth na /login
   const login = async (_email: string, _password: string) => {
-    await instance.loginRedirect();
+    window.location.assign("/login");
     return { success: true };
   };
 
-  // Legacy Google login - now deprecated, use B2C Google provider
   const googleLogin = async (_token: string) => {
-    await instance.loginRedirect();
+    window.location.assign("/login");
     return { success: true };
   };
 
-  // Legacy Google register - now deprecated, use B2C
   const googleRegister = async (_token: string) => {
-    await instance.loginRedirect();
+    window.location.assign("/register");
     return { success: true };
   };
 
-  // Logout - clear state and redirect to MSAL logout (or home for demo-only session)
+  // Logout — native: CustomAuth signOut; redirect login: logoutRedirect; demo: home
   const logout = async () => {
     const demoOnlySession = isDemoModeActive() && !isAuthenticated;
 
-    if (!demoOnlySession) {
-      try {
-        await notificationHubService.stopConnection();
-      } catch {
-      }
+    try {
+      await notificationHubService.stopConnection();
+    } catch {
+      // ignore
+    }
+    try {
+      await chatHubService.stopConnection();
+    } catch {
+      // ignore
     }
 
     setUser(null);
+    setSignalRInitialized(false);
     setDemoMode(false);
+    queryClient.clear();
 
     if (demoOnlySession) {
-      try {
-        await chatHubService.stopConnection();
-      } catch {
-      }
       sessionStorage.clear();
-      window.location.href = "/";
+      window.location.assign("/");
       return;
     }
 
-    Object.keys(localStorage).forEach((key) => {
-      if (!key.startsWith("msal.")) {
-        localStorage.removeItem(key);
-      }
-    });
-    sessionStorage.clear();
-
-    const account = instance.getActiveAccount() || accounts[0];
-    await instance.logoutRedirect({ account });
+    const account = instance.getActiveAccount() || accounts[0] || null;
+    await logoutMsalSession(msalInstance, account);
   };
 
   const setIsAuthenticated = (_value: boolean) => {

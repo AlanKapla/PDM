@@ -1,9 +1,33 @@
-import { PublicClientApplication } from "@azure/msal-browser";
-import { msalConfig } from "../config/authConfig";
+import {
+  CustomAuthPublicClientApplication,
+  type ICustomAuthPublicClientApplication,
+} from "@azure/msal-browser/custom-auth";
+import { customAuthConfig } from "../config/customAuthConfig";
 
 /**
- * Singleton MSAL — osobny moduł, żeby uniknąć circular import
- * `main.tsx` → App → AuthContext → axiosClient → main.tsx
- * (psuje HMR Vite i może zostawiać niespójny stan sesji).
+ * Jedna wspólna PCA (Custom Auth + redirect + axios + MsalProvider).
+ * Dwie instancje (standard + custom) psują cache — po native login apka wraca na login.
+ *
+ * Live binding: `export let` — po initializeMsalInstance() wszystkie importy widzą tę samą PCA.
  */
-export const msalInstance = new PublicClientApplication(msalConfig);
+export let msalInstance: ICustomAuthPublicClientApplication =
+  null as unknown as ICustomAuthPublicClientApplication;
+
+export async function initializeMsalInstance(): Promise<ICustomAuthPublicClientApplication> {
+  if (msalInstance) {
+    return msalInstance;
+  }
+
+  const instance: ICustomAuthPublicClientApplication =
+    await CustomAuthPublicClientApplication.create(customAuthConfig);
+  await instance.initialize();
+  msalInstance = instance;
+  return instance;
+}
+
+export function getMsalInstance(): ICustomAuthPublicClientApplication {
+  if (!msalInstance) {
+    throw new Error("MSAL nie jest zainicjalizowany — wywołaj initializeMsalInstance().");
+  }
+  return msalInstance;
+}

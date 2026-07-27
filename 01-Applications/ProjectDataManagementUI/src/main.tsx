@@ -7,7 +7,7 @@ import { EventType } from "@azure/msal-browser";
 import type { EventMessage, AuthenticationResult } from "@azure/msal-browser";
 import App from "./App.tsx";
 import theme from "./theme.ts";
-import { msalInstance } from "./auth/msalInstance";
+import { initializeMsalInstance, msalInstance } from "./auth/msalInstance";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
@@ -29,8 +29,8 @@ export { queryClient };
 
 // Initialize MSAL and render app
 async function initializeApp() {
-  // Initialize MSAL before using it
-  await msalInstance.initialize();
+  // Jedna CustomAuth PCA (native + redirect + axios) — musi być przed MsalProvider
+  await initializeMsalInstance();
 
   // handleRedirectPromise: wywoływane przez MsalProvider przy mount.
   // AuthCallback tylko czeka na inProgress === None i nawiguje dalej.

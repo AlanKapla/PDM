@@ -1,8 +1,5 @@
 import axios from "axios";
-import {
-  BrowserAuthError,
-  InteractionRequiredAuthError,
-} from "@azure/msal-browser";
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "../auth/msalInstance";
 import { silentRequest } from "../config/authConfig";
 import { setupMockInterceptors, isDemoModeActive } from "./mock";
@@ -20,10 +17,8 @@ function requireEnvVar(key: string): string {
 
 const API_BASE_URL = requireEnvVar("VITE_API_BASE_URL");
 
-// Zapobiega wielokrotnym równoległym wywołaniom loginRedirect.
-// Bez tego kilka równoczesnych żądań API może zawiesić flagę MSAL
-// `interaction_in_progress` w localStorage i trwale zablokować aplikację
-// na ekranie "Sprawdzanie sesji...".
+// Zapobiega wielokrotnym równoległym przekierowaniom na /login
+// przy równoczesnych 401 / InteractionRequired.
 let interactiveRedirectTriggered = false;
 
 /** Czy MSAL ma już trwającą interakcję (localStorage / sessionStorage). */
@@ -59,19 +54,8 @@ async function redirectToLoginSafely(): Promise<void> {
   }
 
   interactiveRedirectTriggered = true;
-  try {
-    await msalInstance.loginRedirect(silentRequest);
-  } catch (redirectError: unknown) {
-    const isInteractionInProgress: boolean =
-      redirectError instanceof BrowserAuthError &&
-      redirectError.errorCode === "interaction_in_progress";
-
-    if (!isInteractionInProgress) {
-      interactiveRedirectTriggered = false;
-    }
-
-    throw redirectError;
-  }
+  // Native auth only — nie używamy loginRedirect (hosted Microsoft UI)
+  window.location.assign("/login");
 }
 
 export const axiosClient = axios.create({

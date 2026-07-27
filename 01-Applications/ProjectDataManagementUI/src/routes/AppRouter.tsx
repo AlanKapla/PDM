@@ -1,5 +1,8 @@
 ﻿import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "../pages/Home";
+import LoginPage from "../pages/LoginPage";
+import RegisterPage from "../pages/RegisterPage";
+import ResetPasswordPage from "../pages/ResetPasswordPage";
 import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -49,8 +52,15 @@ export default function AppRouter() {
       />
 
       
-      {/* /register redirects to /home - MSAL handles both flows */}
-      <Route path="/register" element={<Navigate to="/" replace />} />
+      {/* Native auth register (givenName + surname + email + password) */}
+      <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <RegisterPage />
+          </PublicRoute>
+        }
+      />
 
       {/* 🔥 Swagger — publiczny, bez autoryzacji */}
       <Route path="/swagger" element={<div />} />
@@ -61,6 +71,19 @@ export default function AppRouter() {
         element={
           <PublicRoute>
             <Home />
+          </PublicRoute>
+        }
+      />
+
+      {/* Native auth reset / change password */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* Native auth login (email + password) */}
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <LoginPage />
           </PublicRoute>
         }
       />
