@@ -68,6 +68,17 @@ internal class Program
 
         app.UseCors("AllowFrontend");
 
+        // Native Auth proxy: allow re-reading form body (ASP.NET may otherwise drain it).
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/api/native-auth"))
+            {
+                context.Request.EnableBuffering();
+            }
+
+            await next();
+        });
+
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();

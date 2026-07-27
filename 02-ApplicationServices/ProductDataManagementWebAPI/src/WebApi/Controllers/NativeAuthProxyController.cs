@@ -1,8 +1,11 @@
 using Business.Interfaces.Configurations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
+using System.Text;
 
 namespace WebApi.Controllers;
 
@@ -14,6 +17,7 @@ namespace WebApi.Controllers;
 [ApiController]
 [AllowAnonymous]
 [Route("api/native-auth")]
+[DisableFormValueModelBinding]
 public sealed class NativeAuthProxyController : ControllerBase
 {
     private static readonly HashSet<string> AllowedRequestHeaders = new(StringComparer.OrdinalIgnoreCase)
@@ -83,12 +87,31 @@ public sealed class NativeAuthProxyController : ControllerBase
             || HttpMethods.IsPut(Request.Method)
             || HttpMethods.IsPatch(Request.Method))
         {
-            StreamContent content = new(Request.Body);
-            if (Request.ContentType is not null)
+            byte[] bodyBytes = await ReadRequestBodyAsync(cancellationToken);
+            if (bodyBytes.Length == 0)
             {
-                content.Headers.ContentType = MediaTypeHeaderValue.Parse(Request.ContentType);
+                _logger.LogWarning(
+                    "Native Auth proxy received empty body for {Method} {Path}",
+                    Request.Method,
+                    relativePath);
+            }
+            else if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                bool hasClientId = Encoding.UTF8.GetString(bodyBytes).Contains("client_id=", StringComparison.Ordinal);
+                _logger.LogDebug(
+                    "Native Auth proxy forwarding {Method} {Path} ({Length} bytes, hasClientId={HasClientId})",
+                    Request.Method,
+                    relativePath,
+                    bodyBytes.Length,
+                    hasClientId);
             }
 
+            // ByteArrayContent sets Content-Length — Entra rejects chunked/empty form bodies (AADSTS900144).
+            ByteArrayContent content = new(bodyBytes);
+            string contentType = string.IsNullOrWhiteSpace(Request.ContentType)
+                ? "application/x-www-form-urlencoded"
+                : Request.ContentType;
+            content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
             upstreamRequest.Content = content;
         }
 
@@ -162,6 +185,18 @@ public sealed class NativeAuthProxyController : ControllerBase
         }
     }
 
+    private async Task<byte[]> ReadRequestBodyAsync(CancellationToken cancellationToken)
+    {
+        if (Request.Body.CanSeek)
+        {
+            Request.Body.Position = 0;
+        }
+
+        using MemoryStream buffer = new();
+        await Request.Body.CopyToAsync(buffer, cancellationToken);
+        return buffer.ToArray();
+    }
+
     private string BuildNativeAuthBaseUrl()
     {
         string instance = _azureAdB2CSettings.Instance.TrimEnd('/');
@@ -184,5 +219,24 @@ public sealed class NativeAuthProxyController : ControllerBase
         return relativePath.StartsWith("oauth2/", StringComparison.OrdinalIgnoreCase)
             || relativePath.StartsWith("signup/", StringComparison.OrdinalIgnoreCase)
             || relativePath.StartsWith("resetpassword/", StringComparison.OrdinalIgnoreCase);
+    }
+}
+
+/// <summary>
+/// Prevents ASP.NET from consuming application/x-www-form-urlencoded before the proxy can forward it.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+file sealed class DisableFormValueModelBindingAttribute : Attribute, IResourceFilter
+{
+    public void OnResourceExecuting(ResourceExecutingContext context)
+    {
+        IList<IValueProviderFactory> factories = context.ValueProviderFactories;
+        factories.RemoveType<FormValueProviderFactory>();
+        factories.RemoveType<FormFileValueProviderFactory>();
+        factories.RemoveType<JQueryFormValueProviderFactory>();
+    }
+
+    public void OnResourceExecuted(ResourceExecutedContext context)
+    {
     }
 }
