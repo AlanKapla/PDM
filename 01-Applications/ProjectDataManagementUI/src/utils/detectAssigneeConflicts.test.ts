@@ -24,7 +24,7 @@ describe("detectAssigneeConflicts", () => {
   it("returns conflict when busy period overlaps current work", () => {
     const result = detectAssigneeConflicts({
       workId: "current",
-      workPeriods: [{ startDate: "2026-07-01", endDate: "2026-07-10" }],
+      workPeriods: [{ startDate: "2026-07-01", endDate: "2026-07-10", isClosed: false }],
       candidates: [
         {
           userId: "u1",
@@ -44,7 +44,7 @@ describe("detectAssigneeConflicts", () => {
   it("ignores assignments to the same work", () => {
     const result = detectAssigneeConflicts({
       workId: "current",
-      workPeriods: [{ startDate: "2026-07-01", endDate: "2026-07-10" }],
+      workPeriods: [{ startDate: "2026-07-01", endDate: "2026-07-10", isClosed: false }],
       candidates: [
         {
           userId: "u1",
