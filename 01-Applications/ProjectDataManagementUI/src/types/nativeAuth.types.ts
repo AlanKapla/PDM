@@ -11,6 +11,8 @@ export interface UseNativeSignInResult {
   codeLength: number | null;
   error: string | null;
   isLoading: boolean;
+  /** Trwa próba cichego wznowienia sesji z cache MSAL. */
+  isResuming: boolean;
   isReady: boolean;
   submitEmail: () => Promise<void>;
   submitPassword: () => Promise<void>;

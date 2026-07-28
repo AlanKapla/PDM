@@ -1,13 +1,16 @@
 import type { AccountInfo } from "@azure/msal-browser";
 import type { ICustomAuthPublicClientApplication } from "@azure/msal-browser/custom-auth";
+import { PRESERVED_AUTH_STORAGE_KEYS } from "./rememberedSignIn";
 
 const POST_LOGOUT_PATH = "/logged-out";
 
 function clearNonMsalStorage(): void {
+  const preserve: Set<string> = new Set(PRESERVED_AUTH_STORAGE_KEYS);
   Object.keys(localStorage).forEach((key) => {
-    if (!key.startsWith("msal.")) {
-      localStorage.removeItem(key);
+    if (key.startsWith("msal.") || preserve.has(key)) {
+      return;
     }
+    localStorage.removeItem(key);
   });
   sessionStorage.clear();
 }

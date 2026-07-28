@@ -9,6 +9,8 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import { getCustomAuthClient } from "../auth/customAuthInstance";
 import { finalizeNativeSession } from "../auth/finalizeNativeSession";
+import { getRememberedSignInEmail } from "../auth/rememberedSignIn";
+import { tryResumeNativeSession } from "../auth/tryResumeNativeSession";
 import { nativeSignInScopes } from "../config/customAuthConfig";
 import type { NativeSignInStep, UseNativeSignInResult } from "../types/nativeAuth.types";
 
@@ -46,6 +48,18 @@ function mapSignInError(error: {
   return error.errorData?.errorDescription ?? "Nie udało się zalogować.";
 }
 
+function resolveInitialEmail(client: ICustomAuthPublicClientApplication): string {
+  const active = client.getActiveAccount();
+  if (active?.username) {
+    return active.username;
+  }
+  const accounts = client.getAllAccounts();
+  if (accounts[0]?.username) {
+    return accounts[0].username;
+  }
+  return getRememberedSignInEmail() ?? "";
+}
+
 export function useNativeSignIn(): UseNativeSignInResult {
   const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
   const [step, setStep] = useState<NativeSignInStep>("email");
@@ -56,22 +70,44 @@ export function useNativeSignIn(): UseNativeSignInResult {
   const [codeLength, setCodeLength] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResuming, setIsResuming] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    void getCustomAuthClient()
-      .then((client) => {
-        if (!cancelled) {
-          setAuthClient(client);
+
+    void (async () => {
+      let resumed = false;
+      try {
+        const client = await getCustomAuthClient();
+        if (cancelled) {
+          return;
         }
-      })
-      .catch(() => {
+
+        setAuthClient(client);
+        setEmail(resolveInitialEmail(client));
+
+        const resume = await tryResumeNativeSession(client);
+        resumed = resume.resumed;
+        if (cancelled || resumed) {
+          return;
+        }
+
+        if (resume.accountEmail) {
+          setEmail(resume.accountEmail);
+        }
+      } catch {
         if (!cancelled) {
           setError(
             "Nie udało się zainicjalizować logowania. Uruchom `npm run dev:cors` (proxy na porcie 3001)."
           );
         }
-      });
+      } finally {
+        if (!cancelled && !resumed) {
+          setIsResuming(false);
+        }
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -100,6 +136,12 @@ export function useNativeSignIn(): UseNativeSignInResult {
     setError(null);
     setIsLoading(true);
     try {
+      // Gdy wracamy na /login z cache — najpierw ciche wznowienie (bez hasła).
+      const resume = await tryResumeNativeSession(authClient);
+      if (resume.resumed) {
+        return;
+      }
+
       const result = await authClient.signIn({
         username: trimmedEmail,
         scopes: nativeSignInScopes,
@@ -230,7 +272,8 @@ export function useNativeSignIn(): UseNativeSignInResult {
     codeLength,
     error,
     isLoading,
-    isReady: authClient !== null,
+    isResuming,
+    isReady: authClient !== null && !isResuming,
     submitEmail,
     submitPassword,
     submitCode,

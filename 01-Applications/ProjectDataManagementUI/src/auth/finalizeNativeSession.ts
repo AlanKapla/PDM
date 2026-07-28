@@ -1,6 +1,7 @@
 import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
 import { msalInstance } from "./msalInstance";
 import { nativeSignInScopes } from "../config/customAuthConfig";
+import { rememberSignInEmail } from "./rememberedSignIn";
 
 /**
  * Po native sign-in / sign-up: active account + token API w tej samej PCA, potem reload dashboard.
@@ -14,6 +15,7 @@ export async function finalizeNativeSession(
 
   const account = accountData.getAccount();
   msalInstance.setActiveAccount(account);
+  rememberSignInEmail(account.username);
 
   const tokenResult = await accountData.getAccessToken({
     forceRefresh: false,

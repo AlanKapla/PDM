@@ -29,6 +29,7 @@ export default function LoginPage(): React.ReactElement {
     setCode,
     error,
     isLoading,
+    isResuming,
     isReady,
     submitEmail,
     submitPassword,
@@ -44,11 +45,13 @@ export default function LoginPage(): React.ReactElement {
         : "Zaloguj się";
 
   const stepHint: string | null =
-    step === "email"
-      ? "Po podaniu e-maila wyślemy kod albo poprosimy o hasło — zależnie od konta."
-      : step === "code"
-        ? "Sprawdź skrzynkę i wpisz kod jednorazowy."
-        : null;
+    isResuming
+      ? "Sprawdzamy, czy masz już aktywną sesję…"
+      : step === "email"
+        ? "Jeśli sesja jest jeszcze ważna, zalogujemy Cię automatycznie. W przeciwnym razie poprosimy o hasło lub kod."
+        : step === "code"
+          ? "Sprawdź skrzynkę i wpisz kod jednorazowy."
+          : null;
 
   return (
     <AuthPageShell
@@ -68,7 +71,7 @@ export default function LoginPage(): React.ReactElement {
       <VStack spacing={5} align="stretch">
         <AuthPageHeading title={stepTitle} hint={stepHint} />
 
-        {!isReady && (
+        {(isResuming || !isReady) && (
           <Flex justify="center" py={6}>
             <Spinner size="lg" color="primary.500" thickness="3px" />
           </Flex>
@@ -83,6 +86,8 @@ export default function LoginPage(): React.ReactElement {
             }}
             isLoading={isLoading}
             isDisabled={!isReady}
+            submitLabel={email.trim() ? "Zaloguj" : "Dalej"}
+            loadingText="Logowanie..."
           />
         )}
 
