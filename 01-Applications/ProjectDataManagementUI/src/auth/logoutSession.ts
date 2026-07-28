@@ -26,42 +26,34 @@ function goToLoggedOut(): void {
 }
 
 /**
- * Wylogowanie dla wspólnej CustomAuth PCA:
- * 1) Native: getCurrentAccount().signOut() — czyści cache i idzie na postLogoutRedirectUri
- * 2) Redirect CIAM: logoutRedirect (kończy też sesję IdP, gdy endpoint istnieje)
- * 3) Fallback: twarde czyszczenie localStorage + /logged-out
+ * Wylogowanie lokalne — czyści cache MSAL, ale NIE kończy sesji Entra (IdP).
+ * Dzięki temu w PWA „Zaloguj się” może znów przejść SSO jednym kliknięciem.
  */
 export async function logoutMsalSession(
   instance: ICustomAuthPublicClientApplication,
-  fallbackAccount?: AccountInfo | null
+  _fallbackAccount?: AccountInfo | null
 ): Promise<void> {
   clearNonMsalStorage();
 
-  const accountResult = instance.getCurrentAccount();
-  if (accountResult.isCompleted() && accountResult.data) {
-    const signOutResult = await accountResult.data.signOut();
-    if (signOutResult.isCompleted()) {
-      // signOut sam nawiguje na postLogoutRedirectUri
-      return;
+  try {
+    const accountResult = instance.getCurrentAccount();
+    if (accountResult.isCompleted() && accountResult.data) {
+      // Lokalny signOut Custom Auth (bez wymuszania logoutRedirect na ciamlogin).
+      await accountResult.data.signOut();
+      if (window.location.pathname.includes("logged-out")) {
+        return;
+      }
+    }
+  } catch (error: unknown) {
+    if (import.meta.env.DEV) {
+      console.warn("[auth] Custom Auth signOut failed, clearing cache locally", error);
     }
   }
 
-  const account =
-    instance.getActiveAccount() ||
-    fallbackAccount ||
-    instance.getAllAccounts()[0] ||
-    undefined;
-
   try {
-    await instance.logoutRedirect({
-      account,
-      postLogoutRedirectUri: `${window.location.origin}${POST_LOGOUT_PATH}`,
-    });
-    return;
-  } catch (error: unknown) {
-    if (import.meta.env.DEV) {
-      console.warn("[auth] logoutRedirect failed, clearing cache locally", error);
-    }
+    await instance.clearCache();
+  } catch {
+    // ignore
   }
 
   try {
@@ -69,6 +61,7 @@ export async function logoutMsalSession(
   } catch {
     // ignore
   }
+
   clearMsalStorage();
   goToLoggedOut();
 }

@@ -1,4 +1,4 @@
-export type NativeSignInStep = "email" | "password" | "code" | "completed";
+export type NativeSignInStep = "credentials" | "code" | "completed";
 
 export interface UseNativeSignInResult {
   step: NativeSignInStep;
@@ -14,8 +14,7 @@ export interface UseNativeSignInResult {
   /** Trwa próba cichego wznowienia sesji z cache MSAL. */
   isResuming: boolean;
   isReady: boolean;
-  submitEmail: () => Promise<void>;
-  submitPassword: () => Promise<void>;
+  submitCredentials: () => Promise<void>;
   submitCode: () => Promise<void>;
   reset: () => void;
 }

@@ -10,8 +10,7 @@ import {
 } from "@chakra-ui/react";
 import { Link as RouterLink } from "react-router-dom";
 import { NativeSignInCodeForm } from "../features/auth/components/NativeSignInCodeForm";
-import { NativeSignInEmailForm } from "../features/auth/components/NativeSignInEmailForm";
-import { NativeSignInPasswordForm } from "../features/auth/components/NativeSignInPasswordForm";
+import { NativeSignInCredentialsForm } from "../features/auth/components/NativeSignInCredentialsForm";
 import {
   AuthPageHeading,
   AuthPageShell,
@@ -31,27 +30,19 @@ export default function LoginPage(): React.ReactElement {
     isLoading,
     isResuming,
     isReady,
-    submitEmail,
-    submitPassword,
+    submitCredentials,
     submitCode,
     reset,
   } = useNativeSignIn();
 
-  const stepTitle: string =
-    step === "password"
-      ? "Podaj hasło"
-      : step === "code"
-        ? "Kod z e-maila"
-        : "Zaloguj się";
+  const stepTitle: string = step === "code" ? "Kod z e-maila" : "Zaloguj się";
 
   const stepHint: string | null =
     isResuming
       ? "Sprawdzamy, czy masz już aktywną sesję…"
-      : step === "email"
-        ? "Jeśli sesja jest jeszcze ważna, zalogujemy Cię automatycznie. W przeciwnym razie poprosimy o hasło lub kod."
-        : step === "code"
-          ? "Sprawdź skrzynkę i wpisz kod jednorazowy."
-          : null;
+      : step === "code"
+        ? "Sprawdź skrzynkę i wpisz kod jednorazowy."
+        : "Podaj e-mail i hasło. Jeśli sesja jest jeszcze ważna, zalogujemy Cię automatycznie.";
 
   return (
     <AuthPageShell
@@ -77,30 +68,18 @@ export default function LoginPage(): React.ReactElement {
           </Flex>
         )}
 
-        {isReady && step === "email" && (
-          <NativeSignInEmailForm
-            email={email}
-            onEmailChange={setEmail}
-            onSubmit={() => {
-              void submitEmail();
-            }}
-            isLoading={isLoading}
-            isDisabled={!isReady}
-            submitLabel={email.trim() ? "Zaloguj" : "Dalej"}
-            loadingText="Logowanie..."
-          />
-        )}
-
-        {isReady && step === "password" && (
+        {isReady && step === "credentials" && (
           <VStack spacing={3} align="stretch">
-            <NativeSignInPasswordForm
+            <NativeSignInCredentialsForm
+              email={email}
+              onEmailChange={setEmail}
               password={password}
               onPasswordChange={setPassword}
               onSubmit={() => {
-                void submitPassword();
+                void submitCredentials();
               }}
-              onBack={reset}
               isLoading={isLoading}
+              isDisabled={!isReady}
             />
             <Text fontSize="sm" textAlign="center">
               <Link

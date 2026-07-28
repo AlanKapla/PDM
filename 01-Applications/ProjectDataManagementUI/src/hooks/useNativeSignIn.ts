@@ -60,9 +60,62 @@ function resolveInitialEmail(client: ICustomAuthPublicClientApplication): string
   return getRememberedSignInEmail() ?? "";
 }
 
+async function applySignInResult(
+  result: {
+    state: AuthFlowStateBase;
+    error?: Parameters<typeof mapSignInError>[0];
+    data?: Parameters<typeof finalizeNativeSession>[0];
+  },
+  password: string,
+  setSignInState: (state: AuthFlowStateBase | null) => void,
+  setCodeLength: (value: number | null) => void,
+  setStep: (step: NativeSignInStep) => void,
+  setError: (value: string | null) => void
+): Promise<void> {
+  const { state } = result;
+
+  if (state instanceof SignInFailedState) {
+    setError(mapSignInError(result.error));
+    return;
+  }
+
+  if (state instanceof SignInCompletedState) {
+    await finalizeNativeSession(result.data);
+    return;
+  }
+
+  if (state instanceof SignInCodeRequiredState) {
+    setSignInState(state);
+    setCodeLength(state.getCodeLength());
+    setStep("code");
+    return;
+  }
+
+  if (state instanceof SignInPasswordRequiredState) {
+    // Hasło było w formularzu, ale Entra i tak zwróciła PasswordRequired — dociśnij.
+    if (password) {
+      const passwordResult = await state.submitPassword(password);
+      await applySignInResult(
+        passwordResult,
+        password,
+        setSignInState,
+        setCodeLength,
+        setStep,
+        setError
+      );
+      return;
+    }
+    setError("Podaj hasło.");
+    setStep("credentials");
+    return;
+  }
+
+  setError("Nieobsługiwany krok logowania. Spróbuj ponownie.");
+}
+
 export function useNativeSignIn(): UseNativeSignInResult {
   const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
-  const [step, setStep] = useState<NativeSignInStep>("email");
+  const [step, setStep] = useState<NativeSignInStep>("credentials");
   const [signInState, setSignInState] = useState<AuthFlowStateBase | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -114,7 +167,7 @@ export function useNativeSignIn(): UseNativeSignInResult {
   }, []);
 
   const reset = useCallback((): void => {
-    setStep("email");
+    setStep("credentials");
     setSignInState(null);
     setPassword("");
     setCode("");
@@ -123,70 +176,13 @@ export function useNativeSignIn(): UseNativeSignInResult {
     setIsLoading(false);
   }, []);
 
-  const submitEmail = useCallback(async (): Promise<void> => {
+  const submitCredentials = useCallback(async (): Promise<void> => {
     if (!authClient) {
       return;
     }
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       setError("Podaj adres e-mail.");
-      return;
-    }
-
-    setError(null);
-    setIsLoading(true);
-    try {
-      // Gdy wracamy na /login z cache — najpierw ciche wznowienie (bez hasła).
-      const resume = await tryResumeNativeSession(authClient);
-      if (resume.resumed) {
-        return;
-      }
-
-      const result = await authClient.signIn({
-        username: trimmedEmail,
-        scopes: nativeSignInScopes,
-      });
-      const { state } = result;
-
-      if (state instanceof SignInFailedState) {
-        setError(mapSignInError(result.error));
-        return;
-      }
-
-      if (state instanceof SignInCompletedState) {
-        await finalizeNativeSession(result.data);
-        return;
-      }
-
-      if (state instanceof SignInCodeRequiredState) {
-        setSignInState(state);
-        setCodeLength(state.getCodeLength());
-        setStep("code");
-        return;
-      }
-
-      if (state instanceof SignInPasswordRequiredState) {
-        setSignInState(state);
-        setStep("password");
-        return;
-      }
-
-      setError("Nieobsługiwany krok logowania. Spróbuj ponownie.");
-    } catch (caught: unknown) {
-      const message =
-        caught instanceof Error && caught.message.includes("Failed to fetch")
-          ? "Brak połączenia z proxy Native Auth. Uruchom `npm run dev:cors`."
-          : caught instanceof Error
-            ? caught.message
-            : "Nie udało się rozpocząć logowania.";
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [authClient, email]);
-
-  const submitPassword = useCallback(async (): Promise<void> => {
-    if (!(signInState instanceof SignInPasswordRequiredState)) {
       return;
     }
     if (!password) {
@@ -197,28 +193,46 @@ export function useNativeSignIn(): UseNativeSignInResult {
     setError(null);
     setIsLoading(true);
     try {
-      const result = await signInState.submitPassword(password);
-      const { state } = result;
-
-      if (state instanceof SignInFailedState) {
-        setError(mapSignInError(result.error));
+      const resume = await tryResumeNativeSession(authClient);
+      if (resume.resumed) {
         return;
       }
 
-      if (state instanceof SignInCompletedState) {
-        await finalizeNativeSession(result.data);
-        return;
+      // Stale account w cache blokuje signIn (UserAlreadySignedIn) — wyczyść lokalnie.
+      if (authClient.getAllAccounts().length > 0) {
+        try {
+          await authClient.clearCache();
+          authClient.setActiveAccount(null);
+        } catch {
+          // ignore
+        }
       }
 
-      setError("Wymagany dodatkowy krok (MFA) — skontaktuj się z administratorem.");
-    } catch (caught: unknown) {
-      setError(
-        caught instanceof Error ? caught.message : "Nie udało się zweryfikować hasła."
+      const result = await authClient.signIn({
+        username: trimmedEmail,
+        password,
+        scopes: nativeSignInScopes,
+      });
+      await applySignInResult(
+        result,
+        password,
+        setSignInState,
+        setCodeLength,
+        setStep,
+        setError
       );
+    } catch (caught: unknown) {
+      const message =
+        caught instanceof Error && caught.message.includes("Failed to fetch")
+          ? "Brak połączenia z proxy Native Auth. Uruchom `npm run dev:cors`."
+          : caught instanceof Error
+            ? caught.message
+            : "Nie udało się zalogować.";
+      setError(message);
     } finally {
       setIsLoading(false);
     }
-  }, [password, signInState]);
+  }, [authClient, email, password]);
 
   const submitCode = useCallback(async (): Promise<void> => {
     if (!(signInState instanceof SignInCodeRequiredState)) {
@@ -233,25 +247,14 @@ export function useNativeSignIn(): UseNativeSignInResult {
     setIsLoading(true);
     try {
       const result = await signInState.submitCode(code.trim());
-      const { state } = result;
-
-      if (state instanceof SignInFailedState) {
-        setError(mapSignInError(result.error));
-        return;
-      }
-
-      if (state instanceof SignInCompletedState) {
-        await finalizeNativeSession(result.data);
-        return;
-      }
-
-      if (state instanceof SignInPasswordRequiredState) {
-        setSignInState(state);
-        setStep("password");
-        return;
-      }
-
-      setError("Wymagany dodatkowy krok weryfikacji — skontaktuj się z administratorem.");
+      await applySignInResult(
+        result,
+        password,
+        setSignInState,
+        setCodeLength,
+        setStep,
+        setError
+      );
     } catch (caught: unknown) {
       setError(
         caught instanceof Error ? caught.message : "Nie udało się zweryfikować kodu."
@@ -259,7 +262,7 @@ export function useNativeSignIn(): UseNativeSignInResult {
     } finally {
       setIsLoading(false);
     }
-  }, [code, signInState]);
+  }, [code, password, signInState]);
 
   return {
     step,
@@ -274,8 +277,7 @@ export function useNativeSignIn(): UseNativeSignInResult {
     isLoading,
     isResuming,
     isReady: authClient !== null && !isResuming,
-    submitEmail,
-    submitPassword,
+    submitCredentials,
     submitCode,
     reset,
   };
