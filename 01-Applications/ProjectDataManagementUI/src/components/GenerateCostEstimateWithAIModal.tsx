@@ -189,6 +189,24 @@ export default function GenerateCostEstimateWithAIModal({
     onClose();
   };
 
+  const handleBack = (): void => {
+    if (step === 4) {
+      setStep(3);
+      return;
+    }
+    if (step === 3) {
+      setPreview(null);
+      setFinalName('');
+      setFinalDescription('');
+      generatePreview.reset();
+      setStep(1);
+      return;
+    }
+    if (step === 1) {
+      handleClose();
+    }
+  };
+
   const stepTitles: Record<AIModalStep, string> = {
     1: 'Opisz inwestycję',
     2: 'Generowanie AI...',
@@ -246,7 +264,7 @@ export default function GenerateCostEstimateWithAIModal({
             <Button
               variant="ghost"
               leftIcon={<ChevronLeft size={16} aria-hidden="true" />}
-              onClick={() => step > 1 ? setStep((s) => (s - 1) as AIModalStep) : handleClose()}
+              onClick={handleBack}
               isDisabled={step === 2}
             >
               {step === 1 ? 'Anuluj' : 'Wstecz'}

@@ -2,6 +2,9 @@ import type { AccountInfo } from "@azure/msal-browser";
 import type { ICustomAuthPublicClientApplication } from "@azure/msal-browser/custom-auth";
 import { nativeSignInScopes } from "../config/customAuthConfig";
 import { clearSoftLoggedOut, rememberSignInEmail } from "./rememberedSignIn";
+import { withTimeout } from "./withTimeout";
+
+const TOKEN_TIMEOUT_MS = 10_000;
 
 export interface ResumeNativeSessionResult {
   resumed: boolean;
@@ -29,29 +32,45 @@ export async function tryResumeNativeSession(
     const account: AccountInfo = accountData.getAccount();
     instance.setActiveAccount(account);
 
-    const tokenResult = await accountData.getAccessToken({
-      forceRefresh: false,
-      scopes: nativeSignInScopes,
-    });
+    try {
+      const tokenResult = await withTimeout(
+        accountData.getAccessToken({
+          forceRefresh: false,
+          scopes: nativeSignInScopes,
+        }),
+        TOKEN_TIMEOUT_MS,
+        "getAccessToken timed out"
+      );
 
-    if (!tokenResult.isFailed()) {
-      markResumed(account.username);
-      if (redirectToDashboard) {
-        window.location.assign("/dashboard");
+      if (!tokenResult.isFailed()) {
+        markResumed(account.username);
+        if (redirectToDashboard) {
+          window.location.assign("/dashboard");
+        }
+        return { resumed: true, accountEmail: account.username };
       }
-      return { resumed: true, accountEmail: account.username };
+    } catch {
+      // Timeout or unexpected failure — try forceRefresh below.
     }
 
-    const retry = await accountData.getAccessToken({
-      forceRefresh: true,
-      scopes: nativeSignInScopes,
-    });
-    if (!retry.isFailed()) {
-      markResumed(account.username);
-      if (redirectToDashboard) {
-        window.location.assign("/dashboard");
+    try {
+      const retry = await withTimeout(
+        accountData.getAccessToken({
+          forceRefresh: true,
+          scopes: nativeSignInScopes,
+        }),
+        TOKEN_TIMEOUT_MS,
+        "getAccessToken(forceRefresh) timed out"
+      );
+      if (!retry.isFailed()) {
+        markResumed(account.username);
+        if (redirectToDashboard) {
+          window.location.assign("/dashboard");
+        }
+        return { resumed: true, accountEmail: account.username };
       }
-      return { resumed: true, accountEmail: account.username };
+    } catch {
+      // Fall through to acquireTokenSilent / fail soft.
     }
   }
 
@@ -64,10 +83,14 @@ export async function tryResumeNativeSession(
   instance.setActiveAccount(account);
 
   try {
-    await instance.acquireTokenSilent({
-      scopes: nativeSignInScopes,
-      account,
-    });
+    await withTimeout(
+      instance.acquireTokenSilent({
+        scopes: nativeSignInScopes,
+        account,
+      }),
+      TOKEN_TIMEOUT_MS,
+      "acquireTokenSilent timed out"
+    );
     markResumed(account.username);
     if (redirectToDashboard) {
       window.location.assign("/dashboard");

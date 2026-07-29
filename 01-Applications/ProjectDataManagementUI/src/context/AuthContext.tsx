@@ -11,10 +11,14 @@ import { chatHubService } from "../services/chatHubService";
 import { logoutMsalSession } from "../auth/logoutSession";
 import { msalInstance } from "../auth/msalInstance";
 import { isSoftLoggedOut } from "../auth/rememberedSignIn";
+import { withTimeout } from "../auth/withTimeout";
 import { nativeSilentRequest } from "../config/authConfig";
 import type { UserProfile } from "../types/auth.types";
 
 const LOGIN_ACTIVITY_RECORDED_KEY = "pdm:loginActivityRecorded";
+/** Escape hatch — nigdy nie trzymaj spinnera profilu w nieskończoność (mobile resume). */
+const PROFILE_LOADING_TIMEOUT_MS = 12_000;
+const VISIBILITY_TOKEN_REFRESH_TIMEOUT_MS = 10_000;
 
 function recordLoginActivityOnce(): void {
   if (sessionStorage.getItem(LOGIN_ACTIVITY_RECORDED_KEY)) {
@@ -143,6 +147,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [isAuthenticated, inProgress]);
 
+  // Safety: jeśli /user/me lub MSAL hang — zejdź z loading po ~12s (mobile resume).
+  useEffect(() => {
+    if (!loading) {
+      return;
+    }
+
+    const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      setLoading(false);
+    }, PROFILE_LOADING_TIMEOUT_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [loading]);
+
   // ✅ SignalR init - startuje gdy isAuthenticated (NIE czekaj na user/me!)
   useEffect(() => {
 
@@ -250,13 +269,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
           if (account) {
-            await msalInstance.acquireTokenSilent({
-              ...nativeSilentRequest,
-              account,
-            });
+            await withTimeout(
+              msalInstance.acquireTokenSilent({
+                ...nativeSilentRequest,
+                account,
+              }),
+              VISIBILITY_TOKEN_REFRESH_TIMEOUT_MS,
+              "visibility acquireTokenSilent timed out"
+            );
           }
         } catch {
-          // Silent refresh failed — axiosClient interceptor obsłuży kolejny request
+          // Silent refresh failed / timeout — axiosClient interceptor obsłuży kolejny request
           // i przekieruje na /login jeśli sesja wygasła.
         } finally {
           tokenRefreshInProgress.current = false;

@@ -11,6 +11,7 @@ import { getCustomAuthClient } from "../auth/customAuthInstance";
 import { finalizeNativeSession } from "../auth/finalizeNativeSession";
 import { getRememberedSignInEmail, isSoftLoggedOut } from "../auth/rememberedSignIn";
 import { tryResumeNativeSession } from "../auth/tryResumeNativeSession";
+import { withTimeout } from "../auth/withTimeout";
 import { nativeSignInScopes } from "../config/customAuthConfig";
 import type { NativeSignInStep, UseNativeSignInResult } from "../types/nativeAuth.types";
 
@@ -127,9 +128,9 @@ export function useNativeSignIn(): UseNativeSignInResult {
 
   useEffect(() => {
     let cancelled = false;
+    const RESUME_TIMEOUT_MS = 12_000;
 
     void (async () => {
-      let resumed = false;
       try {
         const client = await getCustomAuthClient();
         if (cancelled) {
@@ -145,9 +146,24 @@ export function useNativeSignIn(): UseNativeSignInResult {
           return;
         }
 
-        const resume = await tryResumeNativeSession(client);
-        resumed = resume.resumed;
-        if (cancelled || resumed) {
+        let resume: Awaited<ReturnType<typeof tryResumeNativeSession>>;
+        try {
+          resume = await withTimeout(
+            tryResumeNativeSession(client),
+            RESUME_TIMEOUT_MS,
+            "tryResumeNativeSession timed out"
+          );
+        } catch {
+          // Timeout / hang — pozwól na ręczne logowanie zamiast wiecznego spinnera.
+          resume = { resumed: false, accountEmail: null };
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        if (resume.resumed) {
+          // Redirect może być opóźniony na mobile — isResuming i tak schodzi w finally.
           return;
         }
 
@@ -161,7 +177,9 @@ export function useNativeSignIn(): UseNativeSignInResult {
           );
         }
       } finally {
-        if (!cancelled && !resumed) {
+        // Zawsze zejdź ze spinnera gdy !cancelled — także po udanym resume
+        // (gdy nawigacja na mobile nie dojdzie, użytkownik zobaczy formularz).
+        if (!cancelled) {
           setIsResuming(false);
         }
       }
