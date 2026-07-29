@@ -1,16 +1,21 @@
 import type { AccountInfo } from "@azure/msal-browser";
 import type { ICustomAuthPublicClientApplication } from "@azure/msal-browser/custom-auth";
 import { nativeSignInScopes } from "../config/customAuthConfig";
-import { rememberSignInEmail } from "./rememberedSignIn";
+import { clearSoftLoggedOut, rememberSignInEmail } from "./rememberedSignIn";
 
 export interface ResumeNativeSessionResult {
   resumed: boolean;
   accountEmail: string | null;
 }
 
+function markResumed(accountEmail: string): void {
+  rememberSignInEmail(accountEmail);
+  clearSoftLoggedOut();
+}
+
 /**
  * Wznawia sesję z cache MSAL (access/refresh token) bez ponownego hasła.
- * Odpowiednik dawnego SSO przy redirect — Native Auth nie ustawia cookies na ciamlogin.com.
+ * Native Auth nie ustawia cookies IdP — jedyna „pamięć” sesji to RT w localStorage.
  */
 export async function tryResumeNativeSession(
   instance: ICustomAuthPublicClientApplication,
@@ -30,7 +35,7 @@ export async function tryResumeNativeSession(
     });
 
     if (!tokenResult.isFailed()) {
-      rememberSignInEmail(account.username);
+      markResumed(account.username);
       if (redirectToDashboard) {
         window.location.assign("/dashboard");
       }
@@ -42,7 +47,7 @@ export async function tryResumeNativeSession(
       scopes: nativeSignInScopes,
     });
     if (!retry.isFailed()) {
-      rememberSignInEmail(account.username);
+      markResumed(account.username);
       if (redirectToDashboard) {
         window.location.assign("/dashboard");
       }
@@ -63,7 +68,7 @@ export async function tryResumeNativeSession(
       scopes: nativeSignInScopes,
       account,
     });
-    rememberSignInEmail(account.username);
+    markResumed(account.username);
     if (redirectToDashboard) {
       window.location.assign("/dashboard");
     }

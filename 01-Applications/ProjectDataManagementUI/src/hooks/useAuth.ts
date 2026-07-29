@@ -1,7 +1,8 @@
 import { useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import type { AccountInfo } from "@azure/msal-browser";
-import { silentRequest } from "../config/authConfig";
+import { nativeSilentRequest } from "../config/authConfig";
+import { isSoftLoggedOut } from "../auth/rememberedSignIn";
 import { useEffect, useState } from "react";
 
 export interface UseAuthReturn {
@@ -21,7 +22,8 @@ export const useAuth = (): UseAuthReturn => {
   const [isLoading, setIsLoading] = useState(true);
 
   const activeAccount = instance.getActiveAccount();
-  const isAuthenticated = accounts.length > 0 && activeAccount !== null;
+  const isAuthenticated =
+    accounts.length > 0 && activeAccount !== null && !isSoftLoggedOut();
 
   useEffect(() => {
     if (inProgress === InteractionStatus.None) {
@@ -46,13 +48,13 @@ export const useAuth = (): UseAuthReturn => {
   };
 
   const getAccessToken = async (): Promise<string | null> => {
-    if (!activeAccount) {
+    if (!activeAccount || isSoftLoggedOut()) {
       return null;
     }
 
     try {
       const response = await instance.acquireTokenSilent({
-        ...silentRequest,
+        ...nativeSilentRequest,
         account: activeAccount,
       });
       return response.accessToken;

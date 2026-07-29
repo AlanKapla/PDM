@@ -1,6 +1,6 @@
 import * as signalR from "@microsoft/signalr";
 import { msalInstance } from "../auth/msalInstance";
-import { silentRequest } from "../config/authConfig";
+import { nativeSilentRequest } from "../config/authConfig";
 import type {
   ChatWeb,
   MessageWeb,
@@ -42,7 +42,7 @@ class ChatHubService {
           if (accounts.length === 0) throw new Error("No authenticated user");
           const account = msalInstance.getActiveAccount() || accounts[0];
           const response = await msalInstance.acquireTokenSilent({
-            ...silentRequest,
+            ...nativeSilentRequest,
             account,
           });
           return response.accessToken;

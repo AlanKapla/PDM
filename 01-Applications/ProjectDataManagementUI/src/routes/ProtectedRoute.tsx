@@ -4,7 +4,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { isDemoModeActive } from "../api/mock";
 import { Button, Flex, Spinner, Text, VStack } from "@chakra-ui/react";
-import { useIsAuthenticated, useMsal } from "@azure/msal-react";
+import { useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import TenantAccessGuard from "../components/TenantAccessGuard";
 
@@ -27,8 +27,7 @@ function resetMsalSessionAndReload(): void {
 }
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { loading, user } = useContext(AuthContext);
-  const isAuthenticated = useIsAuthenticated();
+  const { loading, user, isAuthenticated } = useContext(AuthContext);
   const { inProgress } = useMsal();
   const location = useLocation();
   const [sessionStuck, setSessionStuck] = useState(false);

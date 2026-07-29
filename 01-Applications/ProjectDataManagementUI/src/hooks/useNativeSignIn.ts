@@ -9,7 +9,7 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import { getCustomAuthClient } from "../auth/customAuthInstance";
 import { finalizeNativeSession } from "../auth/finalizeNativeSession";
-import { getRememberedSignInEmail } from "../auth/rememberedSignIn";
+import { getRememberedSignInEmail, isSoftLoggedOut } from "../auth/rememberedSignIn";
 import { tryResumeNativeSession } from "../auth/tryResumeNativeSession";
 import { nativeSignInScopes } from "../config/customAuthConfig";
 import type { NativeSignInStep, UseNativeSignInResult } from "../types/nativeAuth.types";
@@ -139,6 +139,12 @@ export function useNativeSignIn(): UseNativeSignInResult {
         setAuthClient(client);
         setEmail(resolveInitialEmail(client));
 
+        // Po soft logout nie wznawiaj automatycznie — użytkownik mógł wybrać „inne konto”.
+        // Resume jest na przycisku „Kontynuuj jako…” (Home / LoggedOut).
+        if (isSoftLoggedOut()) {
+          return;
+        }
+
         const resume = await tryResumeNativeSession(client);
         resumed = resume.resumed;
         if (cancelled || resumed) {
@@ -193,9 +199,12 @@ export function useNativeSignIn(): UseNativeSignInResult {
     setError(null);
     setIsLoading(true);
     try {
-      const resume = await tryResumeNativeSession(authClient);
-      if (resume.resumed) {
-        return;
+      // Soft logout + formularz = świadome logowanie (może być inne konto) — bez auto-resume.
+      if (!isSoftLoggedOut()) {
+        const resume = await tryResumeNativeSession(authClient);
+        if (resume.resumed) {
+          return;
+        }
       }
 
       // Stale account w cache blokuje signIn (UserAlreadySignedIn) — wyczyść lokalnie.

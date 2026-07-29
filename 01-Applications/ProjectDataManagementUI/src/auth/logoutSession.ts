@@ -1,8 +1,20 @@
 import type { AccountInfo } from "@azure/msal-browser";
 import type { ICustomAuthPublicClientApplication } from "@azure/msal-browser/custom-auth";
-import { PRESERVED_AUTH_STORAGE_KEYS } from "./rememberedSignIn";
+import {
+  markSoftLoggedOut,
+  PRESERVED_AUTH_STORAGE_KEYS,
+  rememberSignInEmail,
+} from "./rememberedSignIn";
 
 const POST_LOGOUT_PATH = "/logged-out";
+
+export interface LogoutMsalSessionOptions {
+  /**
+   * hard = pełne wyczyszczenie cache MSAL (hasło wymagane ponownie).
+   * soft (domyślne) = zostawia refresh tokeny — możliwy resume „Kontynuuj jako…”.
+   */
+  mode?: "soft" | "hard";
+}
 
 function clearNonMsalStorage(): void {
   const preserve: Set<string> = new Set(PRESERVED_AUTH_STORAGE_KEYS);
@@ -25,20 +37,45 @@ function goToLoggedOut(): void {
   window.location.assign(`${window.location.origin}${POST_LOGOUT_PATH}`);
 }
 
+function rememberEmailFromInstance(
+  instance: ICustomAuthPublicClientApplication,
+  fallbackAccount?: AccountInfo | null
+): void {
+  const active = instance.getActiveAccount() || fallbackAccount || instance.getAllAccounts()[0];
+  if (active?.username) {
+    rememberSignInEmail(active.username);
+  }
+}
+
 /**
- * Wylogowanie lokalne — czyści cache MSAL, ale NIE kończy sesji Entra (IdP).
- * Dzięki temu w PWA „Zaloguj się” może znów przejść SSO jednym kliknięciem.
+ * Wylogowanie z aplikacji.
+ * Domyślnie soft: czyści stan UI, zostawia cache MSAL (RT) pod resume bez hasła.
+ * Native Auth nie ustawia cookies IdP — „SSO” = wyłącznie żywy refresh token w localStorage.
  */
 export async function logoutMsalSession(
   instance: ICustomAuthPublicClientApplication,
-  _fallbackAccount?: AccountInfo | null
+  fallbackAccount?: AccountInfo | null,
+  options?: LogoutMsalSessionOptions
 ): Promise<void> {
+  const mode: "soft" | "hard" = options?.mode ?? "soft";
+
+  rememberEmailFromInstance(instance, fallbackAccount);
   clearNonMsalStorage();
+
+  if (mode === "soft") {
+    markSoftLoggedOut();
+    try {
+      instance.setActiveAccount(null);
+    } catch {
+      // ignore
+    }
+    goToLoggedOut();
+    return;
+  }
 
   try {
     const accountResult = instance.getCurrentAccount();
     if (accountResult.isCompleted() && accountResult.data) {
-      // Lokalny signOut Custom Auth (bez wymuszania logoutRedirect na ciamlogin).
       await accountResult.data.signOut();
       if (window.location.pathname.includes("logged-out")) {
         return;

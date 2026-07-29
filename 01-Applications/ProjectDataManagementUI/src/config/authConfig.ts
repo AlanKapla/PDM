@@ -73,9 +73,17 @@ export const loginRequest: RedirectRequest = {
 };
 
 // Silent token request - for acquireTokenSilent() calls
+// Używany przez redirect/popup flow (zachowany dla kompatybilności z msalConfig).
 export const silentRequest = {
   scopes: loginScopes,
   extraQueryParameters: {
     p: userFlow,
   },
+};
+
+// Silent token request dla Native Auth (Custom Auth) — bez p:userFlow.
+// Native Auth nie używa user flow; podanie p:userFlow powoduje wcześniejszy fail
+// acquireTokenSilent i skraca efektywną sesję poniżej limitu refresh tokena (~24h).
+export const nativeSilentRequest = {
+  scopes: loginScopes,
 };

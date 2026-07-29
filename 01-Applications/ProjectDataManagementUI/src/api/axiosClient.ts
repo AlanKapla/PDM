@@ -1,7 +1,8 @@
 import axios from "axios";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "../auth/msalInstance";
-import { silentRequest } from "../config/authConfig";
+import { isSoftLoggedOut } from "../auth/rememberedSignIn";
+import { nativeSilentRequest } from "../config/authConfig";
 import { setupMockInterceptors, isDemoModeActive } from "./mock";
 
 // Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
@@ -81,6 +82,11 @@ axiosClient.interceptors.request.use(
       return config;
     }
 
+    // Soft logout: nie doklejaj tokenu — użytkownik świadomie wyszedł z sesji UI.
+    if (isSoftLoggedOut()) {
+      return config;
+    }
+
     const accounts = msalInstance.getAllAccounts();
 
     if (accounts.length > 0) {
@@ -89,27 +95,26 @@ axiosClient.interceptors.request.use(
       try {
         // Try to acquire token silently from cache
         const response = await msalInstance.acquireTokenSilent({
-          ...silentRequest,
+          ...nativeSilentRequest,
           account: account,
         });
 
         // Add token to Authorization header
         config.headers.Authorization = `Bearer ${response.accessToken}`;
       } catch (error: unknown) {
-        // Tylko InteractionRequiredAuthError oznacza, że użytkownik musi się zalogować interaktywnie.
-        // Inne błędy (np. sieciowe) nie powinny wymuszać przekierowania do logowania.
+        // InteractionRequiredAuthError lub inny fail silent = sesja wygasła.
+        // Czyścimy active account i przekierowujemy do logowania (koniec zombie sesji).
         if (error instanceof InteractionRequiredAuthError) {
-          try {
-            await redirectToLoginSafely();
-          } catch {
-            // Redirect failed or interaction already in progress — reject below.
-          }
-          return Promise.reject(
-            new Error("Token acquisition required - redirecting to login")
-          );
+          msalInstance.setActiveAccount(null);
         }
-        // Dla innych błędów odrzuć żądanie bez przekierowania
-        return Promise.reject(error);
+        try {
+          await redirectToLoginSafely();
+        } catch {
+          // Redirect failed or interaction already in progress — reject below.
+        }
+        return Promise.reject(
+          new Error("Token acquisition required - redirecting to login")
+        );
       }
     } else {
       // Don't add Authorization header - let the request proceed
@@ -152,9 +157,9 @@ axiosClient.interceptors.response.use(
           try {
             // Try to acquire a new token
             const response = await msalInstance.acquireTokenSilent({
-              ...silentRequest,
+              ...nativeSilentRequest,
               account: account,
-              forceRefresh: true, // Force refresh to get a new token
+              forceRefresh: true,
             });
 
             // Update the Authorization header with new token
@@ -162,13 +167,16 @@ axiosClient.interceptors.response.use(
 
             // Retry the original request
             return axiosClient(originalRequest);
-          } catch (tokenError) {
-            // Don't redirect - ProtectedRoute will handle when user is null
-            return Promise.reject(tokenError);
+          } catch {
+            // Refresh token wygasł lub nieważny — sesja martwa.
+            // Czyścimy active account i przekierowujemy do logowania.
+            msalInstance.setActiveAccount(null);
+            await redirectToLoginSafely();
+            return Promise.reject(new Error("Session expired - redirecting to login"));
           }
         } else {
-          // No accounts - token acquisition failed
-          // Don't redirect - ProtectedRoute will handle it
+          // Brak kont — wymuś logowanie
+          await redirectToLoginSafely();
         }
       }
     }

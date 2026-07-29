@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,6 +10,8 @@ import { notificationHubService } from "../services/notificationHubService";
 import { chatHubService } from "../services/chatHubService";
 import { logoutMsalSession } from "../auth/logoutSession";
 import { msalInstance } from "../auth/msalInstance";
+import { isSoftLoggedOut } from "../auth/rememberedSignIn";
+import { nativeSilentRequest } from "../config/authConfig";
 import type { UserProfile } from "../types/auth.types";
 
 const LOGIN_ACTIVITY_RECORDED_KEY = "pdm:loginActivityRecorded";
@@ -52,7 +54,9 @@ export const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { instance, accounts, inProgress } = useMsal();
   const queryClient = useQueryClient();
-  const isAuthenticated = useIsAuthenticated();
+  const msalAuthenticated = useIsAuthenticated();
+  // Soft logout zostawia konta MSAL w cache — UI traktuje użytkownika jako wylogowanego.
+  const isAuthenticated = msalAuthenticated && !isSoftLoggedOut();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -228,19 +232,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [isAuthenticated]);
 
-  // ✅ Sprawdź połączenie gdy użytkownik wraca do karty
+  // ✅ Sprawdź token + połączenie gdy użytkownik wraca do karty
+  // Silent refresh zapobiega "zombie sesji" po długim idle (np. po nocy).
+  const tokenRefreshInProgress = useRef(false);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const handleVisibilityChange = async () => {
-      if (!document.hidden) {
-        const state = notificationHubService.getConnectionState();
-        
-        if (state !== HubConnectionState.Connected) {
-          try {
-            await notificationHubService.forceRestart();
-          } catch (error) {
+      if (document.hidden) {
+        return;
+      }
+
+      // Proaktywny silent refresh tokena — zanim UI zacznie strzelać API.
+      if (!tokenRefreshInProgress.current) {
+        tokenRefreshInProgress.current = true;
+        try {
+          const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
+          if (account) {
+            await msalInstance.acquireTokenSilent({
+              ...nativeSilentRequest,
+              account,
+            });
           }
+        } catch {
+          // Silent refresh failed — axiosClient interceptor obsłuży kolejny request
+          // i przekieruje na /login jeśli sesja wygasła.
+        } finally {
+          tokenRefreshInProgress.current = false;
+        }
+      }
+
+      // Sprawdź / restartuj SignalR po powrocie do karty.
+      const state = notificationHubService.getConnectionState();
+      if (state !== HubConnectionState.Connected) {
+        try {
+          await notificationHubService.forceRestart();
+        } catch {
+          // ignore
         }
       }
     };
