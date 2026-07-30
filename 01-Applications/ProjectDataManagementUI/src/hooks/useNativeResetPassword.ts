@@ -4,8 +4,6 @@ import {
   ResetPasswordCompletedState,
   ResetPasswordFailedState,
   ResetPasswordPasswordRequiredState,
-  SignInCompletedState,
-  SignInFailedState,
   type AuthFlowStateBase,
   type ICustomAuthPublicClientApplication,
 } from "@azure/msal-browser/custom-auth";
@@ -122,19 +120,24 @@ export function useNativeResetPassword(
       const signInResult = await completedState.signIn({
         scopes: nativeSignInScopes,
       });
-      const { state } = signInResult;
+      // Cast: MSAL `this is` predicates narrow sibling branches to `never` in tsc.
+      const flow = signInResult as {
+        data?: Parameters<typeof finalizeNativeSession>[0];
+        isCompleted(): boolean;
+        isFailed(): boolean;
+      };
 
-      if (state instanceof SignInFailedState) {
+      if (flow.isCompleted()) {
+        await finalizeNativeSession(flow.data, { redirectToDashboard: true });
+        return;
+      }
+
+      if (flow.isFailed()) {
         setStep("done");
         setSuccessMessage(
           "Hasło zostało zmienione. Zaloguj się nowym hasłem."
         );
         setError(null);
-        return;
-      }
-
-      if (state instanceof SignInCompletedState) {
-        await finalizeNativeSession(signInResult.data);
         return;
       }
 

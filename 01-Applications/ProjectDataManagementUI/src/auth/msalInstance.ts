@@ -25,6 +25,7 @@ export async function initializeMsalInstance(): Promise<ICustomAuthPublicClientA
   // Mobile / iOS PWA: zabicie appki w trakcie token refresh zostawia interaction.status.
   clearStaleMsalInteraction();
 
+  // create() już woła controller.initialize() — drugi initialize() jest no-op (idempotent).
   const instance: ICustomAuthPublicClientApplication = await withTimeout(
     CustomAuthPublicClientApplication.create(customAuthConfig),
     MSAL_INIT_TIMEOUT_MS,
@@ -36,6 +37,11 @@ export async function initializeMsalInstance(): Promise<ICustomAuthPublicClientA
     "msal initialize timed out"
   );
   msalInstance = instance;
+
+  if (!instance.getActiveAccount() && instance.getAllAccounts().length > 0) {
+    instance.setActiveAccount(instance.getAllAccounts()[0]);
+  }
+
   return instance;
 }
 

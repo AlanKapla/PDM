@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   SignInCodeRequiredState,
-  SignInCompletedState,
-  SignInFailedState,
   SignInPasswordRequiredState,
   type AuthFlowStateBase,
+  type CustomAuthAccountData,
   type ICustomAuthPublicClientApplication,
 } from "@azure/msal-browser/custom-auth";
 import { getCustomAuthClient } from "../auth/customAuthInstance";
 import { finalizeNativeSession } from "../auth/finalizeNativeSession";
+import { consumePendingLoginError } from "../auth/pendingLoginError";
 import { getRememberedSignInEmail, isSoftLoggedOut } from "../auth/rememberedSignIn";
 import { tryResumeNativeSession } from "../auth/tryResumeNativeSession";
 import { withTimeout } from "../auth/withTimeout";
@@ -61,48 +61,65 @@ function resolveInitialEmail(client: ICustomAuthPublicClientApplication): string
   return getRememberedSignInEmail() ?? "";
 }
 
+/** Duck-typed — unika `instanceof` i type-predicate narrowing (`never` w tsc). */
+interface SignInFlowResult {
+  state: AuthFlowStateBase;
+  data?: CustomAuthAccountData;
+  error?: Parameters<typeof mapSignInError>[0];
+  isFailed(): boolean;
+  isCompleted(): boolean;
+  isCodeRequired?(): boolean;
+  isPasswordRequired?(): boolean;
+  isMfaRequired?(): boolean;
+  isAuthMethodRegistrationRequired?(): boolean;
+}
+
+function readStateType(state: AuthFlowStateBase): string {
+  const typed = state as AuthFlowStateBase & { stateType?: string };
+  return typed.stateType ?? "";
+}
+
 async function applySignInResult(
-  result: {
-    state: AuthFlowStateBase;
-    error?: Parameters<typeof mapSignInError>[0];
-    data?: Parameters<typeof finalizeNativeSession>[0];
-  },
+  result: SignInFlowResult,
   password: string,
   setSignInState: (state: AuthFlowStateBase | null) => void,
   setCodeLength: (value: number | null) => void,
   setStep: (step: NativeSignInStep) => void,
-  setError: (value: string | null) => void
+  setError: (value: string | null) => void,
+  onCompleted: (data: CustomAuthAccountData | undefined) => Promise<void>
 ): Promise<void> {
-  const { state } = result;
+  const stateType: string = readStateType(result.state);
 
-  if (state instanceof SignInFailedState) {
+  if (result.isCompleted() || stateType === "SignInCompletedState") {
+    await onCompleted(result.data);
+    return;
+  }
+
+  if (result.isFailed() || stateType === "SignInFailedState") {
     setError(mapSignInError(result.error));
     return;
   }
 
-  if (state instanceof SignInCompletedState) {
-    await finalizeNativeSession(result.data);
-    return;
-  }
-
-  if (state instanceof SignInCodeRequiredState) {
-    setSignInState(state);
-    setCodeLength(state.getCodeLength());
+  if (result.isCodeRequired?.() || stateType === "SignInCodeRequiredState") {
+    const codeState = result.state as SignInCodeRequiredState;
+    setSignInState(codeState);
+    setCodeLength(codeState.getCodeLength());
     setStep("code");
     return;
   }
 
-  if (state instanceof SignInPasswordRequiredState) {
-    // Hasło było w formularzu, ale Entra i tak zwróciła PasswordRequired — dociśnij.
+  if (result.isPasswordRequired?.() || stateType === "SignInPasswordRequiredState") {
+    const passwordState = result.state as SignInPasswordRequiredState;
     if (password) {
-      const passwordResult = await state.submitPassword(password);
+      const passwordResult = await passwordState.submitPassword(password);
       await applySignInResult(
         passwordResult,
         password,
         setSignInState,
         setCodeLength,
         setStep,
-        setError
+        setError,
+        onCompleted
       );
       return;
     }
@@ -111,7 +128,23 @@ async function applySignInResult(
     return;
   }
 
-  setError("Nieobsługiwany krok logowania. Spróbuj ponownie.");
+  if (
+    result.isMfaRequired?.() ||
+    result.isAuthMethodRegistrationRequired?.() ||
+    stateType === "MfaAwaitingState" ||
+    stateType === "AuthMethodRegistrationRequiredState"
+  ) {
+    setError(
+      "To konto wymaga dodatkowego kroku weryfikacji w Entra (MFA / rejestracja metody). Skontaktuj się z administratorem."
+    );
+    return;
+  }
+
+  setError(
+    stateType
+      ? `Nieobsługiwany krok logowania (${stateType}). Spróbuj ponownie.`
+      : "Nieobsługiwany krok logowania. Spróbuj ponownie."
+  );
 }
 
 export function useNativeSignIn(): UseNativeSignInResult {
@@ -125,6 +158,23 @@ export function useNativeSignIn(): UseNativeSignInResult {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isResuming, setIsResuming] = useState(true);
+
+  const completeSignIn = useCallback(
+    async (data: CustomAuthAccountData | undefined): Promise<void> => {
+      // Pełny reload — Native Auth nie emituje LOGIN_SUCCESS, więc msal-react
+      // po SPA navigate nadal widzi isAuthenticated=false i ProtectedRoute
+      // odsyła z /dashboard na /.
+      await finalizeNativeSession(data, { redirectToDashboard: true });
+    },
+    []
+  );
+
+  useEffect(() => {
+    const pending: string | null = consumePendingLoginError();
+    if (pending) {
+      setError(pending);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,8 +190,6 @@ export function useNativeSignIn(): UseNativeSignInResult {
         setAuthClient(client);
         setEmail(resolveInitialEmail(client));
 
-        // Po soft logout nie wznawiaj automatycznie — użytkownik mógł wybrać „inne konto”.
-        // Resume jest na przycisku „Kontynuuj jako…” (Home / LoggedOut).
         if (isSoftLoggedOut()) {
           return;
         }
@@ -154,7 +202,6 @@ export function useNativeSignIn(): UseNativeSignInResult {
             "tryResumeNativeSession timed out"
           );
         } catch {
-          // Timeout / hang — pozwól na ręczne logowanie zamiast wiecznego spinnera.
           resume = { resumed: false, accountEmail: null };
         }
 
@@ -163,7 +210,6 @@ export function useNativeSignIn(): UseNativeSignInResult {
         }
 
         if (resume.resumed) {
-          // Redirect może być opóźniony na mobile — isResuming i tak schodzi w finally.
           return;
         }
 
@@ -173,12 +219,10 @@ export function useNativeSignIn(): UseNativeSignInResult {
       } catch {
         if (!cancelled) {
           setError(
-            "Nie udało się zainicjalizować logowania. Uruchom `npm run dev:cors` (proxy na porcie 3001)."
+            "Nie udało się zainicjalizować logowania. Uruchom `npm run dev` (proxy Vite /native-auth)."
           );
         }
       } finally {
-        // Zawsze zejdź ze spinnera gdy !cancelled — także po udanym resume
-        // (gdy nawigacja na mobile nie dojdzie, użytkownik zobaczy formularz).
         if (!cancelled) {
           setIsResuming(false);
         }
@@ -217,15 +261,22 @@ export function useNativeSignIn(): UseNativeSignInResult {
     setError(null);
     setIsLoading(true);
     try {
-      // Soft logout + formularz = świadome logowanie (może być inne konto) — bez auto-resume.
       if (!isSoftLoggedOut()) {
-        const resume = await tryResumeNativeSession(authClient);
+        let resume: Awaited<ReturnType<typeof tryResumeNativeSession>>;
+        try {
+          resume = await withTimeout(
+            tryResumeNativeSession(authClient),
+            8_000,
+            "tryResumeNativeSession(submit) timed out"
+          );
+        } catch {
+          resume = { resumed: false, accountEmail: null };
+        }
         if (resume.resumed) {
           return;
         }
       }
 
-      // Stale account w cache blokuje signIn (UserAlreadySignedIn) — wyczyść lokalnie.
       if (authClient.getAllAccounts().length > 0) {
         try {
           await authClient.clearCache();
@@ -246,12 +297,13 @@ export function useNativeSignIn(): UseNativeSignInResult {
         setSignInState,
         setCodeLength,
         setStep,
-        setError
+        setError,
+        completeSignIn
       );
     } catch (caught: unknown) {
       const message =
         caught instanceof Error && caught.message.includes("Failed to fetch")
-          ? "Brak połączenia z proxy Native Auth. Uruchom `npm run dev:cors`."
+          ? "Brak połączenia z proxy Native Auth. Uruchom `npm run dev`."
           : caught instanceof Error
             ? caught.message
             : "Nie udało się zalogować.";
@@ -259,7 +311,7 @@ export function useNativeSignIn(): UseNativeSignInResult {
     } finally {
       setIsLoading(false);
     }
-  }, [authClient, email, password]);
+  }, [authClient, completeSignIn, email, password]);
 
   const submitCode = useCallback(async (): Promise<void> => {
     if (!(signInState instanceof SignInCodeRequiredState)) {
@@ -280,7 +332,8 @@ export function useNativeSignIn(): UseNativeSignInResult {
         setSignInState,
         setCodeLength,
         setStep,
-        setError
+        setError,
+        completeSignIn
       );
     } catch (caught: unknown) {
       setError(
@@ -289,7 +342,7 @@ export function useNativeSignIn(): UseNativeSignInResult {
     } finally {
       setIsLoading(false);
     }
-  }, [code, password, signInState]);
+  }, [code, completeSignIn, password, signInState]);
 
   return {
     step,

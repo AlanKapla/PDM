@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  SignInCompletedState,
-  SignInFailedState,
   SignUpAttributesRequiredState,
   SignUpCodeRequiredState,
   SignUpCompletedState,
@@ -112,18 +110,24 @@ export function useNativeSignUp(): UseNativeSignUpResult {
       const signInResult = await completedState.signIn({
         scopes: nativeSignInScopes,
       });
-      const { state } = signInResult;
+      // Cast: MSAL `this is` predicates narrow sibling branches to `never` in tsc.
+      const flow = signInResult as {
+        data?: Parameters<typeof finalizeNativeSession>[0];
+        error?: { errorData?: { errorDescription?: string } };
+        isCompleted(): boolean;
+        isFailed(): boolean;
+      };
 
-      if (state instanceof SignInFailedState) {
-        setError(
-          signInResult.error?.errorData?.errorDescription ??
-            "Konto utworzone, ale automatyczne logowanie nie powiodło się. Przejdź do logowania."
-        );
+      if (flow.isCompleted()) {
+        await finalizeNativeSession(flow.data, { redirectToDashboard: true });
         return;
       }
 
-      if (state instanceof SignInCompletedState) {
-        await finalizeNativeSession(signInResult.data);
+      if (flow.isFailed()) {
+        setError(
+          flow.error?.errorData?.errorDescription ??
+            "Konto utworzone, ale automatyczne logowanie nie powiodło się. Przejdź do logowania."
+        );
         return;
       }
 

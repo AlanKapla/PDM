@@ -25,6 +25,7 @@ self.addEventListener("fetch", (event) => {
   if (
     req.mode === "navigate" ||
     url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/native-auth/") ||
     url.pathname.includes("User/") ||
     url.pathname.startsWith("/favicon") ||
     url.pathname === "/logo.png" ||

@@ -41,7 +41,9 @@ function clearStorageTemporaryKeys(storage: Storage): void {
   }
 }
 
-/** Cookies z storeAuthStateInCookie — na iOS Safari/PWA potrafią zostać „brudne”. */
+/** Cookies z storeAuthStateInCookie — tylko tymczasowy stan interakcji.
+ * NIGDY nie ruszaj `msal.cache.encryption` — bez tego MSAL nie odszyfruje localStorage.
+ */
 function clearMsalAuthCookies(): void {
   try {
     const cookies: string[] = document.cookie.split(";");
@@ -51,14 +53,17 @@ function clearMsalAuthCookies(): void {
         continue;
       }
       const lower: string = name.toLowerCase();
-      if (
-        lower.startsWith("msal.") ||
-        lower.includes("msal") ||
-        TEMPORARY_KEY_FRAGMENTS.some((fragment) => lower.includes(fragment))
-      ) {
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=None;Secure`;
+      if (lower.includes("cache.encryption")) {
+        continue;
       }
+      const isTemporary: boolean = TEMPORARY_KEY_FRAGMENTS.some((fragment) =>
+        lower.includes(fragment)
+      );
+      if (!isTemporary) {
+        continue;
+      }
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=None;Secure`;
     }
   } catch {
     // ignore

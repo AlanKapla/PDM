@@ -1,10 +1,11 @@
 import type { AccountInfo } from "@azure/msal-browser";
 import type { ICustomAuthPublicClientApplication } from "@azure/msal-browser/custom-auth";
-import { nativeSignInScopes } from "../config/customAuthConfig";
+import { nativeApiScope } from "../config/customAuthConfig";
 import { clearSoftLoggedOut, rememberSignInEmail } from "./rememberedSignIn";
 import { withTimeout } from "./withTimeout";
 
 const TOKEN_TIMEOUT_MS = 10_000;
+const API_SCOPES: string[] = [nativeApiScope];
 
 export interface ResumeNativeSessionResult {
   resumed: boolean;
@@ -36,7 +37,7 @@ export async function tryResumeNativeSession(
       const tokenResult = await withTimeout(
         accountData.getAccessToken({
           forceRefresh: false,
-          scopes: nativeSignInScopes,
+          scopes: API_SCOPES,
         }),
         TOKEN_TIMEOUT_MS,
         "getAccessToken timed out"
@@ -57,7 +58,7 @@ export async function tryResumeNativeSession(
       const retry = await withTimeout(
         accountData.getAccessToken({
           forceRefresh: true,
-          scopes: nativeSignInScopes,
+          scopes: API_SCOPES,
         }),
         TOKEN_TIMEOUT_MS,
         "getAccessToken(forceRefresh) timed out"
@@ -85,7 +86,7 @@ export async function tryResumeNativeSession(
   try {
     await withTimeout(
       instance.acquireTokenSilent({
-        scopes: nativeSignInScopes,
+        scopes: API_SCOPES,
         account,
       }),
       TOKEN_TIMEOUT_MS,

@@ -11,6 +11,7 @@ import { chatHubService } from "../services/chatHubService";
 import { logoutMsalSession } from "../auth/logoutSession";
 import { msalInstance } from "../auth/msalInstance";
 import { clearStaleMsalInteraction } from "../auth/clearStaleMsalInteraction";
+import { NATIVE_SESSION_READY_EVENT } from "../auth/nativeSessionEvents";
 import { isSoftLoggedOut } from "../auth/rememberedSignIn";
 import { withTimeout } from "../auth/withTimeout";
 import { nativeSilentRequest } from "../config/authConfig";
@@ -59,14 +60,35 @@ export const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { instance, accounts, inProgress } = useMsal();
   const queryClient = useQueryClient();
-  const msalAuthenticated = useIsAuthenticated();
-  // Soft logout zostawia konta MSAL w cache — UI traktuje użytkownika jako wylogowanego.
-  const isAuthenticated = msalAuthenticated && !isSoftLoggedOut();
+  const msalHookAuthenticated = useIsAuthenticated();
+  // Native Auth / setActiveAccount nie zawsze aktualizuje msal-react — czytamy też PCA.
+  // Tick wymusza re-render po evencie pdm:native-session-ready.
+  const [pcaAccountTick, setPcaAccountTick] = useState(0);
+  const hasAccountInPca: boolean =
+    accounts.length > 0 ||
+    instance.getAllAccounts().length > 0 ||
+    msalInstance.getAllAccounts().length > 0 ||
+    Boolean(instance.getActiveAccount() ?? msalInstance.getActiveAccount());
+  const isAuthenticated =
+    (msalHookAuthenticated || hasAccountInPca) && !isSoftLoggedOut();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Flaga zapobiegająca wielokrotnej inicjalizacji SignalR
   const [signalRInitialized, setSignalRInitialized] = useState(false);
+
+  useEffect(() => {
+    const onNativeReady = (): void => {
+      setPcaAccountTick((tick) => tick + 1);
+    };
+    window.addEventListener(NATIVE_SESSION_READY_EVENT, onNativeReady);
+    return () => {
+      window.removeEventListener(NATIVE_SESSION_READY_EVENT, onNativeReady);
+    };
+  }, []);
+
+  // pcaAccountTick — dependency do przeliczenia hasAccountInPca po native login
+  void pcaAccountTick;
 
   // Fetch user profile when authenticated (MSAL) or in demo mode without login
   useEffect(() => {
@@ -146,7 +168,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isMounted = false;
       window.removeEventListener("pdm:demoModeChanged", handleDemoModeChanged);
     };
-  }, [isAuthenticated, inProgress]);
+  }, [isAuthenticated, inProgress, hasAccountInPca, msalHookAuthenticated, accounts.length, pcaAccountTick]);
 
   // Safety: jeśli /user/me lub MSAL hang — zejdź z loading po ~12s (mobile resume).
   useEffect(() => {

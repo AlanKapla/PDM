@@ -2,6 +2,7 @@ import axios from "axios";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "../auth/msalInstance";
 import { isSoftLoggedOut } from "../auth/rememberedSignIn";
+import { setPendingLoginError } from "../auth/pendingLoginError";
 import { withTimeout } from "../auth/withTimeout";
 import { nativeSilentRequest } from "../config/authConfig";
 import { setupMockInterceptors, isDemoModeActive } from "./mock";
@@ -53,12 +54,15 @@ function isMsalInteractionInProgress(): boolean {
   return false;
 }
 
-async function redirectToLoginSafely(): Promise<void> {
+async function redirectToLoginSafely(reason?: string): Promise<void> {
   if (isMsalInteractionInProgress()) {
     return;
   }
 
   interactiveRedirectTriggered = true;
+  if (reason) {
+    setPendingLoginError(reason);
+  }
   // Native auth only — nie używamy loginRedirect (hosted Microsoft UI)
   window.location.assign("/login");
 }
@@ -116,7 +120,9 @@ axiosClient.interceptors.request.use(
           msalInstance.setActiveAccount(null);
         }
         try {
-          await redirectToLoginSafely();
+          await redirectToLoginSafely(
+            "Sesja Entra nie ma ważnego tokenu API. Zaloguj się ponownie."
+          );
         } catch {
           // Redirect failed or interaction already in progress — reject below.
         }
@@ -183,12 +189,14 @@ axiosClient.interceptors.response.use(
             // Refresh token wygasł / timeout / nieważny — sesja martwa.
             // Czyścimy active account i przekierowujemy do logowania.
             msalInstance.setActiveAccount(null);
-            await redirectToLoginSafely();
+            await redirectToLoginSafely(
+              "Sesja wygasła lub odświeżenie tokenu API nie powiodło się. Zaloguj się ponownie."
+            );
             return Promise.reject(new Error("Session expired - redirecting to login"));
           }
         } else {
           // Brak kont — wymuś logowanie
-          await redirectToLoginSafely();
+          await redirectToLoginSafely("Brak aktywnego konta MSAL. Zaloguj się ponownie.");
         }
       }
     }

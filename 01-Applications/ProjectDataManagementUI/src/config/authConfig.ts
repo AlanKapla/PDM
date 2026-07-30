@@ -82,8 +82,8 @@ export const silentRequest = {
 };
 
 // Silent token request dla Native Auth (Custom Auth) — bez p:userFlow.
-// Native Auth nie używa user flow; podanie p:userFlow powoduje wcześniejszy fail
-// acquireTokenSilent i skraca efektywną sesję poniżej limitu refresh tokena (~24h).
+// Tylko scope API (bez openid/profile/offline_access) — pełny zestaw OIDC
+// w getAccessToken/acquireTokenSilent potrafi wisieć po udanym native sign-in.
 export const nativeSilentRequest = {
-  scopes: loginScopes,
+  scopes: [`api://${apiClientId}/access_as_user`],
 };
