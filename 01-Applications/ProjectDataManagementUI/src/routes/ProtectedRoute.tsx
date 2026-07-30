@@ -17,6 +17,8 @@ const STUCK_TIMEOUT_MS = 8000;
 const PROFILE_STUCK_TIMEOUT_MS = 12_000;
 
 // Usuwa cache MSAL (w tym zawieszoną flagę interaction) i przeładowuje stronę.
+const AUTO_RESET_KEY = "pdm:auth.autoResetDone";
+
 function resetMsalSessionAndReload(): void {
   clearStaleMsalInteraction();
   try {
@@ -27,6 +29,20 @@ function resetMsalSessionAndReload(): void {
   } catch {
     // Storage może być niedostępny (tryb prywatny) — mimo to spróbuj przeładować.
   }
+  window.location.reload();
+}
+
+/** Jednorazowy auto-recovery na iOS PWA — bez czekania na klik. */
+function autoResetOnceIfNeeded(): void {
+  try {
+    if (sessionStorage.getItem(AUTO_RESET_KEY) === "1") {
+      return;
+    }
+    sessionStorage.setItem(AUTO_RESET_KEY, "1");
+  } catch {
+    // brak sessionStorage — i tak spróbuj wyczyścić interaction i reload
+  }
+  clearStaleMsalInteraction();
   window.location.reload();
 }
 
@@ -71,7 +87,11 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     const elapsed: number = Date.now() - busySinceRef.current;
     const remaining: number = Math.max(0, STUCK_TIMEOUT_MS - elapsed);
 
-    const timer = setTimeout(() => setSessionStuck(true), remaining);
+    const timer = setTimeout(() => {
+      setSessionStuck(true);
+      // iOS PWA hard kill: nie czekaj na klik — jeden auto-reload po clear interaction.
+      autoResetOnceIfNeeded();
+    }, remaining);
     return () => clearTimeout(timer);
   }, [inProgress]);
 
@@ -90,7 +110,10 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     const elapsed: number = Date.now() - loadingSinceRef.current;
     const remaining: number = Math.max(0, PROFILE_STUCK_TIMEOUT_MS - elapsed);
 
-    const timer = setTimeout(() => setProfileStuck(true), remaining);
+    const timer = setTimeout(() => {
+      setProfileStuck(true);
+      autoResetOnceIfNeeded();
+    }, remaining);
     return () => clearTimeout(timer);
   }, [loading, inProgress]);
 

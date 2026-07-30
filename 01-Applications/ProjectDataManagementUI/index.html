@@ -38,6 +38,74 @@
     <link rel="manifest" href="/manifest.json" />
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!--
+      iOS PWA cold-start: wyczyść zastały stan MSAL ZANIM załaduje się bundel.
+      index.html omija SW (navigate) — działa nawet gdy stary JS siedzi w cache.
+    -->
+    <script>
+      (function () {
+        var TEMP = [
+          "interaction.status",
+          "request.origin",
+          "request.params",
+          "request.native",
+          "urlHash",
+          "code.verifier",
+        ];
+        function isTempKey(key) {
+          if (key.indexOf("msal") === -1) return false;
+          for (var i = 0; i < TEMP.length; i++) {
+            if (key.indexOf(TEMP[i]) !== -1) return true;
+          }
+          return false;
+        }
+        function clearStore(store) {
+          try {
+            var toRemove = [];
+            for (var i = 0; i < store.length; i++) {
+              var k = store.key(i);
+              if (k && isTempKey(k)) toRemove.push(k);
+            }
+            for (var j = 0; j < toRemove.length; j++) store.removeItem(toRemove[j]);
+          } catch (e) {}
+        }
+        try {
+          clearStore(localStorage);
+          clearStore(sessionStorage);
+        } catch (e) {}
+        try {
+          document.cookie.split(";").forEach(function (c) {
+            var name = (c.split("=")[0] || "").trim();
+            if (!name) return;
+            var lower = name.toLowerCase();
+            if (lower.indexOf("msal") !== -1) {
+              document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+            }
+          });
+        } catch (e) {}
+
+        // Watchdog: po hard kill jeśli spinner auth wisi >15s — jeden auto-reload.
+        var WATCHDOG = "pdm:boot.watchdog";
+        setTimeout(function () {
+          try {
+            if (sessionStorage.getItem(WATCHDOG) === "1") return;
+            var root = document.getElementById("root");
+            var text = (root && root.innerText) || "";
+            var stuck =
+              !root ||
+              root.children.length === 0 ||
+              /Sprawdzanie sesji|Ładowanie profilu|Przetwarzanie logowania|Finalizowanie logowania|Wznawianie sesji/.test(
+                text
+              );
+            if (!stuck) return;
+            sessionStorage.setItem(WATCHDOG, "1");
+            clearStore(localStorage);
+            clearStore(sessionStorage);
+            location.reload();
+          } catch (e) {}
+        }, 15000);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

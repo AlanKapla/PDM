@@ -1,8 +1,11 @@
-﻿import { useEffect, useRef } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
-import { InteractionStatus, EventType } from "@azure/msal-browser";
-import { Flex, Spinner, VStack, Text } from "@chakra-ui/react";
+import { InteractionStatus } from "@azure/msal-browser";
+import { Button, Flex, Spinner, VStack, Text } from "@chakra-ui/react";
+import { clearStaleMsalInteraction } from "../auth/clearStaleMsalInteraction";
+
+const CALLBACK_STUCK_MS = 12_000;
 
 /**
  * Dedicated OAuth callback page - handles redirect from Azure AD B2C
@@ -11,9 +14,10 @@ import { Flex, Spinner, VStack, Text } from "@chakra-ui/react";
 export default function AuthCallback() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { instance, inProgress } = useMsal();
+  const { inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const hasHandledCallback = useRef(false);
+  const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
     // Only run once, and only if we haven't handled callback yet
@@ -22,7 +26,6 @@ export default function AuthCallback() {
     }
 
     const handleCallback = async () => {
-
       // CRITICAL: Wait for MSAL to finish processing the redirect
       // Don't do ANYTHING until inProgress === None
       if (inProgress !== InteractionStatus.None) {
@@ -36,13 +39,13 @@ export default function AuthCallback() {
       if (isAuthenticated) {
         // Try to get returnUrl from MSAL state first (passed through OAuth flow)
         let returnUrl = "/dashboard";
-        
+
         try {
           // MSAL stores state in the URL hash (#state=...)
           const hash = window.location.hash;
           const hashParams = new URLSearchParams(hash.substring(1));
           const state = hashParams.get("state");
-          
+
           if (state) {
             try {
               // State format: "msalStateId|{returnUrl:'/dashboard'}"
@@ -53,10 +56,12 @@ export default function AuthCallback() {
                   returnUrl = stateObj.returnUrl;
                 }
               }
-            } catch (e) {
+            } catch {
+              // ignore malformed state
             }
           }
-        } catch (error) {
+        } catch {
+          // ignore
         }
         navigate(returnUrl, { replace: true });
       } else {
@@ -64,8 +69,40 @@ export default function AuthCallback() {
       }
     };
 
-    handleCallback();
+    void handleCallback();
   }, [inProgress, isAuthenticated, navigate, location]);
+
+  // iOS PWA: hard kill w trakcie redirect zostawia inProgress ≠ None na zawsze.
+  useEffect(() => {
+    const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      setStuck(true);
+    }, CALLBACK_STUCK_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+
+  if (stuck) {
+    return (
+      <Flex minH="100vh" align="center" justify="center" p={6}>
+        <VStack spacing={4} maxW="md" textAlign="center">
+          <Text fontWeight="semibold">Logowanie nie dokończyło się</Text>
+          <Text fontSize="sm" color="neutral.600">
+            Sesja została przerwana. Spróbuj zalogować się ponownie.
+          </Text>
+          <Button
+            colorScheme="primary"
+            onClick={() => {
+              clearStaleMsalInteraction();
+              window.location.assign("/login");
+            }}
+          >
+            Przejdź do logowania
+          </Button>
+        </VStack>
+      </Flex>
+    );
+  }
 
   return (
     <Flex minH="100vh" align="center" justify="center">
