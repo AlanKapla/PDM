@@ -128,7 +128,7 @@ namespace Business.Implementation.Services
                     _logger.LogError(
                         "Duration agent for stage '{StageName}' ({StageId}) failed: {Error}",
                         stageNameById.GetValueOrDefault(stageId, "unknown"), stageId, result.ErrorMessage);
-                    throw new InvalidOperationException(
+                    throw new ValidationApiException(
                         $"AI duration estimation failed for stage '{stageNameById.GetValueOrDefault(stageId, "unknown")}': " +
                         $"{result.ErrorMessage ?? "Unknown error"}");
                 }
@@ -141,7 +141,7 @@ namespace Business.Implementation.Services
                     _logger.LogWarning(
                         "Duration agent for stage '{StageName}' ({StageId}) returned no durations",
                         stageNameById.GetValueOrDefault(stageId, "unknown"), stageId);
-                    throw new InvalidOperationException(
+                    throw new ValidationApiException(
                         $"AI duration agent for stage '{stageNameById.GetValueOrDefault(stageId, "unknown")}' " +
                         "returned no durations. Please try again.");
                 }
@@ -167,7 +167,7 @@ namespace Business.Implementation.Services
                     _logger.LogError(
                         "Dependency agent for stage '{StageName}' ({StageId}) failed: {Error}",
                         stageNameById.GetValueOrDefault(stageId, "unknown"), stageId, result.ErrorMessage);
-                    throw new InvalidOperationException(
+                    throw new ValidationApiException(
                         $"AI dependency analysis failed for stage '{stageNameById.GetValueOrDefault(stageId, "unknown")}': " +
                         $"{result.ErrorMessage ?? "Unknown error"}");
                 }
@@ -702,13 +702,20 @@ If the focus stage has no dependencies at all (e.g., it is the only stage), retu
                 }
             }
 
-            // Handle any works not reached by topological sort (isolated or cycle)
+            // Detect cycles: nodes still with inDegree > 0 after Kahn's algorithm
+            bool hasCycle = inDegree.Any(kvp => kvp.Value > 0);
+            if (hasCycle)
+            {
+                throw new ValidationApiException(
+                    "AI returned dependencies that form a cycle. Please regenerate the schedule.");
+            }
+
+            // Handle any works not reached (isolated works without deps — start at overallStartDate)
             foreach (WorkInput work in works)
             {
                 if (!startDateByWorkId.ContainsKey(work.Id))
                 {
-                    // Place at overall start date, distributed by order
-                    DateTime wStart = overallStartDate.AddDays(work.Order * 2);
+                    DateTime wStart = overallStartDate;
                     startDateByWorkId[work.Id] = wStart;
                     endDateByWorkId[work.Id] = wStart.AddDays(
                         durationByWorkId.GetValueOrDefault(work.Id, 1) - 1);

@@ -75,17 +75,20 @@ namespace CQRS.WorkSchedules.GenerateScheduleFromEstimateAI
 
             // 5. Reload stages and works after sync
             List<WorkScheduleStage> allStages = (await stageRepo.GetBySearch(
-                s => s.WorkScheduleId == workScheduleId && !s.IsDeleted))
+                s => s.WorkScheduleId == workScheduleId
+                     && s.TenantId == tenantId
+                     && s.ProjectId == projectId
+                     && !s.IsDeleted))
                 .ToList();
+
+            HashSet<Guid> stageIds = allStages.Select(s => s.Id).ToHashSet();
 
             List<WorkScheduleStageWork> allWorks = (await workRepo.GetBySearch(
-                w => w.WorkScheduleStageId != Guid.Empty
-                      && !w.IsDeleted))
+                w => w.TenantId == tenantId
+                     && w.ProjectId == projectId
+                     && stageIds.Contains(w.WorkScheduleStageId)
+                     && !w.IsDeleted))
                 .ToList();
-
-            // Filter works to only those belonging to our stages
-            HashSet<Guid> stageIds = allStages.Select(s => s.Id).ToHashSet();
-            allWorks = allWorks.Where(w => stageIds.Contains(w.WorkScheduleStageId)).ToList();
 
             // 6. Prepare inputs for AI
             List<StageInput> stageInputs = allStages.Select(s => new StageInput
@@ -148,23 +151,19 @@ namespace CQRS.WorkSchedules.GenerateScheduleFromEstimateAI
                 await mediator.Send(periodCommand, cancellationToken);
             }
 
-            // 9. Save dependencies
-            if (aiResult.Dependencies.Count > 0)
+            // 9. Save dependencies (always — empty list clears old deps)
+            SetWorkScheduleDependenciesCommand depsCommand = new SetWorkScheduleDependenciesCommand
             {
-                SetWorkScheduleDependenciesCommand depsCommand = new SetWorkScheduleDependenciesCommand
-                {
-                    TenantId = tenantId,
-                    ProjectId = projectId,
-                    WorkScheduleId = workScheduleId,
-                    Dependencies = aiResult.Dependencies.Select(d => new WorkDependencyDto(
-                        d.PredecessorWorkId,
-                        d.SuccessorWorkId,
-                        d.DependencyType,
-                        d.LagDays)).ToList()
-                };
-
-                await mediator.Send(depsCommand, cancellationToken);
-            }
+                TenantId = tenantId,
+                ProjectId = projectId,
+                WorkScheduleId = workScheduleId,
+                Dependencies = aiResult.Dependencies.Select(d => new WorkDependencyDto(
+                    d.PredecessorWorkId,
+                    d.SuccessorWorkId,
+                    d.DependencyType,
+                    d.LagDays)).ToList()
+            };
+            await mediator.Send(depsCommand, cancellationToken);
 
             // 10. Invalidate cache
             await scheduleCache.InvalidateScheduleAsync(workScheduleId, cancellationToken);
