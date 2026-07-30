@@ -53,10 +53,8 @@ namespace CQRS.WorkSchedules.GenerateScheduleFromEstimateAI
             Guid projectId = request.ProjectId;
             Guid workScheduleId = request.WorkScheduleId;
 
-            // 1. Access check
             await accessService.RequireAdminOrOwnerAsync(tenantId, projectId, workScheduleId, cancellationToken);
 
-            // 2. Load schedule
             WorkSchedule workSchedule = await workScheduleRepo.GetFirstBySearch(
                 ws => ws.Id == workScheduleId && ws.TenantId == tenantId && ws.ProjectId == projectId,
                 include => include
@@ -64,16 +62,49 @@ namespace CQRS.WorkSchedules.GenerateScheduleFromEstimateAI
                     .ThenInclude(s => s.Works.Where(w => !w.IsDeleted)))
                 ?? throw new NotFoundApiException(nameof(WorkSchedule), workScheduleId.ToString());
 
-            // 3. Verify linked to cost estimate
             if (!workSchedule.CostEstimateId.HasValue)
             {
                 throw new ValidationApiException("Work schedule is not linked to a cost estimate. Please sync with a cost estimate first.");
             }
 
-            // 4. Sync with cost estimate first (ensures latest structure)
             await workScheduleSyncService.SyncFromCostEstimateAsync(workSchedule, cancellationToken);
 
-            // 5. Reload stages and works after sync
+            (List<WorkScheduleStage> allStages, List<WorkScheduleStageWork> allWorks) =
+                await LoadStagesAndWorksAsync(tenantId, projectId, workScheduleId, cancellationToken);
+
+            (List<StageInput> stageInputs, List<WorkInput> workInputs) = BuildWorkInputs(allStages, allWorks);
+
+            if (workInputs.Count == 0)
+            {
+                throw new ValidationApiException(
+                    "No work items found after synchronization. The cost estimate has no items marked as work scope.");
+            }
+
+            AIScheduleResult aiResult = await aiGenerator.GenerateScheduleAsync(
+                workScheduleId,
+                tenantId,
+                projectId,
+                stageInputs,
+                workInputs,
+                request.OverallStartDate,
+                request.OverallEndDate,
+                cancellationToken);
+
+            await PersistPeriodsAsync(tenantId, projectId, workScheduleId, allWorks, aiResult, cancellationToken);
+            await PersistDependenciesAsync(tenantId, projectId, workScheduleId, aiResult, cancellationToken);
+
+            await scheduleCache.InvalidateScheduleAsync(workScheduleId, cancellationToken);
+
+            return await workScheduleBuilder.BuildAsync(
+                workScheduleId, tenantId, projectId, cancellationToken);
+        }
+
+        private async Task<(List<WorkScheduleStage> Stages, List<WorkScheduleStageWork> Works)> LoadStagesAndWorksAsync(
+            Guid tenantId,
+            Guid projectId,
+            Guid workScheduleId,
+            CancellationToken cancellationToken)
+        {
             List<WorkScheduleStage> allStages = (await stageRepo.GetBySearch(
                 s => s.WorkScheduleId == workScheduleId
                      && s.TenantId == tenantId
@@ -90,7 +121,13 @@ namespace CQRS.WorkSchedules.GenerateScheduleFromEstimateAI
                      && !w.IsDeleted))
                 .ToList();
 
-            // 6. Prepare inputs for AI
+            return (allStages, allWorks);
+        }
+
+        private static (List<StageInput> StageInputs, List<WorkInput> WorkInputs) BuildWorkInputs(
+            List<WorkScheduleStage> allStages,
+            List<WorkScheduleStageWork> allWorks)
+        {
             List<StageInput> stageInputs = allStages.Select(s => new StageInput
             {
                 Id = s.Id,
@@ -110,24 +147,17 @@ namespace CQRS.WorkSchedules.GenerateScheduleFromEstimateAI
                 StageName = stageNameById.TryGetValue(w.WorkScheduleStageId, out string? stageName) ? stageName : string.Empty
             }).ToList();
 
-            if (workInputs.Count == 0)
-            {
-                throw new ValidationApiException(
-                    "No work items found after synchronization. The cost estimate has no items marked as work scope.");
-            }
+            return (stageInputs, workInputs);
+        }
 
-            // 7. Call AI to generate schedule
-            AIScheduleResult aiResult = await aiGenerator.GenerateScheduleAsync(
-                workScheduleId,
-                tenantId,
-                projectId,
-                stageInputs,
-                workInputs,
-                request.OverallStartDate,
-                request.OverallEndDate,
-                cancellationToken);
-
-            // 8. Save periods
+        private async Task PersistPeriodsAsync(
+            Guid tenantId,
+            Guid projectId,
+            Guid workScheduleId,
+            List<WorkScheduleStageWork> allWorks,
+            AIScheduleResult aiResult,
+            CancellationToken cancellationToken)
+        {
             foreach (WorkPeriodResult period in aiResult.Periods)
             {
                 WorkScheduleStageWork? targetWork = allWorks.FirstOrDefault(w => w.Id == period.WorkScheduleStageWorkId);
@@ -150,8 +180,15 @@ namespace CQRS.WorkSchedules.GenerateScheduleFromEstimateAI
 
                 await mediator.Send(periodCommand, cancellationToken);
             }
+        }
 
-            // 9. Save dependencies (always — empty list clears old deps)
+        private async Task PersistDependenciesAsync(
+            Guid tenantId,
+            Guid projectId,
+            Guid workScheduleId,
+            AIScheduleResult aiResult,
+            CancellationToken cancellationToken)
+        {
             SetWorkScheduleDependenciesCommand depsCommand = new SetWorkScheduleDependenciesCommand
             {
                 TenantId = tenantId,
@@ -164,15 +201,6 @@ namespace CQRS.WorkSchedules.GenerateScheduleFromEstimateAI
                     d.LagDays)).ToList()
             };
             await mediator.Send(depsCommand, cancellationToken);
-
-            // 10. Invalidate cache
-            await scheduleCache.InvalidateScheduleAsync(workScheduleId, cancellationToken);
-
-            // 11. Build and return full schedule details
-            WorkScheduleDetailsWeb result = await workScheduleBuilder.BuildAsync(
-                workScheduleId, tenantId, projectId, cancellationToken);
-
-            return result;
         }
     }
 }

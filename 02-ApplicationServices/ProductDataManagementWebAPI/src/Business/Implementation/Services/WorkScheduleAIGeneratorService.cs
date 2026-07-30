@@ -58,6 +58,8 @@ namespace Business.Implementation.Services
                 "Starting per-stage AI agents: {StageCount} stages, {WorkCount} works",
                 stageCount, works.Count);
 
+            using SemaphoreSlim gate = new SemaphoreSlim(4);
+
             // ── 2. Launch per-stage DURATION agents ──
             List<Task<AgentRunResult>> durationTasks = new List<Task<AgentRunResult>>(stageCount);
             List<Guid> durationStageOrder = new List<Guid>(stageCount);
@@ -75,7 +77,8 @@ namespace Business.Implementation.Services
                     stageName, stageId, stageWorks.Count);
 
                 durationStageOrder.Add(stageId);
-                durationTasks.Add(_agentRunner.RunAsync(
+                durationTasks.Add(RunWithLimitAsync(
+                    gate,
                     "schedule-duration-agent",
                     prompt,
                     context,
@@ -100,28 +103,29 @@ namespace Business.Implementation.Services
                     stageName, stageId, stageWorks.Count, works.Count);
 
                 dependencyStageOrder.Add(stageId);
-                dependencyTasks.Add(_agentRunner.RunAsync(
+                dependencyTasks.Add(RunWithLimitAsync(
+                    gate,
                     "schedule-dependency-agent",
                     prompt,
                     context,
                     cancellationToken));
             }
 
-            // ── 4. Wait for ALL agents in parallel ──
+            // ── 4. Wait for ALL agents in parallel (max 4 concurrent via gate) ──
             _logger.LogInformation(
                 "Waiting for {Total} AI agents ({DurationCount} duration + {DepCount} dependency)...",
                 durationTasks.Count + dependencyTasks.Count, durationTasks.Count, dependencyTasks.Count);
 
-            await Task.WhenAll(durationTasks);
-            await Task.WhenAll(dependencyTasks);
+            AgentRunResult[] durationResults = await Task.WhenAll(durationTasks);
+            AgentRunResult[] dependencyResults = await Task.WhenAll(dependencyTasks);
 
             // ── 5. Merge duration results ──
             List<AIDuration> mergedDurations = new List<AIDuration>();
 
-            for (Int32 i = 0; i < durationTasks.Count; i++)
+            for (Int32 i = 0; i < durationResults.Length; i++)
             {
                 Guid stageId = durationStageOrder[i];
-                AgentRunResult result = durationTasks[i].Result;
+                AgentRunResult result = durationResults[i];
 
                 if (!result.IsSuccess)
                 {
@@ -157,10 +161,10 @@ namespace Business.Implementation.Services
             HashSet<(String pred, String succ, String type)> seenDeps = new();
             List<AIDependency> mergedDependencies = new List<AIDependency>();
 
-            for (Int32 i = 0; i < dependencyTasks.Count; i++)
+            for (Int32 i = 0; i < dependencyResults.Length; i++)
             {
                 Guid stageId = dependencyStageOrder[i];
-                AgentRunResult result = dependencyTasks[i].Result;
+                AgentRunResult result = dependencyResults[i];
 
                 if (!result.IsSuccess)
                 {
@@ -185,7 +189,6 @@ namespace Business.Implementation.Services
 
                 foreach (AIDependency dep in parsed.dependencies)
                 {
-                    String key = $"{dep.predecessor_work_id}|{dep.successor_work_id}|{dep.dependency_type}";
                     if (seenDeps.Add((dep.predecessor_work_id ?? "", dep.successor_work_id ?? "", dep.dependency_type ?? "")))
                     {
                         mergedDependencies.Add(dep);
@@ -222,6 +225,24 @@ namespace Business.Implementation.Services
 
             // ── 9. Calculate dates from durations and dependencies ──
             return CalculateSchedule(rawResponse, works, overallStartDate, overallEndDate);
+        }
+
+        private async Task<AgentRunResult> RunWithLimitAsync(
+            SemaphoreSlim gate,
+            string agentName,
+            string prompt,
+            AgentContext context,
+            CancellationToken ct)
+        {
+            await gate.WaitAsync(ct);
+            try
+            {
+                return await _agentRunner.RunAsync(agentName, prompt, context, ct);
+            }
+            finally
+            {
+                gate.Release();
+            }
         }
 
         /// <summary>
