@@ -19,7 +19,7 @@ function markResumed(accountEmail: string): void {
 
 /**
  * Wznawia sesję z cache MSAL (access/refresh token) bez ponownego hasła.
- * Native Auth nie ustawia cookies IdP — jedyna „pamięć” sesji to RT w localStorage.
+ * Native Auth nie ustawia cookies IdP — jedyna „pamięć” sesji to RT w sessionStorage.
  */
 export async function tryResumeNativeSession(
   instance: ICustomAuthPublicClientApplication,

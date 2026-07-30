@@ -15,11 +15,17 @@ export function clearLocalMsalCache(): void {
 
   try {
     const preserve: Set<string> = new Set(PRESERVED_AUTH_STORAGE_KEYS);
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith("msal.") && !preserve.has(key)) {
-        localStorage.removeItem(key);
-      }
-    });
+    const clearMsalKeys = (storage: Storage): void => {
+      Object.keys(storage).forEach((key) => {
+        const isMsal: boolean =
+          key.startsWith("msal.") || key.toLowerCase().includes("msal");
+        if (isMsal && !preserve.has(key)) {
+          storage.removeItem(key);
+        }
+      });
+    };
+    clearMsalKeys(localStorage);
+    clearMsalKeys(sessionStorage);
   } catch {
     // Storage niedostępny — ignoruj.
   }

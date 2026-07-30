@@ -11,10 +11,8 @@ import {
   AuthPageShell,
 } from "../features/auth/components/AuthPageShell";
 import { getCustomAuthClient } from "../auth/customAuthInstance";
-import {
-  getRememberedSignInEmail,
-  PRESERVED_AUTH_STORAGE_KEYS,
-} from "../auth/rememberedSignIn";
+import { clearAppStoragePreservingMsal } from "../auth/logoutSession";
+import { getRememberedSignInEmail } from "../auth/rememberedSignIn";
 import { tryResumeNativeSession } from "../auth/tryResumeNativeSession";
 
 export default function LoggedOut() {
@@ -24,13 +22,8 @@ export default function LoggedOut() {
   const [isResuming, setIsResuming] = useState(false);
 
   useEffect(() => {
-    const preserved = new Set(PRESERVED_AUTH_STORAGE_KEYS);
-    Object.keys(localStorage).forEach((key) => {
-      if (!key.startsWith("msal.") && !preserved.has(key)) {
-        localStorage.removeItem(key);
-      }
-    });
-    sessionStorage.clear();
+    // Nie czyść całego sessionStorage — tam siedzi cache MSAL pod „Kontynuuj jako…”.
+    clearAppStoragePreservingMsal();
   }, []);
 
   const isLoading = inProgress !== InteractionStatus.None;

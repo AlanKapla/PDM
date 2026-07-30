@@ -16,21 +16,37 @@ export interface LogoutMsalSessionOptions {
   mode?: "soft" | "hard";
 }
 
-function clearNonMsalStorage(): void {
+function isMsalStorageKey(key: string): boolean {
+  return key.startsWith("msal.") || key.toLowerCase().includes("msal");
+}
+
+/**
+ * Czyści stan aplikacji, zostawiając cache MSAL (sessionStorage) i klucze soft-logout.
+ * MSAL używa sessionStorage — pełne sessionStorage.clear() zabija „Kontynuuj jako…”.
+ */
+export function clearAppStoragePreservingMsal(): void {
   const preserve: Set<string> = new Set(PRESERVED_AUTH_STORAGE_KEYS);
   Object.keys(localStorage).forEach((key) => {
-    if (key.startsWith("msal.") || preserve.has(key)) {
+    if (isMsalStorageKey(key) || preserve.has(key)) {
       return;
     }
     localStorage.removeItem(key);
   });
-  sessionStorage.clear();
+  Object.keys(sessionStorage).forEach((key) => {
+    if (isMsalStorageKey(key)) {
+      return;
+    }
+    sessionStorage.removeItem(key);
+  });
 }
 
 function clearMsalStorage(): void {
   Object.keys(localStorage)
-    .filter((key) => key.startsWith("msal."))
+    .filter((key) => isMsalStorageKey(key))
     .forEach((key) => localStorage.removeItem(key));
+  Object.keys(sessionStorage)
+    .filter((key) => isMsalStorageKey(key))
+    .forEach((key) => sessionStorage.removeItem(key));
 }
 
 function goToLoggedOut(): void {
@@ -50,7 +66,7 @@ function rememberEmailFromInstance(
 /**
  * Wylogowanie z aplikacji.
  * Domyślnie soft: czyści stan UI, zostawia cache MSAL (RT) pod resume bez hasła.
- * Native Auth nie ustawia cookies IdP — „SSO” = wyłącznie żywy refresh token w localStorage.
+ * Native Auth nie ustawia cookies IdP — „SSO” = wyłącznie żywy refresh token w sessionStorage.
  */
 export async function logoutMsalSession(
   instance: ICustomAuthPublicClientApplication,
@@ -60,7 +76,7 @@ export async function logoutMsalSession(
   const mode: "soft" | "hard" = options?.mode ?? "soft";
 
   rememberEmailFromInstance(instance, fallbackAccount);
-  clearNonMsalStorage();
+  clearAppStoragePreservingMsal();
 
   if (mode === "soft") {
     markSoftLoggedOut();

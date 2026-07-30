@@ -34,7 +34,7 @@ export function rememberSignInEmail(email: string): void {
 
 /**
  * Soft logout: użytkownik świadomie wyszedł z UI, ale refresh tokeny MSAL
- * zostają w localStorage — „Kontynuuj jako…” może wznowić sesję bez hasła.
+ * zostają w sessionStorage — „Kontynuuj jako…” może wznowić sesję bez hasła.
  */
 export function markSoftLoggedOut(): void {
   try {
