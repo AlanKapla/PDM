@@ -12,9 +12,17 @@ export interface ResumeNativeSessionResult {
   accountEmail: string | null;
 }
 
-function markResumed(accountEmail: string): void {
+function finishResume(
+  accountEmail: string,
+  redirectToDashboard: boolean
+): ResumeNativeSessionResult {
   rememberSignInEmail(accountEmail);
+  // Soft-logout flag dopiero tu — wcześniej AuthContext nie strzela API na /login.
   clearSoftLoggedOut();
+  if (redirectToDashboard) {
+    window.location.assign("/dashboard");
+  }
+  return { resumed: true, accountEmail };
 }
 
 /**
@@ -44,11 +52,7 @@ export async function tryResumeNativeSession(
       );
 
       if (!tokenResult.isFailed()) {
-        markResumed(account.username);
-        if (redirectToDashboard) {
-          window.location.assign("/dashboard");
-        }
-        return { resumed: true, accountEmail: account.username };
+        return finishResume(account.username, redirectToDashboard);
       }
     } catch {
       // Timeout or unexpected failure — try forceRefresh below.
@@ -64,11 +68,7 @@ export async function tryResumeNativeSession(
         "getAccessToken(forceRefresh) timed out"
       );
       if (!retry.isFailed()) {
-        markResumed(account.username);
-        if (redirectToDashboard) {
-          window.location.assign("/dashboard");
-        }
-        return { resumed: true, accountEmail: account.username };
+        return finishResume(account.username, redirectToDashboard);
       }
     } catch {
       // Fall through to acquireTokenSilent / fail soft.
@@ -92,11 +92,7 @@ export async function tryResumeNativeSession(
       TOKEN_TIMEOUT_MS,
       "acquireTokenSilent timed out"
     );
-    markResumed(account.username);
-    if (redirectToDashboard) {
-      window.location.assign("/dashboard");
-    }
-    return { resumed: true, accountEmail: account.username };
+    return finishResume(account.username, redirectToDashboard);
   } catch {
     return { resumed: false, accountEmail: account.username };
   }

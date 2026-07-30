@@ -170,15 +170,11 @@ export function useNativeSignIn(): UseNativeSignInResult {
   );
 
   useEffect(() => {
-    const pending: string | null = consumePendingLoginError();
-    if (pending) {
-      setError(pending);
-    }
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
     const RESUME_TIMEOUT_MS = 12_000;
+    // Nie pokazuj pending error podczas auto-resume — na mobile miga czerwony alert
+    // i zaraz potem i tak wchodzi na dashboard.
+    const pending: string | null = consumePendingLoginError();
 
     void (async () => {
       try {
@@ -191,6 +187,9 @@ export function useNativeSignIn(): UseNativeSignInResult {
         setEmail(resolveInitialEmail(client));
 
         if (isSoftLoggedOut()) {
+          if (pending) {
+            setError(pending);
+          }
           return;
         }
 
@@ -216,10 +215,15 @@ export function useNativeSignIn(): UseNativeSignInResult {
         if (resume.accountEmail) {
           setEmail(resume.accountEmail);
         }
+
+        if (pending) {
+          setError(pending);
+        }
       } catch {
         if (!cancelled) {
           setError(
-            "Nie udało się zainicjalizować logowania. Uruchom `npm run dev` (proxy Vite /native-auth)."
+            pending ??
+              "Nie udało się zainicjalizować logowania. Uruchom `npm run dev` (proxy Vite /native-auth)."
           );
         }
       } finally {

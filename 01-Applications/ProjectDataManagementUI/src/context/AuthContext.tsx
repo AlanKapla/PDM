@@ -107,10 +107,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const demoActive = isDemoModeActive();
       const canLoadProfile = isAuthenticated || demoActive;
+      // Na /login podczas finalize — nie strzelaj API (mobile: fail tokenu → czerwony flash).
+      const path: string = window.location.pathname;
+      const onAuthEntry: boolean =
+        path === "/login" ||
+        path === "/register" ||
+        path === "/reset-password" ||
+        path === "/logged-out" ||
+        path.startsWith("/auth/");
 
-      if (!canLoadProfile) {
+      if (!canLoadProfile || (onAuthEntry && !demoActive)) {
         if (isMounted) {
-          setUser(null);
+          if (!canLoadProfile) {
+            setUser(null);
+          }
           setLoading(false);
         }
         return;
@@ -190,6 +200,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (!isAuthenticated) {
       setSignalRInitialized(false);
+      return;
+    }
+
+    const path: string = window.location.pathname;
+    if (
+      path === "/login" ||
+      path === "/register" ||
+      path === "/reset-password" ||
+      path === "/logged-out" ||
+      path.startsWith("/auth/")
+    ) {
       return;
     }
 

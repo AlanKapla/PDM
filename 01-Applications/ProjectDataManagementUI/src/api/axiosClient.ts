@@ -54,8 +54,26 @@ function isMsalInteractionInProgress(): boolean {
   return false;
 }
 
+function isOnAuthEntryPath(): boolean {
+  const path: string = window.location.pathname;
+  return (
+    path === "/login" ||
+    path === "/register" ||
+    path === "/reset-password" ||
+    path === "/logged-out" ||
+    path === "/" ||
+    path.startsWith("/auth/")
+  );
+}
+
 async function redirectToLoginSafely(reason?: string): Promise<void> {
   if (isMsalInteractionInProgress()) {
+    return;
+  }
+
+  // Już na /login (np. race podczas finalize) — nie remountuj z czerwonym alertem.
+  // Resume / formularz obsłużą sesję; pending error tylko gdy użytkownik wpada z appki.
+  if (isOnAuthEntryPath()) {
     return;
   }
 

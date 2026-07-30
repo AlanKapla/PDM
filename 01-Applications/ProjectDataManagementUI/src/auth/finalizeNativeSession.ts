@@ -29,7 +29,8 @@ export async function finalizeNativeSession(
   const account = accountData.getAccount();
   msalInstance.setActiveAccount(account);
   rememberSignInEmail(account.username);
-  clearSoftLoggedOut();
+  // clearSoftLoggedOut dopiero po tokenie — inaczej AuthContext odpala /user/me
+  // na /login (mobile: axios fail → czerwony alert → dopiero potem redirect).
 
   let tokenReady = false;
 
@@ -72,6 +73,7 @@ export async function finalizeNativeSession(
     msalInstance.setActiveAccount(msalInstance.getAllAccounts()[0]);
   }
 
+  clearSoftLoggedOut();
   notifyNativeSessionReady();
 
   if (redirectToDashboard) {
