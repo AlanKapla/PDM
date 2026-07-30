@@ -1,6 +1,6 @@
 import { Button, Flex, Spinner, Text, VStack, useToast } from "@chakra-ui/react";
 import { LogIn } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import { DemoModeHomeToggle } from "../components/DemoModeHomeToggle";
@@ -9,9 +9,25 @@ import {
   AuthPageShell,
 } from "../features/auth/components/AuthPageShell";
 import { getCustomAuthClient } from "../auth/customAuthInstance";
+import { clearStaleMsalInteraction } from "../auth/clearStaleMsalInteraction";
 import { getRememberedSignInEmail } from "../auth/rememberedSignIn";
 import { tryResumeNativeSession } from "../auth/tryResumeNativeSession";
 import { useAuth } from "../context/AuthContext";
+
+const HOME_SPINNER_STUCK_MS = 12_000;
+
+function resetSessionAndReload(): void {
+  clearStaleMsalInteraction();
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith("msal."))
+      .forEach((key) => localStorage.removeItem(key));
+    sessionStorage.clear();
+  } catch {
+    // ignore
+  }
+  window.location.reload();
+}
 
 export default function Home() {
   const { accounts, inProgress } = useMsal();
@@ -25,13 +41,39 @@ export default function Home() {
     !isAuthenticated && Boolean(cacheEmail) && accounts.length > 0;
 
   const [isResuming, setIsResuming] = useState(false);
+  const [spinnerStuck, setSpinnerStuck] = useState(false);
+  const spinnerSinceRef = useRef<number | null>(null);
   const isLoading = inProgress === "login" || inProgress === "acquireToken";
+  const showBootSpinner =
+    isLoading || isResuming || (isAuthenticated && authLoading);
 
   useEffect(() => {
     if (isAuthenticated && user) {
       window.location.assign("/dashboard");
     }
   }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    if (!showBootSpinner) {
+      spinnerSinceRef.current = null;
+      setSpinnerStuck(false);
+      return;
+    }
+
+    if (spinnerSinceRef.current === null) {
+      spinnerSinceRef.current = Date.now();
+    }
+
+    const elapsed: number = Date.now() - spinnerSinceRef.current;
+    const remaining: number = Math.max(0, HOME_SPINNER_STUCK_MS - elapsed);
+    const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      setSpinnerStuck(true);
+    }, remaining);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [showBootSpinner]);
 
   const handleContinueAs = useCallback(async () => {
     setIsResuming(true);
@@ -62,7 +104,23 @@ export default function Home() {
     }
   }, [toast]);
 
-  if (isLoading || isResuming || (isAuthenticated && authLoading)) {
+  if (showBootSpinner) {
+    if (spinnerStuck) {
+      return (
+        <Flex minH="100vh" align="center" justify="center" bg="white" p={6}>
+          <VStack spacing={4} maxW="md" textAlign="center">
+            <Text fontWeight="semibold">Nie można potwierdzić sesji</Text>
+            <Text color="neutral.600" fontSize="sm">
+              Logowanie trwa zbyt długo. Zresetuj sesję, aby kontynuować.
+            </Text>
+            <Button colorScheme="primary" onClick={resetSessionAndReload}>
+              Zresetuj sesję i odśwież
+            </Button>
+          </VStack>
+        </Flex>
+      );
+    }
+
     return (
       <Flex minH="100vh" align="center" justify="center" bg="white">
         <VStack spacing={4}>

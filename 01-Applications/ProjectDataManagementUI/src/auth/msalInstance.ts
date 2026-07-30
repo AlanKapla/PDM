@@ -3,6 +3,7 @@ import {
   type ICustomAuthPublicClientApplication,
 } from "@azure/msal-browser/custom-auth";
 import { customAuthConfig } from "../config/customAuthConfig";
+import { clearStaleMsalInteraction } from "./clearStaleMsalInteraction";
 
 /**
  * Jedna wspólna PCA (Custom Auth + redirect + axios + MsalProvider).
@@ -17,6 +18,9 @@ export async function initializeMsalInstance(): Promise<ICustomAuthPublicClientA
   if (msalInstance) {
     return msalInstance;
   }
+
+  // Mobile: zabicie appki w trakcie token refresh zostawia interaction.status w localStorage.
+  clearStaleMsalInteraction();
 
   const instance: ICustomAuthPublicClientApplication =
     await CustomAuthPublicClientApplication.create(customAuthConfig);

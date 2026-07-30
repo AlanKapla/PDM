@@ -6,6 +6,7 @@ import { isDemoModeActive } from "../api/mock";
 import { Button, Flex, Spinner, Text, VStack } from "@chakra-ui/react";
 import { useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
+import { clearStaleMsalInteraction } from "../auth/clearStaleMsalInteraction";
 import TenantAccessGuard from "../components/TenantAccessGuard";
 
 // Po tylu ms utknięcia w stanie innym niż None uznajemy sesję MSAL za
@@ -17,6 +18,7 @@ const PROFILE_STUCK_TIMEOUT_MS = 12_000;
 
 // Usuwa cache MSAL (w tym zawieszoną flagę interaction) i przeładowuje stronę.
 function resetMsalSessionAndReload(): void {
+  clearStaleMsalInteraction();
   try {
     Object.keys(localStorage)
       .filter((key) => key.startsWith("msal."))

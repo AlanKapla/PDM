@@ -10,6 +10,7 @@ import { notificationHubService } from "../services/notificationHubService";
 import { chatHubService } from "../services/chatHubService";
 import { logoutMsalSession } from "../auth/logoutSession";
 import { msalInstance } from "../auth/msalInstance";
+import { clearStaleMsalInteraction } from "../auth/clearStaleMsalInteraction";
 import { isSoftLoggedOut } from "../auth/rememberedSignIn";
 import { withTimeout } from "../auth/withTimeout";
 import { nativeSilentRequest } from "../config/authConfig";
@@ -262,6 +263,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (document.hidden) {
         return;
       }
+
+      // Mobile: po powrocie z tła wyczyść porzucony interaction.status zanim silent refresh.
+      clearStaleMsalInteraction();
 
       // Proaktywny silent refresh tokena — zanim UI zacznie strzelać API.
       if (!tokenRefreshInProgress.current) {

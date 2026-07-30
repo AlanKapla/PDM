@@ -2,8 +2,12 @@ import axios from "axios";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { msalInstance } from "../auth/msalInstance";
 import { isSoftLoggedOut } from "../auth/rememberedSignIn";
+import { withTimeout } from "../auth/withTimeout";
 import { nativeSilentRequest } from "../config/authConfig";
 import { setupMockInterceptors, isDemoModeActive } from "./mock";
+
+/** Mobile cold-start / powrót z tła — acquireTokenSilent nie może wisieć w nieskończoność. */
+const TOKEN_ACQUIRE_TIMEOUT_MS = 10_000;
 
 // Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
 function requireEnvVar(key: string): string {
@@ -93,16 +97,20 @@ axiosClient.interceptors.request.use(
       const account = msalInstance.getActiveAccount() || accounts[0];
 
       try {
-        // Try to acquire token silently from cache
-        const response = await msalInstance.acquireTokenSilent({
-          ...nativeSilentRequest,
-          account: account,
-        });
+        // Try to acquire token silently from cache (timeout — mobile po tle często wisi)
+        const response = await withTimeout(
+          msalInstance.acquireTokenSilent({
+            ...nativeSilentRequest,
+            account: account,
+          }),
+          TOKEN_ACQUIRE_TIMEOUT_MS,
+          "axios acquireTokenSilent timed out"
+        );
 
         // Add token to Authorization header
         config.headers.Authorization = `Bearer ${response.accessToken}`;
       } catch (error: unknown) {
-        // InteractionRequiredAuthError lub inny fail silent = sesja wygasła.
+        // InteractionRequiredAuthError, timeout lub inny fail silent = sesja wygasła / sieć.
         // Czyścimy active account i przekierowujemy do logowania (koniec zombie sesji).
         if (error instanceof InteractionRequiredAuthError) {
           msalInstance.setActiveAccount(null);
@@ -155,12 +163,16 @@ axiosClient.interceptors.response.use(
           const account = msalInstance.getActiveAccount() || accounts[0];
 
           try {
-            // Try to acquire a new token
-            const response = await msalInstance.acquireTokenSilent({
-              ...nativeSilentRequest,
-              account: account,
-              forceRefresh: true,
-            });
+            // Try to acquire a new token (timeout — uniknij wiecznego spinnera na mobile)
+            const response = await withTimeout(
+              msalInstance.acquireTokenSilent({
+                ...nativeSilentRequest,
+                account: account,
+                forceRefresh: true,
+              }),
+              TOKEN_ACQUIRE_TIMEOUT_MS,
+              "axios acquireTokenSilent(forceRefresh) timed out"
+            );
 
             // Update the Authorization header with new token
             originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
@@ -168,7 +180,7 @@ axiosClient.interceptors.response.use(
             // Retry the original request
             return axiosClient(originalRequest);
           } catch {
-            // Refresh token wygasł lub nieważny — sesja martwa.
+            // Refresh token wygasł / timeout / nieważny — sesja martwa.
             // Czyścimy active account i przekierowujemy do logowania.
             msalInstance.setActiveAccount(null);
             await redirectToLoginSafely();
