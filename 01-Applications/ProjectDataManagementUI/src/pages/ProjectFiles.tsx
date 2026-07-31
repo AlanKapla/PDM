@@ -33,8 +33,12 @@ import {
   Wrap,
   WrapItem,
   useBreakpointValue,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
 } from "@chakra-ui/react";
-import { FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus, FolderPlus, FolderOpen, Folder } from "lucide-react";
+import { FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus, FolderPlus, FolderOpen, Folder, MoreVertical } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
@@ -398,6 +402,20 @@ const FileRow: React.FC<FileRowProps> = ({
     (!isShared && resourcePerms.mine.canEdit) ||
     (isShared && resourcePerms.shared.canEdit);
 
+  const canPreview = Boolean(
+    file.currentVersion && isPreviewSupported(file.currentVersion.contentType)
+  );
+  const canDownload = Boolean(file.currentVersion);
+  const canShare = !isShared && resourcePerms.mine.canManageShare;
+  const canShowVersions = (file.totalVersions ?? 0) > 0;
+  const hasKebabActions = canDownload || canEdit || canShare || canShowVersions;
+
+  const handleOpenLatest = () => {
+    if (canPreview) {
+      onPreview(file.currentVersion.sasUrlView);
+    }
+  };
+
   const fileNameBlock = (
     <HStack spacing={2} minW={0} flexWrap="wrap">
       <Text fontSize="sm" fontWeight="medium" noOfLines={2} wordBreak="break-word">
@@ -415,119 +433,69 @@ const FileRow: React.FC<FileRowProps> = ({
     </HStack>
   );
 
-  const fileActions = (
+  const desktopFileActions = (
     <Wrap spacing={2}>
-      {file.currentVersion && isPreviewSupported(file.currentVersion.contentType) && (
+      {canPreview && (
         <WrapItem>
-          {isCard ? (
-            <Button
+          <Tooltip label="Podgląd" hasArrow>
+            <IconButton
+              aria-label="Podgląd"
+              icon={<Eye size={16} aria-hidden="true" />}
               size="sm"
-              variant="outline"
-              leftIcon={<Eye size={16} aria-hidden="true" />}
-              minH="44px"
+              variant="ghost"
+              colorScheme="gray"
               onClick={() => onPreview(file.currentVersion.sasUrlView)}
-            >
-              Podgląd
-            </Button>
-          ) : (
-            <Tooltip label="Podgląd" hasArrow>
-              <IconButton
-                aria-label="Podgląd"
-                icon={<Eye size={16} aria-hidden="true" />}
-                size="sm"
-                variant="ghost"
-                colorScheme="gray"
-                onClick={() => onPreview(file.currentVersion.sasUrlView)}
-              />
-            </Tooltip>
-          )}
+            />
+          </Tooltip>
         </WrapItem>
       )}
-      {file.currentVersion && (
+      {canDownload && (
         <WrapItem>
-          {isCard ? (
-            <Button
+          <Tooltip label="Pobierz plik" hasArrow>
+            <IconButton
+              aria-label="Pobierz"
+              icon={<Download size={16} aria-hidden="true" />}
               size="sm"
-              variant="outline"
-              leftIcon={<Download size={16} aria-hidden="true" />}
-              minH="44px"
+              variant="ghost"
+              colorScheme="gray"
               onClick={() => onDownload(fileId, file.currentVersion.sasUrlDownload)}
-            >
-              Pobierz
-            </Button>
-          ) : (
-            <Tooltip label="Pobierz plik" hasArrow>
-              <IconButton
-                aria-label="Pobierz"
-                icon={<Download size={16} aria-hidden="true" />}
-                size="sm"
-                variant="ghost"
-                colorScheme="gray"
-                onClick={() => onDownload(fileId, file.currentVersion.sasUrlDownload)}
-              />
-            </Tooltip>
-          )}
+            />
+          </Tooltip>
         </WrapItem>
       )}
       {canEdit && (
         <WrapItem>
-          {isCard ? (
-            <Button
+          <Tooltip label="Dodaj nową wersję" hasArrow>
+            <IconButton
+              aria-label="Nowa wersja"
+              icon={<Plus size={16} aria-hidden="true" />}
               size="sm"
-              variant="outline"
-              leftIcon={<Plus size={16} aria-hidden="true" />}
-              minH="44px"
+              variant="ghost"
+              colorScheme="gray"
               onClick={() => onOpenUploadVersion(file)}
-            >
-              Nowa wersja
-            </Button>
-          ) : (
-            <Tooltip label="Dodaj nową wersję" hasArrow>
-              <IconButton
-                aria-label="Nowa wersja"
-                icon={<Plus size={16} aria-hidden="true" />}
-                size="sm"
-                variant="ghost"
-                colorScheme="gray"
-                onClick={() => onOpenUploadVersion(file)}
-              />
-            </Tooltip>
-          )}
+            />
+          </Tooltip>
         </WrapItem>
       )}
-      {!isShared && resourcePerms.mine.canManageShare && (
+      {canShare && (
         <WrapItem>
-          {isCard ? (
-            <Button
+          <Tooltip label="Udostępnij" hasArrow>
+            <IconButton
+              aria-label="Udostępnij"
+              icon={<Share2 size={16} aria-hidden="true" />}
               size="sm"
-              variant="outline"
-              leftIcon={<Share2 size={16} aria-hidden="true" />}
-              minH="44px"
+              variant="ghost"
+              colorScheme="gray"
               onClick={() => onOpenManageShare(file)}
-            >
-              Udostępnij
-            </Button>
-          ) : (
-            <Tooltip label="Udostępnij" hasArrow>
-              <IconButton
-                aria-label="Udostępnij"
-                icon={<Share2 size={16} aria-hidden="true" />}
-                size="sm"
-                variant="ghost"
-                colorScheme="gray"
-                onClick={() => onOpenManageShare(file)}
-              />
-            </Tooltip>
-          )}
+            />
+          </Tooltip>
         </WrapItem>
       )}
-      {file.totalVersions && file.totalVersions > 0 && (
+      {canShowVersions && (
         <WrapItem>
           <Button
             size="sm"
-            variant={isCard ? "solid" : "ghost"}
-            colorScheme={isCard ? "level2" : undefined}
-            minH={isCard ? "44px" : undefined}
+            variant="ghost"
             onClick={() => onToggleVersions(fileId)}
             rightIcon={isVersionsExpanded ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
             isLoading={isVersionsExpanded && versionsLoading}
@@ -537,6 +505,79 @@ const FileRow: React.FC<FileRowProps> = ({
         </WrapItem>
       )}
     </Wrap>
+  );
+
+  const mobileFileActions = (
+    <HStack spacing={0} flexShrink={0} onClick={(e) => e.stopPropagation()}>
+      {canPreview && (
+        <Tooltip label="Podgląd" hasArrow>
+          <IconButton
+            aria-label="Podgląd"
+            icon={<Eye size={16} aria-hidden="true" />}
+            size="sm"
+            variant="ghost"
+            colorScheme="gray"
+            minH="44px"
+            minW="44px"
+            onClick={handleOpenLatest}
+          />
+        </Tooltip>
+      )}
+      {hasKebabActions && (
+        <Menu>
+          <MenuButton
+            as={IconButton}
+            aria-label="Więcej akcji"
+            icon={<MoreVertical size={16} aria-hidden="true" />}
+            size="sm"
+            variant="ghost"
+            colorScheme="gray"
+            minH="44px"
+            minW="44px"
+          />
+          <MenuList>
+            {canDownload && (
+              <MenuItem
+                icon={<Download size={14} aria-hidden="true" />}
+                onClick={() => onDownload(fileId, file.currentVersion.sasUrlDownload)}
+              >
+                Pobierz
+              </MenuItem>
+            )}
+            {canEdit && (
+              <MenuItem
+                icon={<Plus size={14} aria-hidden="true" />}
+                onClick={() => onOpenUploadVersion(file)}
+              >
+                Nowa wersja
+              </MenuItem>
+            )}
+            {canShare && (
+              <MenuItem
+                icon={<Share2 size={14} aria-hidden="true" />}
+                onClick={() => onOpenManageShare(file)}
+              >
+                Udostępnij
+              </MenuItem>
+            )}
+            {canShowVersions && (
+              <MenuItem
+                icon={
+                  isVersionsExpanded ? (
+                    <ChevronUp size={14} aria-hidden="true" />
+                  ) : (
+                    <ChevronDown size={14} aria-hidden="true" />
+                  )
+                }
+                onClick={() => onToggleVersions(fileId)}
+              >
+                Wersje ({file.totalVersions})
+              </MenuItem>
+            )}
+          </MenuList>
+        </Menu>
+      )}
+    </HStack>
   );
 
   const versionsPanel = isVersionsExpanded && (
@@ -711,22 +752,43 @@ const FileRow: React.FC<FileRowProps> = ({
         p={3}
         mb={2}
       >
-        <VStack align="stretch" spacing={2}>
-          {fileNameBlock}
-          {(showOwner || file.currentVersion) && (
-            <Text fontSize="xs" color="neutral.600">
-              {showOwner && (file.originalOwnerUserName || file.ownerName)
-                ? `${file.originalOwnerUserName || file.ownerName}`
-                : null}
-              {showOwner && (file.originalOwnerUserName || file.ownerName) && file.currentVersion
-                ? " · "
-                : null}
-              {file.currentVersion ? formatFileSize(file.currentVersion.fileSizeBytes) : null}
-            </Text>
-          )}
-          {fileActions}
-          {versionsPanel}
-        </VStack>
+        <Box
+          cursor={canPreview ? "pointer" : "default"}
+          _hover={canPreview ? { bg: "neutral.50" } : undefined}
+          borderRadius="md"
+          mx={-1}
+          px={1}
+          onClick={handleOpenLatest}
+          role={canPreview ? "button" : undefined}
+          tabIndex={canPreview ? 0 : undefined}
+          aria-label={canPreview ? `Podgląd pliku ${file.displayName}` : undefined}
+          onKeyDown={(e) => {
+            if (!canPreview) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleOpenLatest();
+            }
+          }}
+        >
+          <HStack justify="space-between" align="flex-start" spacing={2}>
+            <VStack align="flex-start" spacing={1} flex={1} minW={0}>
+              {fileNameBlock}
+              {(showOwner || file.currentVersion) && (
+                <Text fontSize="xs" color="neutral.600">
+                  {showOwner && (file.originalOwnerUserName || file.ownerName)
+                    ? `${file.originalOwnerUserName || file.ownerName}`
+                    : null}
+                  {showOwner && (file.originalOwnerUserName || file.ownerName) && file.currentVersion
+                    ? " · "
+                    : null}
+                  {file.currentVersion ? formatFileSize(file.currentVersion.fileSizeBytes) : null}
+                </Text>
+              )}
+            </VStack>
+            {mobileFileActions}
+          </HStack>
+        </Box>
+        {versionsPanel}
       </Box>
     );
   }
@@ -743,7 +805,7 @@ const FileRow: React.FC<FileRowProps> = ({
         <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
           {file.currentVersion ? formatFileSize(file.currentVersion.fileSizeBytes) : "-"}
         </Td>
-        <Td>{fileActions}</Td>
+        <Td>{desktopFileActions}</Td>
       </Tr>
 
       {isVersionsExpanded && (
