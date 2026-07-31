@@ -593,6 +593,13 @@ const FileRow: React.FC<FileRowProps> = ({
             const commentKey = `${fileId}-${version.id}`;
             const isCommentsExpanded = expandedCommentKeys.has(commentKey);
             const isCurrent = version.id === file.currentVersion?.id;
+            const canPreviewVersion = isPreviewSupported(version.contentType);
+            const handleOpenVersion = () => {
+              if (canPreviewVersion) {
+                onPreview(version.sasUrlView);
+              }
+            };
+
             return (
               <Box
                 key={version.id}
@@ -602,56 +609,131 @@ const FileRow: React.FC<FileRowProps> = ({
                 bg="white"
                 borderColor={isCurrent ? "neutral.400" : "neutral.200"}
               >
-                <VStack align="stretch" spacing={2} display={{ base: "flex", md: "none" }}>
-                  <Wrap spacing={2}>
-                    <WrapItem>
-                      <Badge
-                        bg={isCurrent ? "primary.50" : "neutral.50"}
-                        color={isCurrent ? "primary.600" : "neutral.600"}
-                        borderWidth="1px"
-                        borderColor={isCurrent ? "primary.200" : "neutral.200"}
-                      >
-                        Wersja {version.versionNumber}
-                        {isCurrent && " (Aktualna)"}
-                      </Badge>
-                    </WrapItem>
-                    <WrapItem>
-                      <Badge colorScheme="neutral" fontSize="xs">
-                        {version.contentType?.split("/")[1]?.toUpperCase() || "FILE"}
-                      </Badge>
-                    </WrapItem>
-                    <WrapItem>
-                      <Text fontSize="xs" color="neutral.600">
-                        {formatFileSize(version.fileSizeBytes)}
-                      </Text>
-                    </WrapItem>
-                  </Wrap>
-                  <Wrap spacing={2}>
-                    {isPreviewSupported(version.contentType) && (
-                      <WrapItem>
-                        <Button
+                <Box
+                  display={{ base: "block", md: "none" }}
+                  cursor={canPreviewVersion ? "pointer" : "default"}
+                  _hover={canPreviewVersion ? { bg: "neutral.50" } : undefined}
+                  borderRadius="md"
+                  mx={-1}
+                  px={1}
+                  onClick={handleOpenVersion}
+                  role={canPreviewVersion ? "button" : undefined}
+                  tabIndex={canPreviewVersion ? 0 : undefined}
+                  aria-label={
+                    canPreviewVersion
+                      ? `Podgląd wersji ${version.versionNumber}`
+                      : undefined
+                  }
+                  onKeyDown={(e) => {
+                    if (!canPreviewVersion) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleOpenVersion();
+                    }
+                  }}
+                >
+                  <HStack justify="space-between" align="flex-start" spacing={2}>
+                    <VStack align="flex-start" spacing={1} flex={1} minW={0}>
+                      <Wrap spacing={2}>
+                        <WrapItem>
+                          <Badge
+                            bg={isCurrent ? "primary.50" : "neutral.50"}
+                            color={isCurrent ? "primary.600" : "neutral.600"}
+                            borderWidth="1px"
+                            borderColor={isCurrent ? "primary.200" : "neutral.200"}
+                          >
+                            Wersja {version.versionNumber}
+                            {isCurrent && " (Aktualna)"}
+                          </Badge>
+                        </WrapItem>
+                        <WrapItem>
+                          <Badge colorScheme="neutral" fontSize="xs">
+                            {version.contentType?.split("/")[1]?.toUpperCase() || "FILE"}
+                          </Badge>
+                        </WrapItem>
+                        <WrapItem>
+                          <Text fontSize="xs" color="neutral.600">
+                            {formatFileSize(version.fileSizeBytes)}
+                          </Text>
+                        </WrapItem>
+                      </Wrap>
+                      <HStack spacing={4} fontSize="xs" color="neutral.600" flexWrap="wrap">
+                        <HStack spacing={1}>
+                          <User size={12} aria-hidden="true" />
+                          <Text>{version.createdByUserName}</Text>
+                        </HStack>
+                        <HStack spacing={1}>
+                          <Clock size={12} aria-hidden="true" />
+                          <Text>{formatDate(version.createdAt)}</Text>
+                        </HStack>
+                      </HStack>
+                    </VStack>
+                    <HStack spacing={0} flexShrink={0} onClick={(e) => e.stopPropagation()}>
+                      {canPreviewVersion && (
+                        <Tooltip label="Podgląd" hasArrow>
+                          <IconButton
+                            aria-label="Podgląd"
+                            icon={<Eye size={14} aria-hidden="true" />}
+                            size="sm"
+                            variant="ghost"
+                            colorScheme="gray"
+                            minH="44px"
+                            minW="44px"
+                            onClick={handleOpenVersion}
+                          />
+                        </Tooltip>
+                      )}
+                      <Menu>
+                        <MenuButton
+                          as={IconButton}
+                          aria-label="Więcej akcji wersji"
+                          icon={<MoreVertical size={14} aria-hidden="true" />}
                           size="sm"
-                          variant="outline"
-                          leftIcon={<Eye size={14} aria-hidden="true" />}
+                          variant="ghost"
+                          colorScheme="gray"
                           minH="44px"
-                          onClick={() => onPreview(version.sasUrlView)}
-                        >
-                          Podgląd
-                        </Button>
-                      </WrapItem>
-                    )}
-                    <WrapItem>
-                      <Button
-                        size="sm"
-                        leftIcon={<Download size={14} aria-hidden="true" />}
-                        minH="44px"
-                        onClick={() => onDownload(fileId, version.sasUrlDownload)}
-                      >
-                        Pobierz
-                      </Button>
-                    </WrapItem>
-                  </Wrap>
-                </VStack>
+                          minW="44px"
+                        />
+                        <MenuList>
+                          <MenuItem
+                            icon={<Download size={14} aria-hidden="true" />}
+                            onClick={() => onDownload(fileId, version.sasUrlDownload)}
+                          >
+                            Pobierz
+                          </MenuItem>
+                          <MenuItem
+                            icon={<MessageSquare size={14} aria-hidden="true" />}
+                            onClick={() => onToggleVersionComments(fileId, version.id)}
+                          >
+                            Komentarze
+                          </MenuItem>
+                        </MenuList>
+                      </Menu>
+                    </HStack>
+                  </HStack>
+                </Box>
+
+                <Box display={{ base: "block", md: "none" }} mt={2} onClick={(e) => e.stopPropagation()}>
+                  {isCommentsExpanded && (
+                    <VersionCommentsSection
+                      tenantId={tenantId}
+                      projectId={projectId}
+                      fileId={fileId}
+                      versionId={version.id}
+                      scope={scope}
+                      isExpanded={isCommentsExpanded}
+                      canEdit={canEdit}
+                      currentUserId={currentUserId}
+                      newComment={newComments.get(commentKey) || ""}
+                      onCommentChange={(val) => onCommentChange(commentKey, val)}
+                      onSubmitComment={() =>
+                        onSubmitComment(file.id, version.projectFileId ?? file.id, version.id)
+                      }
+                      isSubmitting={submittingComment === commentKey}
+                      highlightCommentId={highlightCommentId}
+                    />
+                  )}
+                </Box>
 
                 <HStack justify="space-between" mb={2} display={{ base: "none", md: "flex" }} flexWrap="wrap" gap={2}>
                   <HStack spacing={2} flexWrap="wrap">
@@ -672,7 +754,7 @@ const FileRow: React.FC<FileRowProps> = ({
                     </Text>
                   </HStack>
                   <HStack spacing={1}>
-                    {isPreviewSupported(version.contentType) && (
+                    {canPreviewVersion && (
                       <Tooltip label="Podgląd" hasArrow>
                         <IconButton
                           aria-label="Podgląd"
@@ -693,7 +775,14 @@ const FileRow: React.FC<FileRowProps> = ({
                   </HStack>
                 </HStack>
 
-                <HStack spacing={4} fontSize="xs" color="neutral.600" mb={2} flexWrap="wrap">
+                <HStack
+                  spacing={4}
+                  fontSize="xs"
+                  color="neutral.600"
+                  mb={2}
+                  flexWrap="wrap"
+                  display={{ base: "none", md: "flex" }}
+                >
                   <HStack spacing={1}>
                     <User size={12} aria-hidden="true" />
                     <Text>{version.createdByUserName}</Text>
@@ -704,14 +793,13 @@ const FileRow: React.FC<FileRowProps> = ({
                   </HStack>
                 </HStack>
 
-                <Box mt={3}>
+                <Box mt={3} display={{ base: "none", md: "block" }}>
                   <Button
                     size="sm"
                     variant="ghost"
                     leftIcon={<MessageSquare size={14} aria-hidden="true" />}
                     onClick={() => onToggleVersionComments(fileId, version.id)}
                     rightIcon={isCommentsExpanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
-                    minH={{ base: "44px", md: undefined }}
                   >
                     Komentarze
                   </Button>
