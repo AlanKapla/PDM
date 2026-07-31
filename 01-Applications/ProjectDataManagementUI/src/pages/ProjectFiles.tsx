@@ -30,8 +30,12 @@ import {
   Td,
   Textarea,
   Tooltip,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
 } from "@chakra-ui/react";
-import { FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus, FolderPlus, FolderOpen, Folder } from "lucide-react";
+import { FileText, Upload, Share2, Download, Eye, ChevronDown, ChevronUp, Clock, MessageSquare, Send, User, Plus, FolderPlus, FolderOpen, Folder, MoreVertical } from "lucide-react";
 import MainLayout from "../layout/MainLayout";
 import UploadFilesModal from "../components/UploadFilesModal";
 import UploadNewVersionModal from "../components/UploadNewVersionModal";
@@ -41,6 +45,7 @@ import CreateDirectoryModal from "../components/CreateDirectoryModal";
 import { AuthContext } from "../context/AuthContext";
 import { BackToProjectButton, LoadingSpinner, EmptyState } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { handleApiError } from "../utils/handleApiError";
 import { formatDate } from "../utils/formatters";
 import { projectApi, ResourceScope } from "../api/projectApi";
@@ -270,6 +275,7 @@ interface FileRowProps {
   expandedCommentKeys: Set<string>;
   resourcePerms: ResourcePermissions;
   currentUserId: string | undefined;
+  layout: "table" | "cards";
   onToggleVersions: (fileId: string) => void;
   onToggleVersionComments: (fileId: string, versionId: string) => void;
   onPreview: (sasUrlView: string) => void;
@@ -293,6 +299,7 @@ const FileRow: React.FC<FileRowProps> = ({
   expandedCommentKeys,
   resourcePerms,
   currentUserId,
+  layout,
   onToggleVersions,
   onToggleVersionComments,
   onPreview,
@@ -319,30 +326,293 @@ const FileRow: React.FC<FileRowProps> = ({
     (!isShared && resourcePerms.mine.canEdit) ||
     (isShared && resourcePerms.shared.canEdit);
 
+  const canPreview = Boolean(
+    file.currentVersion && isPreviewSupported(file.currentVersion.contentType)
+  );
+
+  const ownerLabel = file.originalOwnerUserName || file.ownerName;
+  const sizeLabel = file.currentVersion
+    ? formatFileSize(file.currentVersion.fileSizeBytes)
+    : undefined;
+  const metaLabel = [ownerLabel, sizeLabel].filter(Boolean).join(" · ");
+
+  const handleOpenLatest = () => {
+    if (canPreview) {
+      onPreview(file.currentVersion.sasUrlView);
+    }
+  };
+
+  const fileBadges = (
+    <>
+      {file.currentVersion?.versionNumber && (
+        <Badge colorScheme="level2" fontSize="xs">
+          v{file.currentVersion.versionNumber}
+        </Badge>
+      )}
+      {!isShared && file.sharedWithUserIds && file.sharedWithUserIds.length > 0 && (
+        <Badge colorScheme="orange" fontSize="xs" display="flex" alignItems="center" gap={1}>
+          <Share2 size={10} aria-hidden="true" />
+          {file.sharedWithUserIds.length}
+        </Badge>
+      )}
+    </>
+  );
+
+  const previewButton = canPreview ? (
+    <Tooltip label="Podgląd" hasArrow>
+      <IconButton
+        aria-label="Podgląd"
+        icon={<Eye size={16} aria-hidden="true" />}
+        size="sm"
+        variant="ghost"
+        colorScheme="gray"
+        onClick={(e) => {
+          e.stopPropagation();
+          onPreview(file.currentVersion.sasUrlView);
+        }}
+      />
+    </Tooltip>
+  ) : null;
+
+  const canDownload = Boolean(file.currentVersion);
+  const canShare = !isShared && resourcePerms.mine.canManageShare;
+  const canShowVersions = (file.totalVersions ?? 0) > 0;
+  const hasKebabActions = canDownload || canEdit || canShare || canShowVersions;
+
+  const actionsKebab = hasKebabActions ? (
+    <Menu>
+      <MenuButton
+        as={IconButton}
+        aria-label="Więcej akcji"
+        icon={<MoreVertical size={16} aria-hidden="true" />}
+        size="sm"
+        variant="ghost"
+        colorScheme="gray"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      />
+      <MenuList onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        {canDownload && (
+          <MenuItem
+            icon={<Download size={14} aria-hidden="true" />}
+            onClick={() => onDownload(fileId, file.currentVersion.sasUrlDownload)}
+          >
+            Pobierz
+          </MenuItem>
+        )}
+        {canEdit && (
+          <MenuItem
+            icon={<Plus size={14} aria-hidden="true" />}
+            onClick={() => onOpenUploadVersion(file)}
+          >
+            Nowa wersja
+          </MenuItem>
+        )}
+        {canShare && (
+          <MenuItem
+            icon={<Share2 size={14} aria-hidden="true" />}
+            onClick={() => onOpenManageShare(file)}
+          >
+            Udostępnij
+          </MenuItem>
+        )}
+        {canShowVersions && (
+          <MenuItem
+            icon={
+              isVersionsExpanded ? (
+                <ChevronUp size={14} aria-hidden="true" />
+              ) : (
+                <ChevronDown size={14} aria-hidden="true" />
+              )
+            }
+            onClick={() => onToggleVersions(fileId)}
+          >
+            Wersje ({file.totalVersions})
+          </MenuItem>
+        )}
+      </MenuList>
+    </Menu>
+  ) : null;
+
+  const versionsContent = (
+    <Box bg={expandedBg} p={4} borderRadius={layout === "cards" ? "md" : undefined}>
+      {versionsLoading ? (
+        <LoadingSpinner />
+      ) : (
+        <VStack align="stretch" spacing={3}>
+          <Heading size="sm" mb={2}>
+            Historia wersji ({file.totalVersions})
+          </Heading>
+          {(versions ?? []).map((version: any) => {
+            const commentKey = `${fileId}-${version.id}`;
+            const isCommentsExpanded = expandedCommentKeys.has(commentKey);
+            const isCurrent = version.id === file.currentVersion?.id;
+            return (
+              <Box
+                key={version.id}
+                borderWidth="1px"
+                borderRadius="md"
+                p={3}
+                bg="white"
+                borderColor={isCurrent ? "neutral.400" : "neutral.200"}
+              >
+                <HStack justify="space-between" mb={2}>
+                  <HStack spacing={2} flexWrap="wrap">
+                    <Badge
+                      bg={isCurrent ? "primary.50" : "neutral.50"}
+                      color={isCurrent ? "primary.600" : "neutral.500"}
+                      borderWidth="1px"
+                      borderColor={isCurrent ? "primary.200" : "neutral.200"}
+                    >
+                      Wersja {version.versionNumber}
+                      {isCurrent && " (Aktualna)"}
+                    </Badge>
+                    <Badge colorScheme="neutral" fontSize="xs">
+                      {version.contentType?.split("/")[1]?.toUpperCase() || "FILE"}
+                    </Badge>
+                    <Text fontSize="xs" color="neutral.600">
+                      {formatFileSize(version.fileSizeBytes)}
+                    </Text>
+                  </HStack>
+                  <HStack spacing={1}>
+                    {isPreviewSupported(version.contentType) && (
+                      <Tooltip label="Podgląd" hasArrow>
+                        <IconButton
+                          aria-label="Podgląd"
+                          icon={<Eye size={14} aria-hidden="true" />}
+                          size="xs"
+                          colorScheme="level2"
+                          onClick={() => onPreview(version.sasUrlView)}
+                        />
+                      </Tooltip>
+                    )}
+                    <Button
+                      size="xs"
+                      leftIcon={<Download size={14} aria-hidden="true" />}
+                      onClick={() => onDownload(fileId, version.sasUrlDownload)}
+                    >
+                      Pobierz
+                    </Button>
+                  </HStack>
+                </HStack>
+                <HStack spacing={4} fontSize="xs" color="neutral.600" mb={2}>
+                  <HStack spacing={1}>
+                    <User size={12} aria-hidden="true" />
+                    <Text>{version.createdByUserName}</Text>
+                  </HStack>
+                  <HStack spacing={1}>
+                    <Clock size={12} aria-hidden="true" />
+                    <Text>{formatDate(version.createdAt)}</Text>
+                  </HStack>
+                </HStack>
+
+                <Box mt={3}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    leftIcon={<MessageSquare size={14} aria-hidden="true" />}
+                    onClick={() => onToggleVersionComments(fileId, version.id)}
+                    rightIcon={
+                      isCommentsExpanded ? (
+                        <ChevronUp size={14} aria-hidden="true" />
+                      ) : (
+                        <ChevronDown size={14} aria-hidden="true" />
+                      )
+                    }
+                  >
+                    Komentarze
+                  </Button>
+
+                  <VersionCommentsSection
+                    tenantId={tenantId}
+                    projectId={projectId}
+                    fileId={fileId}
+                    versionId={version.id}
+                    scope={scope}
+                    isExpanded={isCommentsExpanded}
+                    canEdit={canEdit}
+                    currentUserId={currentUserId}
+                    newComment={newComments.get(commentKey) || ""}
+                    onCommentChange={(val) => onCommentChange(commentKey, val)}
+                    onSubmitComment={() =>
+                      onSubmitComment(file.id, version.projectFileId ?? file.id, version.id)
+                    }
+                    isSubmitting={submittingComment === commentKey}
+                  />
+                </Box>
+              </Box>
+            );
+          })}
+        </VStack>
+      )}
+    </Box>
+  );
+
+  if (layout === "cards") {
+    return (
+      <React.Fragment>
+        <Box
+          bg="white"
+          borderWidth="1px"
+          borderColor="neutral.200"
+          borderRadius="lg"
+          p={3}
+          cursor={canPreview ? "pointer" : "default"}
+          _hover={canPreview ? { bg: "neutral.50" } : undefined}
+          onClick={handleOpenLatest}
+          role={canPreview ? "button" : undefined}
+          tabIndex={canPreview ? 0 : undefined}
+          aria-label={canPreview ? `Podgląd pliku ${file.displayName}` : undefined}
+          onKeyDown={(e) => {
+            if (!canPreview) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleOpenLatest();
+            }
+          }}
+        >
+          <HStack justify="space-between" align="flex-start" spacing={2}>
+            <VStack align="flex-start" spacing={1} flex={1} minW={0}>
+              <HStack spacing={2} flexWrap="wrap" align="center">
+                <Text fontSize="sm" fontWeight="medium" noOfLines={2}>
+                  {file.displayName}
+                </Text>
+                {fileBadges}
+              </HStack>
+              {metaLabel && (
+                <Text fontSize="xs" color="neutral.600">
+                  {metaLabel}
+                </Text>
+              )}
+            </VStack>
+            <HStack spacing={0} flexShrink={0} onClick={(e) => e.stopPropagation()}>
+              {previewButton}
+              {actionsKebab}
+            </HStack>
+          </HStack>
+        </Box>
+        {isVersionsExpanded && versionsContent}
+      </React.Fragment>
+    );
+  }
+
   return (
     <React.Fragment>
       <Tr>
         <Td>
           <HStack spacing={2}>
-            <Text fontSize="sm" fontWeight="medium">{file.displayName}</Text>
-            {file.currentVersion?.versionNumber && (
-              <Badge colorScheme="level2" fontSize="xs">v{file.currentVersion.versionNumber}</Badge>
-            )}
-            {!isShared && file.sharedWithUserIds && file.sharedWithUserIds.length > 0 && (
-              <Badge colorScheme="orange" fontSize="xs" display="flex" alignItems="center" gap={1}>
-                <Share2 size={10} />
-                {file.sharedWithUserIds.length}
-              </Badge>
-            )}
+            <Text fontSize="sm" fontWeight="medium">
+              {file.displayName}
+            </Text>
+            {fileBadges}
           </HStack>
         </Td>
         {showOwner && (
           <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
-            {file.originalOwnerUserName || file.ownerName || "-"}
+            {ownerLabel || "-"}
           </Td>
         )}
         <Td display={{ base: "none", md: "table-cell" }} fontSize="sm">
-          {file.currentVersion ? formatFileSize(file.currentVersion.fileSizeBytes) : "-"}
+          {sizeLabel || "-"}
         </Td>
         <Td>
           <HStack spacing={1} flexWrap="wrap">
@@ -350,7 +620,7 @@ const FileRow: React.FC<FileRowProps> = ({
               <Tooltip label="Podgląd" hasArrow>
                 <IconButton
                   aria-label="Podgląd"
-                  icon={<Eye size={16} />}
+                  icon={<Eye size={16} aria-hidden="true" />}
                   size="sm"
                   variant="ghost"
                   colorScheme="gray"
@@ -362,7 +632,7 @@ const FileRow: React.FC<FileRowProps> = ({
               <Tooltip label="Pobierz plik" hasArrow>
                 <IconButton
                   aria-label="Pobierz"
-                  icon={<Download size={16} />}
+                  icon={<Download size={16} aria-hidden="true" />}
                   size="sm"
                   variant="ghost"
                   colorScheme="gray"
@@ -374,7 +644,7 @@ const FileRow: React.FC<FileRowProps> = ({
               <Tooltip label="Dodaj nową wersję" hasArrow>
                 <IconButton
                   aria-label="Nowa wersja"
-                  icon={<Plus size={16} />}
+                  icon={<Plus size={16} aria-hidden="true" />}
                   size="sm"
                   variant="ghost"
                   colorScheme="gray"
@@ -386,7 +656,7 @@ const FileRow: React.FC<FileRowProps> = ({
               <Tooltip label="Udostępnij" hasArrow>
                 <IconButton
                   aria-label="Udostępnij"
-                  icon={<Share2 size={16} />}
+                  icon={<Share2 size={16} aria-hidden="true" />}
                   size="sm"
                   variant="ghost"
                   colorScheme="gray"
@@ -394,12 +664,18 @@ const FileRow: React.FC<FileRowProps> = ({
                 />
               </Tooltip>
             )}
-            {file.totalVersions && file.totalVersions > 0 && (
+            {file.totalVersions > 0 && (
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => onToggleVersions(fileId)}
-                rightIcon={isVersionsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                rightIcon={
+                  isVersionsExpanded ? (
+                    <ChevronUp size={16} aria-hidden="true" />
+                  ) : (
+                    <ChevronDown size={16} aria-hidden="true" />
+                  )
+                }
                 isLoading={isVersionsExpanded && versionsLoading}
               >
                 Wersje ({file.totalVersions})
@@ -412,112 +688,7 @@ const FileRow: React.FC<FileRowProps> = ({
       {isVersionsExpanded && (
         <Tr key={`${fileId}-versions`}>
           <Td colSpan={showOwner ? 4 : 3} p={0}>
-            <Box bg={expandedBg} p={4}>
-              {versionsLoading ? (
-                <LoadingSpinner />
-              ) : (
-                <VStack align="stretch" spacing={3}>
-                  <Heading size="sm" mb={2}>
-                    Historia wersji ({file.totalVersions})
-                  </Heading>
-                  {(versions ?? []).map((version: any) => {
-                    const commentKey = `${fileId}-${version.id}`;
-                    const isCommentsExpanded = expandedCommentKeys.has(commentKey);
-                    const isCurrent = version.id === file.currentVersion?.id;
-                    return (
-                      <Box
-                        key={version.id}
-                        borderWidth="1px"
-                        borderRadius="md"
-                        p={3}
-                        bg="white"
-                        borderColor={isCurrent ? "neutral.400" : "neutral.200"}
-                      >
-                        <HStack justify="space-between" mb={2}>
-                          <HStack spacing={2} flexWrap="wrap">
-                            <Badge
-                              bg={isCurrent ? "primary.50" : "neutral.50"}
-                              color={isCurrent ? "primary.600" : "neutral.500"}
-                              borderWidth="1px"
-                              borderColor={isCurrent ? "primary.200" : "neutral.200"}
-                            >
-                              Wersja {version.versionNumber}
-                              {isCurrent && " (Aktualna)"}
-                            </Badge>
-                            <Badge colorScheme="neutral" fontSize="xs">
-                              {version.contentType?.split("/")[1]?.toUpperCase() || "FILE"}
-                            </Badge>
-                            <Text fontSize="xs" color="neutral.600">
-                              {formatFileSize(version.fileSizeBytes)}
-                            </Text>
-                          </HStack>
-                          <HStack spacing={1}>
-                            {isPreviewSupported(version.contentType) && (
-                              <Tooltip label="Podgląd" hasArrow>
-                                <IconButton
-                                  aria-label="Podgląd"
-                                  icon={<Eye size={14} />}
-                                  size="xs"
-                                  colorScheme="level2"
-                                  onClick={() => onPreview(version.sasUrlView)}
-                                />
-                              </Tooltip>
-                            )}
-                            <Button
-                              size="xs"
-                              leftIcon={<Download size={14} />}
-                              onClick={() => onDownload(fileId, version.sasUrlDownload)}
-                            >
-                              Pobierz
-                            </Button>
-                          </HStack>
-                        </HStack>
-                        <HStack spacing={4} fontSize="xs" color="neutral.600" mb={2}>
-                          <HStack spacing={1}>
-                            <User size={12} />
-                            <Text>{version.createdByUserName}</Text>
-                          </HStack>
-                          <HStack spacing={1}>
-                            <Clock size={12} />
-                            <Text>{formatDate(version.createdAt)}</Text>
-                          </HStack>
-                        </HStack>
-
-                        {/* Komentarze */}
-                        <Box mt={3}>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            leftIcon={<MessageSquare size={14} />}
-                            onClick={() => onToggleVersionComments(fileId, version.id)}
-                            rightIcon={isCommentsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                          >
-                            Komentarze
-                          </Button>
-
-                          <VersionCommentsSection
-                            tenantId={tenantId}
-                            projectId={projectId}
-                            fileId={fileId}
-                            versionId={version.id}
-                            scope={scope}
-                            isExpanded={isCommentsExpanded}
-                            canEdit={canEdit}
-                            currentUserId={currentUserId}
-                            newComment={newComments.get(commentKey) || ""}
-                            onCommentChange={(val) => onCommentChange(commentKey, val)}
-                            onSubmitComment={() =>
-                              onSubmitComment(file.id, version.projectFileId ?? file.id, version.id)
-                            }
-                            isSubmitting={submittingComment === commentKey}
-                          />
-                        </Box>
-                      </Box>
-                    );
-                  })}
-                </VStack>
-              )}
-            </Box>
+            {versionsContent}
           </Td>
         </Tr>
       )}
@@ -537,6 +708,7 @@ interface PackageFilesProps {
   isExpanded: boolean;
   isShared: boolean;
   showOwner: boolean;
+  layout: "table" | "cards";
   expandedVersionFileIds: Set<string>;
   expandedCommentKeys: Set<string>;
   resourcePerms: ResourcePermissions;
@@ -561,6 +733,7 @@ const PackageFiles: React.FC<PackageFilesProps> = ({
   isExpanded,
   isShared,
   showOwner,
+  layout,
   expandedVersionFileIds,
   expandedCommentKeys,
   resourcePerms,
@@ -586,6 +759,13 @@ const PackageFiles: React.FC<PackageFilesProps> = ({
 
   if (!isExpanded) return null;
   if (isLoading) {
+    if (layout === "cards") {
+      return (
+        <Box py={4} textAlign="center">
+          <LoadingSpinner />
+        </Box>
+      );
+    }
     return (
       <Tr>
         <Td colSpan={showOwner ? 4 : 3} textAlign="center" py={4}>
@@ -595,35 +775,42 @@ const PackageFiles: React.FC<PackageFilesProps> = ({
     );
   }
 
-  return (
-    <>
-      {(files ?? []).map((file: any) => (
-        <FileRow
-          key={file.id}
-          file={file}
-          tenantId={tenantId}
-          projectId={projectId}
-          scope={scope}
-          isShared={isShared}
-          showOwner={showOwner}
-          isVersionsExpanded={expandedVersionFileIds.has(file.id)}
-          expandedCommentKeys={expandedCommentKeys}
-          resourcePerms={resourcePerms}
-          currentUserId={currentUserId}
-          onToggleVersions={onToggleVersions}
-          onToggleVersionComments={onToggleVersionComments}
-          onPreview={onPreview}
-          onDownload={onDownload}
-          onOpenUploadVersion={onOpenUploadVersion}
-          onOpenManageShare={onOpenManageShare}
-          newComments={newComments}
-          onCommentChange={onCommentChange}
-          onSubmitComment={onSubmitComment}
-          submittingComment={submittingComment}
-        />
-      ))}
-    </>
-  );
+  const fileRows = (files ?? []).map((file: any) => (
+    <FileRow
+      key={file.id}
+      file={file}
+      tenantId={tenantId}
+      projectId={projectId}
+      scope={scope}
+      isShared={isShared}
+      showOwner={showOwner}
+      layout={layout}
+      isVersionsExpanded={expandedVersionFileIds.has(file.id)}
+      expandedCommentKeys={expandedCommentKeys}
+      resourcePerms={resourcePerms}
+      currentUserId={currentUserId}
+      onToggleVersions={onToggleVersions}
+      onToggleVersionComments={onToggleVersionComments}
+      onPreview={onPreview}
+      onDownload={onDownload}
+      onOpenUploadVersion={onOpenUploadVersion}
+      onOpenManageShare={onOpenManageShare}
+      newComments={newComments}
+      onCommentChange={onCommentChange}
+      onSubmitComment={onSubmitComment}
+      submittingComment={submittingComment}
+    />
+  ));
+
+  if (layout === "cards") {
+    return (
+      <VStack align="stretch" spacing={2}>
+        {fileRows}
+      </VStack>
+    );
+  }
+
+  return <>{fileRows}</>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -691,6 +878,33 @@ const DirectoryNode: React.FC<DirectoryNodeProps> = ({
   onUploadFiles,
 }) => {
   const isExpanded = expandedPackageIds.has(catalog.id);
+  const isMobile = useIsMobile();
+  const filesLayout = isMobile ? "cards" : "table";
+
+  const packageFilesProps = {
+    tenantId,
+    projectId,
+    packageId: catalog.id,
+    scope: resourceScope,
+    isExpanded,
+    isShared: config.isShared,
+    showOwner: config.showOwner,
+    layout: filesLayout as "table" | "cards",
+    expandedVersionFileIds,
+    expandedCommentKeys,
+    resourcePerms,
+    currentUserId,
+    onToggleVersions,
+    onToggleVersionComments,
+    onPreview,
+    onDownload,
+    onOpenUploadVersion,
+    onOpenManageShare,
+    newComments,
+    onCommentChange,
+    onSubmitComment,
+    submittingComment,
+  };
 
   return (
     <Box ml={depth > 0 ? depth * 6 : 0} mb={2}>
@@ -777,45 +991,27 @@ const DirectoryNode: React.FC<DirectoryNodeProps> = ({
                 ))}
               </Box>
             )}
-            <Box overflowX="auto">
-              <Table size="sm" variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th>Nazwa pliku</Th>
-                    {config.showOwner && (
-                      <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
-                    )}
-                    <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
-                    <Th>Akcje</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  <PackageFiles
-                    tenantId={tenantId}
-                    projectId={projectId}
-                    packageId={catalog.id}
-                    scope={resourceScope}
-                    isExpanded={isExpanded}
-                    isShared={config.isShared}
-                    showOwner={config.showOwner}
-                    expandedVersionFileIds={expandedVersionFileIds}
-                    expandedCommentKeys={expandedCommentKeys}
-                    resourcePerms={resourcePerms}
-                    currentUserId={currentUserId}
-                    onToggleVersions={onToggleVersions}
-                    onToggleVersionComments={onToggleVersionComments}
-                    onPreview={onPreview}
-                    onDownload={onDownload}
-                    onOpenUploadVersion={onOpenUploadVersion}
-                    onOpenManageShare={onOpenManageShare}
-                    newComments={newComments}
-                    onCommentChange={onCommentChange}
-                    onSubmitComment={onSubmitComment}
-                    submittingComment={submittingComment}
-                  />
-                </Tbody>
-              </Table>
-            </Box>
+            {isMobile ? (
+              <PackageFiles {...packageFilesProps} />
+            ) : (
+              <Box overflowX="auto">
+                <Table size="sm" variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>Nazwa pliku</Th>
+                      {config.showOwner && (
+                        <Th display={{ base: "none", md: "table-cell" }}>Właściciel</Th>
+                      )}
+                      <Th display={{ base: "none", md: "table-cell" }}>Rozmiar</Th>
+                      <Th>Akcje</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    <PackageFiles {...packageFilesProps} />
+                  </Tbody>
+                </Table>
+              </Box>
+            )}
           </AccordionPanel>
         </AccordionItem>
       </Accordion>
