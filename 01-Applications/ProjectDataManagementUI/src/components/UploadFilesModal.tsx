@@ -1,12 +1,5 @@
 ﻿import { useState, useEffect } from "react";
 import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
   Button,
   VStack,
   FormControl,
@@ -24,10 +17,9 @@ import {
   RadioGroup,
   Stack,
   Spinner,
-  useBreakpointValue
 } from "@chakra-ui/react";
 import { X, Upload, FileText } from "lucide-react";
-import { handleApiError } from "../utils/handleApiError";
+import AppModal from "./ui/AppModal";
 import { flattenCatalogsForSelect } from "../utils/flattenCatalogsForSelect";
 import { projectApi, ResourceScope } from "../api/projectApi";
 import { useToastNotification } from "../hooks/useToastNotification";
@@ -52,9 +44,6 @@ interface FileWithDisplayName {
   comment: string;
 }
 
-const modalSize = "full";
-const modalScroll = "inside";
-
 export default function UploadFilesModal({
   isOpen,
   onClose,
@@ -74,7 +63,7 @@ export default function UploadFilesModal({
   const [uploading, setUploading] = useState(false);
   const [packageNameError, setPackageNameError] = useState("");
   const [parentDirectoryId, setParentDirectoryId] = useState<string>("");
-  const {showSuccess, showError, showApiError } = useToastNotification();
+  const { showSuccess, showError, showApiError } = useToastNotification();
 
   useEffect(() => {
     if (isOpen) {
@@ -96,7 +85,7 @@ export default function UploadFilesModal({
       const response = await projectApi.getProjectFilePackages(tenantId, projectId, ResourceScope.Mine);
       const data: ProjectFilePackageWeb[] = response.data;
       setPackages(data);
-    } catch (error) {
+    } catch {
       showError("Błąd", "Nie udało się pobrać listy katalogów");
     } finally {
       setLoadingPackages(false);
@@ -125,13 +114,12 @@ export default function UploadFilesModal({
         continue;
       }
 
-      // Domyślna nazwa wyświetlana to nazwa pliku bez rozszerzenia
-      const displayName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-      validatedFiles.push({ file, displayName, comment: '' });
+      const displayName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
+      validatedFiles.push({ file, displayName, comment: "" });
     }
 
     setFiles([...files, ...validatedFiles]);
-    event.target.value = ''; // Reset input
+    event.target.value = "";
   };
 
   const handleRemoveFile = (index: number) => {
@@ -158,13 +146,13 @@ export default function UploadFilesModal({
       }
       setUploading(true);
       try {
-        const filesToUpload = files.map(f => ({
+        const filesToUpload = files.map((f) => ({
           file: f.file,
           displayName: f.displayName.trim() || undefined,
           comment: f.comment.trim() || undefined,
         }));
         await projectApi.addFilesToPackage(tenantId, projectId, targetCatalogId!, filesToUpload);
-        showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? 'plik' : 'plików'}`);
+        showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? "plik" : "plików"}`);
         setFiles([]);
         onFilesUploaded();
         onClose();
@@ -176,16 +164,14 @@ export default function UploadFilesModal({
       return;
     }
 
-    // Tryb picker — walidacja
     if (mode === "new" && !packageName.trim()) {
       setPackageNameError("Nazwa katalogu jest wymagana");
       return;
     }
 
-    // Sprawdź czy katalog o tej nazwie już istnieje
     if (mode === "new") {
       const trimmedName = packageName.trim().toLowerCase();
-      const duplicate = packages.find(p => p.name.toLowerCase() === trimmedName);
+      const duplicate = packages.find((p) => p.name.toLowerCase() === trimmedName);
       if (duplicate) {
         setPackageNameError("Katalog o tej nazwie już istnieje. Wybierz inną nazwę lub dodaj pliki do istniejącego katalogu.");
         return;
@@ -206,7 +192,7 @@ export default function UploadFilesModal({
     setPackageNameError("");
 
     try {
-      const filesToUpload = files.map(f => ({
+      const filesToUpload = files.map((f) => ({
         file: f.file,
         displayName: f.displayName.trim() || undefined,
         comment: f.comment.trim() || undefined,
@@ -229,9 +215,8 @@ export default function UploadFilesModal({
         );
       }
 
-      showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? 'plik' : 'plików'}`);
+      showSuccess("Sukces", `Przesłano ${files.length} ${files.length === 1 ? "plik" : "plików"}`);
 
-      // Reset i zamknij
       setMode("new");
       setPackageName("");
       setSelectedPackageId("");
@@ -259,227 +244,208 @@ export default function UploadFilesModal({
   };
 
   return (
-      <Modal
-        isOpen={isOpen}
-        onClose={handleClose}
-        size={modalSize}
-        scrollBehavior={modalScroll}
-        isCentered
-      >
-      <ModalOverlay />
-      <ModalContent maxW={{ base: "100%", md: "600px" }} mx={{ base: 0, md: "auto" }}>
-        <ModalHeader fontSize={{ base: "lg", md: "xl" }}>
-          {isDirect ? "Dodaj pliki do katalogu" : "Dodaj pliki do projektu"}
-        </ModalHeader>
-        <ModalCloseButton isDisabled={uploading} />
-        <ModalBody>
-          <VStack spacing={4} align="stretch">
-            <Text fontSize="sm" color="neutral.600">
-              Projekt: <Text as="span" fontWeight="bold">{projectName}</Text>
-            </Text>
+    <AppModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={isDirect ? "Dodaj pliki do katalogu" : "Dodaj pliki do projektu"}
+      actionLabel={files.length > 0 ? `Prześlij (${files.length})` : "Prześlij"}
+      actionColorScheme="primary"
+      onAction={handleUpload}
+      isActionLoading={uploading}
+      isActionDisabled={files.length === 0}
+      desktopSize="lg"
+    >
+      <VStack spacing={4} align="stretch">
+        <Text fontSize="sm" color="neutral.600">
+          Projekt: <Text as="span" fontWeight="bold">{projectName}</Text>
+        </Text>
 
-            {!isDirect && (
-              <>
-                <FormControl>
-                  <FormLabel>Tryb dodawania</FormLabel>
-                  <RadioGroup value={mode} onChange={(value) => setMode(value as "new" | "existing")}>
-                    <Stack direction="row" spacing={4}>
-                      <Radio value="new" isDisabled={uploading}>
-                        Nowy katalog
-                      </Radio>
-                      <Radio value="existing" isDisabled={uploading}>
-                        Istniejący katalog
-                      </Radio>
-                    </Stack>
-                  </RadioGroup>
-                </FormControl>
-
-                {mode === "new" ? (
-                  <>
-                    <FormControl isRequired isInvalid={!!packageNameError}>
-                      <FormLabel>Nazwa katalogu</FormLabel>
-                      <Input
-                        value={packageName}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setPackageName(value);
-                          if (value.trim() && packages.some(p => p.name.toLowerCase() === value.trim().toLowerCase())) {
-                            setPackageNameError("Katalog o tej nazwie już istnieje");
-                          } else {
-                            setPackageNameError("");
-                          }
-                        }}
-                        placeholder="np. Dokumentacja, Zdjęcia, Rysunki"
-                        isDisabled={uploading}
-                      />
-                      <FormErrorMessage>{packageNameError}</FormErrorMessage>
-                      <Text fontSize="xs" color="neutral.500" mt={1}>
-                        Pliki zostaną zapisane w nowym katalogu
-                      </Text>
-                    </FormControl>
-
-                    <FormControl>
-                      <FormLabel>Katalog nadrzędny (opcjonalnie)</FormLabel>
-                      <Select
-                        value={parentDirectoryId}
-                        onChange={(e) => setParentDirectoryId(e.target.value)}
-                        placeholder="Brak — utwórz jako katalog główny"
-                        isDisabled={uploading}
-                      >
-                        {flattenCatalogsForSelect(packages).map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </Select>
-                      <Text fontSize="xs" color="neutral.500" mt={1}>
-                        Jeśli nie wybierzesz, katalog zostanie dodany jako główny
-                      </Text>
-                    </FormControl>
-                  </>
-                ) : (
-                  <FormControl isRequired>
-                    <FormLabel>Wybierz katalog</FormLabel>
-                    {loadingPackages ? (
-                      <HStack justify="center" py={2}>
-                        <Spinner size="sm" />
-                        <Text fontSize="sm">Ładowanie katalogów...</Text>
-                      </HStack>
-                    ) : packages.length === 0 ? (
-                      <Text fontSize="sm" color="neutral.500">
-                        Nie masz jeszcze żadnych katalogów. Przełącz się na "Nowy katalog".
-                      </Text>
-                    ) : (
-                      <>
-                        <Select
-                          value={selectedPackageId}
-                          onChange={(e) => setSelectedPackageId(e.target.value)}
-                          placeholder="Wybierz katalog"
-                          isDisabled={uploading}
-                        >
-                          {flattenCatalogsForSelect(packages).map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.label}
-                            </option>
-                          ))}
-                        </Select>
-                        <Text fontSize="xs" color="neutral.500" mt={1}>
-                          Pliki zostaną dodane do wybranego katalogu
-                        </Text>
-                      </>
-                    )}
-                  </FormControl>
-                )}
-              </>
-            )}
-
+        {!isDirect && (
+          <>
             <FormControl>
-              <FormLabel>Pliki (PDF, JPG, JPEG, max 10MB)</FormLabel>
-              <Button
-                leftIcon={<Upload size={18} />}
-                onClick={() => document.getElementById('file-input')?.click()}
-                isDisabled={uploading}
-                width="100%"
-                variant="outline"
-              >
-                Wybierz pliki
-              </Button>
-              <Input
-                id="file-input"
-                type="file"
-                multiple
-                accept=".pdf,.jpg,.jpeg,image/jpeg,image/jpg,application/pdf"
-                onChange={handleFileSelect}
-                display="none"
-              />
+              <FormLabel>Tryb dodawania</FormLabel>
+              <RadioGroup value={mode} onChange={(value) => setMode(value as "new" | "existing")}>
+                <Stack direction={{ base: "column", sm: "row" }} spacing={4}>
+                  <Radio value="new" isDisabled={uploading}>
+                    Nowy katalog
+                  </Radio>
+                  <Radio value="existing" isDisabled={uploading}>
+                    Istniejący katalog
+                  </Radio>
+                </Stack>
+              </RadioGroup>
             </FormControl>
 
-            {files.length > 0 && (
-              <Box>
-                <Text fontSize="sm" fontWeight="medium" mb={2}>
-                  Wybrane pliki ({files.length}):
-                </Text>
-                <List spacing={2}>
-                  {files.map((item, index) => (
-                    <ListItem key={index}>
-                      <Box
-                        p={3}
-                        borderWidth="1px"
-                        borderRadius="md"
-                        bg="neutral.25"
-                      >
-                        <VStack align="stretch" spacing={2}>
-                          <HStack justify="space-between">
-                            <HStack flex={1}>
-                              <FileText size={18} />
-                              <VStack align="flex-start" spacing={0} flex={1}>
-                                <Text fontSize="sm" fontWeight="medium" noOfLines={1}>
-                                  {item.file.name}
-                                </Text>
-                                <Text fontSize="xs" color="neutral.500">
-                                  {formatFileSize(item.file.size)}
-                                </Text>
-                              </VStack>
-                            </HStack>
-                            <IconButton
-                              aria-label="Usuń plik"
-                              icon={<X size={16} />}
-                              size="sm"
-                              colorScheme="red"
-                              variant="ghost"
-                              onClick={() => handleRemoveFile(index)}
-                              isDisabled={uploading}
-                            />
-                          </HStack>
-                          <FormControl size="sm">
-                            <FormLabel fontSize="xs">Nazwa wyświetlana (opcjonalna)</FormLabel>
-                            <Input
-                              size="sm"
-                              value={item.displayName}
-                              onChange={(e) => handleDisplayNameChange(index, e.target.value)}
-                              placeholder="Domyślnie: nazwa pliku"
-                              isDisabled={uploading}
-                            />
-                          </FormControl>
-                          <FormControl size="sm">
-                            <FormLabel fontSize="xs">Komentarz (opcjonalny)</FormLabel>
-                            <Input
-                              size="sm"
-                              value={item.comment}
-                              onChange={(e) => handleCommentChange(index, e.target.value)}
-                              placeholder="Dodaj komentarz do pliku"
-                              isDisabled={uploading}
-                            />
-                          </FormControl>
-                        </VStack>
-                      </Box>
-                    </ListItem>
-                  ))}
-                </List>
-              </Box>
+            {mode === "new" ? (
+              <>
+                <FormControl isRequired isInvalid={!!packageNameError}>
+                  <FormLabel>Nazwa katalogu</FormLabel>
+                  <Input
+                    value={packageName}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setPackageName(value);
+                      if (value.trim() && packages.some((p) => p.name.toLowerCase() === value.trim().toLowerCase())) {
+                        setPackageNameError("Katalog o tej nazwie już istnieje");
+                      } else {
+                        setPackageNameError("");
+                      }
+                    }}
+                    placeholder="np. Dokumentacja, Zdjęcia, Rysunki"
+                    isDisabled={uploading}
+                  />
+                  <FormErrorMessage>{packageNameError}</FormErrorMessage>
+                  <Text fontSize="xs" color="neutral.600" mt={1}>
+                    Pliki zostaną zapisane w nowym katalogu
+                  </Text>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Katalog nadrzędny (opcjonalnie)</FormLabel>
+                  <Select
+                    value={parentDirectoryId}
+                    onChange={(e) => setParentDirectoryId(e.target.value)}
+                    placeholder="Brak — utwórz jako katalog główny"
+                    isDisabled={uploading}
+                  >
+                    {flattenCatalogsForSelect(packages).map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Text fontSize="xs" color="neutral.600" mt={1}>
+                    Jeśli nie wybierzesz, katalog zostanie dodany jako główny
+                  </Text>
+                </FormControl>
+              </>
+            ) : (
+              <FormControl isRequired>
+                <FormLabel>Wybierz katalog</FormLabel>
+                {loadingPackages ? (
+                  <HStack justify="center" py={2}>
+                    <Spinner size="sm" />
+                    <Text fontSize="sm">Ładowanie katalogów...</Text>
+                  </HStack>
+                ) : packages.length === 0 ? (
+                  <Text fontSize="sm" color="neutral.600">
+                    Nie masz jeszcze żadnych katalogów. Przełącz się na &quot;Nowy katalog&quot;.
+                  </Text>
+                ) : (
+                  <>
+                    <Select
+                      value={selectedPackageId}
+                      onChange={(e) => setSelectedPackageId(e.target.value)}
+                      placeholder="Wybierz katalog"
+                      isDisabled={uploading}
+                    >
+                      {flattenCatalogsForSelect(packages).map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </Select>
+                    <Text fontSize="xs" color="neutral.600" mt={1}>
+                      Pliki zostaną dodane do wybranego katalogu
+                    </Text>
+                  </>
+                )}
+              </FormControl>
             )}
-          </VStack>
-        </ModalBody>
-        <ModalFooter>
+          </>
+        )}
+
+        <FormControl>
+          <FormLabel>Pliki (PDF, JPG, JPEG, max 10MB)</FormLabel>
           <Button
-            variant="ghost"
-            mr={3}
-            onClick={handleClose}
+            leftIcon={<Upload size={18} aria-hidden="true" />}
+            onClick={() => document.getElementById("file-input")?.click()}
             isDisabled={uploading}
+            width="100%"
+            variant="outline"
+            minH="44px"
           >
-            Anuluj
+            Wybierz pliki
           </Button>
-          <Button
-            colorScheme="primary"
-            onClick={handleUpload}
-            isLoading={uploading}
-            loadingText="Przesyłanie..."
-            isDisabled={files.length === 0}
-          >
-            Prześlij {files.length > 0 && `(${files.length})`}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+          <Input
+            id="file-input"
+            type="file"
+            multiple
+            accept=".pdf,.jpg,.jpeg,image/jpeg,image/jpg,application/pdf"
+            onChange={handleFileSelect}
+            display="none"
+          />
+        </FormControl>
+
+        {files.length > 0 && (
+          <Box>
+            <Text fontSize="sm" fontWeight="medium" mb={2}>
+              Wybrane pliki ({files.length}):
+            </Text>
+            <List spacing={2}>
+              {files.map((item, index) => (
+                <ListItem key={`${item.file.name}-${index}`}>
+                  <Box
+                    p={3}
+                    borderWidth="1px"
+                    borderRadius="md"
+                    bg="neutral.25"
+                  >
+                    <VStack align="stretch" spacing={2}>
+                      <HStack justify="space-between" align="flex-start">
+                        <HStack flex={1} minW={0} align="flex-start">
+                          <Box flexShrink={0} pt={0.5}>
+                            <FileText size={18} aria-hidden="true" />
+                          </Box>
+                          <VStack align="flex-start" spacing={0} flex={1} minW={0}>
+                            <Text fontSize="sm" fontWeight="medium" noOfLines={2} wordBreak="break-word">
+                              {item.file.name}
+                            </Text>
+                            <Text fontSize="xs" color="neutral.600">
+                              {formatFileSize(item.file.size)}
+                            </Text>
+                          </VStack>
+                        </HStack>
+                        <IconButton
+                          aria-label="Usuń plik"
+                          icon={<X size={16} aria-hidden="true" />}
+                          size="sm"
+                          colorScheme="red"
+                          variant="ghost"
+                          minH="44px"
+                          minW="44px"
+                          onClick={() => handleRemoveFile(index)}
+                          isDisabled={uploading}
+                        />
+                      </HStack>
+                      <FormControl>
+                        <FormLabel fontSize="xs">Nazwa wyświetlana (opcjonalna)</FormLabel>
+                        <Input
+                          size="sm"
+                          value={item.displayName}
+                          onChange={(e) => handleDisplayNameChange(index, e.target.value)}
+                          placeholder="Domyślnie: nazwa pliku"
+                          isDisabled={uploading}
+                        />
+                      </FormControl>
+                      <FormControl>
+                        <FormLabel fontSize="xs">Komentarz (opcjonalny)</FormLabel>
+                        <Input
+                          size="sm"
+                          value={item.comment}
+                          onChange={(e) => handleCommentChange(index, e.target.value)}
+                          placeholder="Dodaj komentarz do pliku"
+                          isDisabled={uploading}
+                        />
+                      </FormControl>
+                    </VStack>
+                  </Box>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
+      </VStack>
+    </AppModal>
   );
 }

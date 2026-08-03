@@ -1,7 +1,7 @@
 import * as signalR from "@microsoft/signalr";
 import type { NotificationPayloadDto, NotificationMarkAsReadDto } from "../types/notification.types";
-import { msalInstance } from "../main";
-import { silentRequest } from "../config/authConfig";
+import { msalInstance } from "../auth/msalInstance";
+import { nativeSilentRequest } from "../config/authConfig";
 import { parseApiDateTime } from "../utils/dateTimeUtils";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -59,7 +59,7 @@ class NotificationHubService {
           
           try {
             const response = await msalInstance.acquireTokenSilent({
-              ...silentRequest,
+              ...nativeSilentRequest,
               account: account,
             });
             return response.accessToken;

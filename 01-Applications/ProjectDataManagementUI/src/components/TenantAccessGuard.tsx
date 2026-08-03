@@ -44,10 +44,15 @@ import { hasActiveTenant } from "../utils/tenantUtils";
 type AccessScreen = "loading" | "checking" | "allowed" | "invitations" | "no-access" | "error";
 
 /** Trasy dostępne bez aktywnej organizacji (np. profil, zaproszenia). */
-const TENANT_OPTIONAL_ROUTES = ["/profile", "/tenants/invitations", "/tenants/collaborating", "/invitations/accept"] as const;
+const TENANT_OPTIONAL_ROUTES = ["/profile", "/admin", "/tenants/invitations", "/tenants/collaborating", "/invitations/accept"] as const;
+
+/** Po tylu ms „Sprawdzanie dostępu…” → ekran błędu (mobile hang po powrocie z tła). */
+const ACCESS_CHECK_STUCK_MS = 12_000;
 
 function isTenantOptionalRoute(pathname: string): boolean {
-  return TENANT_OPTIONAL_ROUTES.includes(pathname as (typeof TENANT_OPTIONAL_ROUTES)[number]);
+  return TENANT_OPTIONAL_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -451,6 +456,21 @@ export default function TenantAccessGuard({ children }: { children: ReactNode })
     // Zależy tylko od id i activeTenantId — nie od referencji refreshUser
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.activeTenantId, checkRetryKey]);
+
+  // Escape hatch: Promise.all(tenants/invitations) może wisieć gdy axios/MSAL hang.
+  useEffect(() => {
+    if (screen !== "loading" && screen !== "checking") {
+      return;
+    }
+
+    const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      setScreen("error");
+    }, ACCESS_CHECK_STUCK_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [screen, checkRetryKey]);
 
   if (isOptionalRoute) {
     return <>{children}</>;

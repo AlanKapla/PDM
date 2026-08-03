@@ -61,9 +61,9 @@ export default function CookieBanner() {
                 Ta strona używa plików cookies
               </Text>
               <Text fontSize="sm" color="neutral.600">
-                Używamy plików cookies do zapewnienia prawidłowego działania aplikacji,
-                uwierzytelniania użytkowników oraz analizy ruchu. Kontynuując korzystanie
-                ze strony, wyrażasz zgodę na ich użycie.
+                Używamy plików cookie i pamięci lokalnej wyłącznie do logowania (Microsoft Entra),
+                zapisu preferencji sesji oraz prawidłowego działania aplikacji. Nie stosujemy
+                narzędzi analitycznych ani marketingowych.
               </Text>
             </VStack>
           </HStack>

@@ -34,6 +34,7 @@ import MainLayout from "../layout/MainLayout";
 import { useMyWorks } from "../hooks/useMyWorks";
 import { flattenWorks } from "../utils/myWorksTree";
 import type { FlatWork } from "../utils/myWorksTree";
+import { detectSameDayWorkConflicts } from "../utils/detectSameDayWorkConflicts";
 import type {
   UserAssignedWorkWeb,
   WorkScheduleStageWorkPeriodWeb,
@@ -288,6 +289,11 @@ export default function AssignedWorks() {
 
   const flatWorks = useMemo(() => flattenWorks(data), [data]);
 
+  const sameDayConflicts = useMemo(
+    () => detectSameDayWorkConflicts(flatWorks),
+    [flatWorks]
+  );
+
   const findWork = useCallback((workId: string): FlatWork | undefined =>
     flatWorks.find(w => w.workId === workId),
   [flatWorks]);
@@ -478,6 +484,32 @@ export default function AssignedWorks() {
             </Button>
           </HStack>
         </Flex>
+
+        {sameDayConflicts.length > 0 && (
+          <Alert status="warning" mb={4} borderRadius="md" alignItems="flex-start">
+            <AlertIcon mt={0.5} />
+            <Box>
+              <Text fontWeight="semibold" mb={1}>
+                W wybranych dniach masz więcej niż jedną zaplanowaną pracę.
+              </Text>
+              <VStack align="stretch" spacing={1}>
+                {sameDayConflicts.slice(0, 5).map((conflict) => (
+                  <Text
+                    key={`${conflict.workName}|${conflict.rangeStartKey}|${conflict.rangeEndKey}`}
+                    fontSize="sm"
+                  >
+                    {conflict.lineLabel}
+                  </Text>
+                ))}
+                {sameDayConflicts.length > 5 && (
+                  <Text fontSize="sm" color="neutral.600">
+                    …i {sameDayConflicts.length - 5} kolejnych prac z konfliktami
+                  </Text>
+                )}
+              </VStack>
+            </Box>
+          </Alert>
+        )}
 
         {/* Stats Bar — klikniecie przelaczy aktywny filtr */}
         <SimpleGrid columns={{ base: 2, sm: 3, md: 5 }} spacing={3} mb={6}>

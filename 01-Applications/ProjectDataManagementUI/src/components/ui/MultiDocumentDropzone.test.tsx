@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import MultiDocumentDropzone from './MultiDocumentDropzone';
 import { renderWithChakra } from '../../test/render-with-chakra';
 
@@ -16,7 +16,7 @@ describe('MultiDocumentDropzone', () => {
     );
 
     expect(screen.getByText(/Przeciągnij pliki lub kliknij/i)).toBeInTheDocument();
-    expect(screen.getByText(/JPG, PNG · łącznie maks. 50 MB/i)).toBeInTheDocument();
+    expect(screen.getByText(/JPG, PNG, PDF · łącznie maks. 50 MB/i)).toBeInTheDocument();
   });
 
   it('wyborPlikow_aktualizujeListe', () => {
@@ -78,7 +78,7 @@ describe('MultiDocumentDropzone', () => {
     expect(onChange).toHaveBeenCalledWith([file2]);
   });
 
-  it('plikNieobrazkowy_jestFiltrowany', () => {
+  it('plikPdf_jestAkceptowany', () => {
     const onChange = vi.fn();
     const pdfFile = new File(['pdf'], 'doc.pdf', { type: 'application/pdf' });
     Object.defineProperty(pdfFile, 'size', { value: 1024 });
@@ -90,6 +90,51 @@ describe('MultiDocumentDropzone', () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [pdfFile] } });
 
-    expect(onChange).toHaveBeenCalledWith([]);
+    expect(onChange).toHaveBeenCalledWith([pdfFile]);
+  });
+
+  it('mieszankaJpgIPdf_jestAkceptowana', () => {
+    const onChange = vi.fn();
+    const jpgFile = new File(['img'], 'photo.jpg', { type: 'image/jpeg' });
+    const pdfFile = new File(['pdf'], 'invoice.pdf', { type: 'application/pdf' });
+    Object.defineProperty(jpgFile, 'size', { value: 1024 });
+    Object.defineProperty(pdfFile, 'size', { value: 2048 });
+
+    renderWithChakra(
+      <MultiDocumentDropzone files={[]} onChange={onChange} />
+    );
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [jpgFile, pdfFile] } });
+
+    expect(onChange).toHaveBeenCalledWith([jpgFile, pdfFile]);
+  });
+
+  it('plikExe_odrzucony_jpgPozostaje', () => {
+    const onChange = vi.fn();
+    const onFilesRejected = vi.fn();
+    const jpgFile = new File(['img'], 'photo.jpg', { type: 'image/jpeg' });
+    const exeFile = new File(['exe'], 'malware.exe', { type: 'application/x-msdownload' });
+    Object.defineProperty(jpgFile, 'size', { value: 1024 });
+    Object.defineProperty(exeFile, 'size', { value: 2048 });
+
+    renderWithChakra(
+      <MultiDocumentDropzone
+        files={[]}
+        onChange={onChange}
+        onFilesRejected={onFilesRejected}
+      />
+    );
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [jpgFile, exeFile] } });
+
+    expect(onChange).toHaveBeenCalledWith([jpgFile]);
+    expect(onFilesRejected).toHaveBeenCalledWith([
+      {
+        fileName: 'malware.exe',
+        reason: 'Niedozwolone rozszerzenie: .exe',
+      },
+    ]);
   });
 });

@@ -1,4 +1,5 @@
 ﻿using Business.AIAgent.Services;
+using Business.Interfaces.Exceptions;
 using Business.Interfaces.Services;
 using Business.Interfaces.WebModels.AI;
 using Microsoft.Extensions.Logging;
@@ -8,7 +9,11 @@ namespace Business.Implementation.Services.AI;
 
 public sealed class DocumentParserService : IDocumentParserService
 {
+    private const string JpegMediaType = "image/jpeg";
+    private const string PdfMediaType = "application/pdf";
+
     private readonly IAICompletionService _completionService;
+    private readonly IPdfToImageConverter _pdfToImageConverter;
     private readonly ILogger<DocumentParserService> _logger;
 
     private const string SystemPrompt =
@@ -36,9 +41,11 @@ public sealed class DocumentParserService : IDocumentParserService
 
     public DocumentParserService(
         IAICompletionService completionService,
+        IPdfToImageConverter pdfToImageConverter,
         ILogger<DocumentParserService> logger)
     {
         _completionService = completionService;
+        _pdfToImageConverter = pdfToImageConverter;
         _logger = logger;
     }
 
@@ -49,14 +56,118 @@ public sealed class DocumentParserService : IDocumentParserService
     {
         try
         {
-            string rawJson = await _completionService.CompleteWithImageAsync(SystemPrompt, fileBytes, mediaType, cancellationToken);
+            if (IsPdf(fileBytes, mediaType))
+            {
+                return await ParsePdfWithFallbackAsync(fileBytes, cancellationToken);
+            }
+
+            string rawJson = await _completionService.CompleteWithImageAsync(
+                SystemPrompt,
+                fileBytes,
+                mediaType,
+                cancellationToken);
+
             return MapToDto(rawJson);
+        }
+        catch (PdfConversionException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to parse cost document via AI");
             return new ParsedCostDto { Name = "Nieznany koszt", Confidence = 0 };
         }
+    }
+
+    private async Task<ParsedCostDto> ParsePdfWithFallbackAsync(
+        byte[] pdfBytes,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<byte[]> jpegPages = await _pdfToImageConverter.ConvertAllPagesToJpegAsync(
+            pdfBytes,
+            cancellationToken);
+
+        if (jpegPages.Count == 0)
+        {
+            return new ParsedCostDto { Name = "Nieznany koszt", Confidence = 0 };
+        }
+
+        List<(byte[] ImageBytes, string MediaType)> images =
+            new List<(byte[] ImageBytes, string MediaType)>(jpegPages.Count);
+
+        foreach (byte[] pageJpeg in jpegPages)
+        {
+            images.Add((pageJpeg, JpegMediaType));
+        }
+
+        ParsedCostDto? multiPageResult = await TryParseImagesAsync(images, cancellationToken);
+        if (multiPageResult is not null && multiPageResult.Confidence > 0)
+        {
+            return multiPageResult;
+        }
+
+        if (jpegPages.Count == 1)
+        {
+            return multiPageResult ?? new ParsedCostDto { Name = "Nieznany koszt", Confidence = 0 };
+        }
+
+        _logger.LogInformation(
+            "Retrying PDF parse using first page only after low-confidence or failed multi-page parse.");
+
+        string firstPageRawJson = await _completionService.CompleteWithImageAsync(
+            SystemPrompt,
+            jpegPages[0],
+            JpegMediaType,
+            cancellationToken);
+
+        ParsedCostDto firstPageResult = MapToDto(firstPageRawJson);
+        if (firstPageResult.Confidence > 0)
+        {
+            return firstPageResult;
+        }
+
+        return multiPageResult ?? firstPageResult;
+    }
+
+    private async Task<ParsedCostDto?> TryParseImagesAsync(
+        IReadOnlyList<(byte[] ImageBytes, string MediaType)> images,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            string rawJson = await _completionService.CompleteWithImagesAsync(
+                SystemPrompt,
+                images,
+                cancellationToken);
+
+            return MapToDto(rawJson);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Multi-page PDF parse attempt failed.");
+            return null;
+        }
+    }
+
+    private static bool IsPdf(byte[] fileBytes, string mediaType)
+    {
+        if (string.Equals(mediaType, PdfMediaType, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return HasPdfMagicBytes(fileBytes);
+    }
+
+    private static bool HasPdfMagicBytes(byte[] fileBytes)
+    {
+        // %PDF
+        return fileBytes.Length >= 4
+            && fileBytes[0] == (byte)'%'
+            && fileBytes[1] == (byte)'P'
+            && fileBytes[2] == (byte)'D'
+            && fileBytes[3] == (byte)'F';
     }
 
     private ParsedCostDto MapToDto(string rawJson)

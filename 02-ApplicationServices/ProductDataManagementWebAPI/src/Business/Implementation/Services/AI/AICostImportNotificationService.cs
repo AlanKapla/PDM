@@ -35,14 +35,9 @@ namespace Business.Implementation.Services.AI
         {
             try
             {
-                User? user = await userRepo.GetFirstBySearch(u => u.Id == batch.CreatedByUserId);
-                if (user is null)
-                {
-                    logger.LogWarning(
-                        "Cannot send AI cost import notification — user {UserId} not found",
-                        batch.CreatedByUserId);
-                    return;
-                }
+                User? user = await userRepo.GetFirstBySearch(
+                    u => u.Id == batch.CreatedByUserId,
+                    cancellationToken);
 
                 NotifType type = batch.ErrorCount > 0 ? NotifType.Warning : NotifType.Info;
                 string title = "Analiza dokumentów kosztowych zakończona";
@@ -61,8 +56,8 @@ namespace Business.Implementation.Services.AI
                     Id = Guid.NewGuid(),
                     TenantId = batch.TenantId,
                     ProjectId = batch.ProjectId,
-                    UserId = user.Id,
-                    AzureAdB2CObjectId = user.AzureAdB2CObjectId,
+                    UserId = batch.CreatedByUserId,
+                    AzureAdB2CObjectId = user?.AzureAdB2CObjectId,
                     Type = type,
                     Title = title,
                     Message = message,
@@ -77,6 +72,13 @@ namespace Business.Implementation.Services.AI
                         ["duplicateCount"] = batch.DuplicateCount
                     }
                 };
+
+                if (user is null)
+                {
+                    logger.LogWarning(
+                        "AI cost import notification fallback: user lookup failed for {UserId}. Persisting DB notification without SignalR target.",
+                        batch.CreatedByUserId);
+                }
 
                 int unreadCount = await notificationRepo.CountAsync(
                     n => n.UserId == notification.UserId && !n.IsRead,

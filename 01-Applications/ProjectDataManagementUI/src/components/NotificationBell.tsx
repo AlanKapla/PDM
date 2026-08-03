@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import * as signalR from "@microsoft/signalr";
 import {
   Box,
   Badge,
@@ -35,6 +36,7 @@ import {
 } from "../hooks/queries";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { notificationHubService } from "../services/notificationHubService";
+import { notificationApi } from "../api/notificationApi";
 import { type NotificationWeb, NotificationType, type NotificationMetadata } from "../types/notification.types";
 import { getRelativeTime } from "../utils/formatters";
 
@@ -50,9 +52,6 @@ function resolveNotificationRoute(metadata: NotificationMetadata | undefined): s
     return `/projects/${contextualMatch[1]}/${contextualMatch[2]}/ai-review`;
   }
 
-  if (metadata.route.startsWith('/projects/')) {
-    return metadata.route;
-  }
   return metadata.route;
 }
 
@@ -69,6 +68,8 @@ export default function NotificationBell() {
   const navigate = useNavigate();
   const { showSuccess, showError, showWarning, showInfo } = useToastNotification();
   const queryClient = useQueryClient();
+  const lastToastNotificationIdRef = useRef<string | null>(null);
+  const previousUnreadCountRef = useRef<number | null>(null);
 
   const { data: unreadCount = 0 } = useUnreadCounter();
 
@@ -127,6 +128,7 @@ export default function NotificationBell() {
   // SignalR - nasłuchuj na nowe powiadomienia
   useEffect(() => {
     const unsubscribeNew = notificationHubService.onNotificationReceived((payload) => {
+      lastToastNotificationIdRef.current = payload.notification.id;
       // Aktualizuj licznik bezpośrednio ze snapshotu
       queryClient.setQueryData(
         notificationKeys.unreadCounter(),
@@ -156,6 +158,56 @@ export default function NotificationBell() {
       unsubscribeSync();
     };
   }, [queryClient, showSuccess, showWarning, showError, showInfo]);
+
+  useEffect(() => {
+    const previousUnreadCount = previousUnreadCountRef.current;
+    previousUnreadCountRef.current = unreadCount;
+
+    if (previousUnreadCount === null) {
+      return;
+    }
+
+    if (unreadCount <= previousUnreadCount) {
+      return;
+    }
+
+    if (notificationHubService.getConnectionState() === signalR.HubConnectionState.Connected) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadLatestUnreadNotification = async (): Promise<void> => {
+      try {
+        const latestUnreadNotifications = await notificationApi.getUnread(1, 0);
+        const latestUnreadNotification = latestUnreadNotifications[0];
+
+        if (!latestUnreadNotification || isCancelled) {
+          return;
+        }
+
+        if (lastToastNotificationIdRef.current === latestUnreadNotification.id) {
+          return;
+        }
+
+        lastToastNotificationIdRef.current = latestUnreadNotification.id;
+
+        showNotificationToast(
+          latestUnreadNotification.title,
+          latestUnreadNotification.message,
+          latestUnreadNotification.type
+        );
+      } catch {
+        // Fallback polling is best-effort only.
+      }
+    };
+
+    void loadLatestUnreadNotification();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [unreadCount]);
 
   const handleNotificationClick = (notification: NotificationWeb) => {
     const route = resolveNotificationRoute(notification.metadata ?? undefined);

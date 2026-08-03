@@ -1,0 +1,90 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Witaj w Brickly</title>
+</head>
+<body style="margin:0; padding:0; background-color:#F1EFE8; font-family: Arial, sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#F1EFE8; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+
+        <table width="520" cellpadding="0" cellspacing="0" role="presentation" style="max-width:520px; width:100%; background-color:#ffffff; border-radius:12px; border:1px solid #e0ddd6; overflow:hidden;">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="background-color:#0047AB; padding: 28px 40px;">
+              <a href="https://brickly.pro" style="font-size:18px; font-weight:bold; color:#ffffff; letter-spacing:0.01em; text-decoration:none;">Brickly</a>
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="padding: 32px 40px 0;">
+
+              <!-- Label -->
+              <p style="font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:0.08em; color:#185FA5; margin:0 0 6px;">
+                Konto utworzone
+              </p>
+
+              <!-- Heading -->
+              <h1 style="font-size:22px; font-weight:bold; color:#1a1a1a; margin:0 0 16px; line-height:1.3;">
+                Witaj w <span style="color:#0047AB;">Brickly</span>, {firstName}!
+              </h1>
+
+              <!-- Body text -->
+              <p style="font-size:15px; color:#5F5E5A; line-height:1.7; margin:0 0 28px;">
+                {bodyText}
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- CTA BUTTON -->
+          <tr>
+            <td style="padding: 0 40px 28px;">
+              <table cellpadding="0" cellspacing="0" role="presentation" width="100%">
+                <tr>
+                  <td align="center" style="background-color:#0047AB; border-radius:8px;">
+                    <a href="{appUrl}"
+                       style="display:block; padding:14px 24px; font-size:15px; font-weight:bold; color:#ffffff; text-decoration:none; letter-spacing:0.01em; text-align:center;">
+                      {ctaLabel}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- FALLBACK URL -->
+          <tr>
+            <td style="padding: 0 40px 28px; border-top: 1px solid #e0ddd6;">
+              <p style="font-size:13px; color:#5F5E5A; margin:20px 0 8px; line-height:1.6;">
+                Jeśli przycisk nie działa, skopiuj i wklej ten link do przeglądarki:
+              </p>
+              <p style="font-size:12px; color:#0047AB; margin:0; word-break:break-all; font-family:monospace;">
+                {appUrl}
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background-color:#F1EFE8; border-top:1px solid #e0ddd6; padding:20px 40px; text-align:center;">
+              <p style="font-size:12px; color:#888780; margin:0; line-height:1.6;">
+                Jeśli nie zakładałeś konta w Brickly, możesz zignorować tę wiadomość.<br/>
+                &copy; 2026 Brickly &middot;
+                <a href="https://brickly.pro" style="color:#888780; text-decoration:none;">brickly.pro</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

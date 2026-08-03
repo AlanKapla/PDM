@@ -3,6 +3,7 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Helpers;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
+using CQRS.PostCommit;
 using Entities.Models.Files;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -20,6 +21,8 @@ namespace CQRS.Files.UploadProjectFileVersion
         private readonly IBlobStorageService blobStorageService;
         private readonly IProjectFilesService projectFilesService;
         private readonly IFileAccessGuard fileAccessGuard;
+        private readonly IFileActivityNotificationService activityNotifications;
+        private readonly IPostCommitDispatcher postCommitDispatcher;
         private readonly ICurrentUser currentUser;
         private readonly ILogger<UploadProjectFileVersionCommandHandler> logger;
 
@@ -30,6 +33,8 @@ namespace CQRS.Files.UploadProjectFileVersion
             IBlobStorageService blobStorageService,
             IProjectFilesService projectFilesService,
             IFileAccessGuard fileAccessGuard,
+            IFileActivityNotificationService activityNotifications,
+            IPostCommitDispatcher postCommitDispatcher,
             ICurrentUser currentUser,
             ILogger<UploadProjectFileVersionCommandHandler> logger)
         {
@@ -39,6 +44,8 @@ namespace CQRS.Files.UploadProjectFileVersion
             this.blobStorageService = blobStorageService;
             this.projectFilesService = projectFilesService;
             this.fileAccessGuard = fileAccessGuard;
+            this.activityNotifications = activityNotifications;
+            this.postCommitDispatcher = postCommitDispatcher;
             this.currentUser = currentUser;
             this.logger = logger;
         }
@@ -78,6 +85,11 @@ namespace CQRS.Files.UploadProjectFileVersion
                 }
 
                 await InvalidateCachesAsync(request, oldCurrentVersionId, cancellationToken);
+
+                FileActivityNotificationContext notificationContext = BuildNotificationContext(
+                    request, projectFile, newVersion.Id);
+                postCommitDispatcher.Enqueue(ct =>
+                    activityNotifications.NotifyVersionUploadedAsync(notificationContext, ct));
 
                 logger.LogInformation(
                     "Created new version {VersionNumber} for file {FileId} in project {ProjectId}. Blob path: {BlobPath}. Comment: {HasComment}",
@@ -222,5 +234,22 @@ namespace CQRS.Files.UploadProjectFileVersion
                 await projectFilesService.InvalidateVersionSasUriAsync(oldCurrentVersionId.Value, cancellationToken);
             }
         }
+
+        private FileActivityNotificationContext BuildNotificationContext(
+            UploadProjectFileVersionCommand request,
+            ProjectFile file,
+            Guid versionId) =>
+            new FileActivityNotificationContext
+            {
+                TenantId = request.TenantId,
+                ProjectId = request.ProjectId,
+                FileId = file.Id,
+                PackageId = file.ProjectFilePackageId,
+                OwnerId = file.OwnerId,
+                FileDisplayName = file.DisplayName,
+                ActorName = $"{currentUser.FirstName} {currentUser.LastName}".Trim(),
+                ActorUserId = currentUser.Id,
+                VersionId = versionId,
+            };
     }
 }

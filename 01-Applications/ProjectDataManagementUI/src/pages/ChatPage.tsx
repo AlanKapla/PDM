@@ -12,6 +12,7 @@ import { useChatList } from "../hooks/useChat";
 import { chatHubService } from "../services/chatHubService";
 import { AuthContext } from "../context/AuthContext";
 import { ChatUnreadContext } from "../context/ChatUnreadContext";
+import { isDemoOnlySession } from "../utils/demoSession";
 
 export default function ChatPage() {
   const { user } = useContext(AuthContext);
@@ -41,6 +42,10 @@ export default function ChatPage() {
 
   // Inicjalizuj połączenie SignalR i dołącz do wszystkich aktywnych czatów
   useEffect(() => {
+    if (isDemoOnlySession()) {
+      return;
+    }
+
     chatHubService.startConnection().then(() => {
       chats.forEach((c) => chatHubService.joinChat(c.id).catch(() => {}));
     }).catch(() => {});

@@ -1,13 +1,5 @@
 import { useState, useRef } from "react";
 import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
-  Button,
   VStack,
   Text,
   Input,
@@ -18,8 +10,10 @@ import {
   AlertIcon,
   HStack,
   Badge,
+  Button,
 } from "@chakra-ui/react";
-import { Upload, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
+import AppModal from "./ui/AppModal";
 import { projectApi } from "../api/projectApi";
 import type { ProjectFileWeb } from "../types/project.types";
 import { useToastNotification } from "../hooks/useToastNotification";
@@ -45,12 +39,24 @@ export default function UploadNewVersionModal({
   const [comment, setComment] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { showSuccess, showError, showWarning, showInfo, showApiError } = useToastNotification();
+  const { showSuccess, showError, showApiError } = useToastNotification();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
     }
+  };
+
+  const handleClose = () => {
+    if (uploading) {
+      return;
+    }
+    setSelectedFile(null);
+    setComment("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    onClose();
   };
 
   const handleUpload = async () => {
@@ -73,21 +79,17 @@ export default function UploadNewVersionModal({
       showSuccess("Sukces", "Nowa wersja pliku została przesłana");
 
       onVersionUploaded();
-      handleClose();
+      setSelectedFile(null);
+      setComment("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      onClose();
     } catch (error) {
       showApiError(error);
     } finally {
       setUploading(false);
     }
-  };
-
-  const handleClose = () => {
-    setSelectedFile(null);
-    setComment("");
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    onClose();
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -99,83 +101,75 @@ export default function UploadNewVersionModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size={{ base: "full", md: "lg" }}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Upload nowej wersji pliku</ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <VStack spacing={4} align="stretch">
-            <Alert status="info">
-              <AlertIcon />
-              <VStack align="start" spacing={0} flex={1}>
-                <Text fontSize="sm" fontWeight="semibold">
-                  Plik bazowy: {file.displayName}
-                </Text>
-                <HStack>
-                  <Text fontSize="xs" color="gray.600">
-                    Aktualna wersja: v{file.currentVersion?.versionNumber}
-                  </Text>
-                  <Badge colorScheme="level2" fontSize="xs">
-                    {file.totalVersions} {file.totalVersions === 1 ? "wersja" : "wersji"}
-                  </Badge>
-                </HStack>
-              </VStack>
-            </Alert>
-
-            <FormControl isRequired>
-              <FormLabel>Wybierz nowy plik</FormLabel>
-              <Input
-                ref={fileInputRef}
-                type="file"
-                accept="*/*"
-                onChange={handleFileChange}
-                display="none"
-              />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                leftIcon={<FileText size={18} />}
-                variant="outline"
-                width="100%"
-              >
-                {selectedFile ? selectedFile.name : "Wybierz plik"}
-              </Button>
-              {selectedFile && (
-                <Text fontSize="xs" color="gray.600" mt={1}>
-                  Rozmiar: {formatFileSize(selectedFile.size)}
-                </Text>
-              )}
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Komentarz do wersji (opcjonalnie)</FormLabel>
-              <Textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="np. Poprawiono błędy w sekcji 3, zaktualizowano dane..."
-                rows={3}
-              />
-              <Text fontSize="xs" color="gray.600" mt={1}>
-                Opisz zmiany wprowadzone w tej wersji
+    <AppModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Upload nowej wersji pliku"
+      actionLabel="Prześlij wersję"
+      actionColorScheme="primary"
+      onAction={handleUpload}
+      isActionLoading={uploading}
+      isActionDisabled={!selectedFile}
+      desktopSize="lg"
+    >
+      <VStack spacing={4} align="stretch">
+        <Alert status="info">
+          <AlertIcon aria-hidden="true" />
+          <VStack align="start" spacing={0} flex={1} minW={0}>
+            <Text fontSize="sm" fontWeight="semibold" noOfLines={2}>
+              Plik bazowy: {file.displayName}
+            </Text>
+            <HStack flexWrap="wrap" gap={1}>
+              <Text fontSize="xs" color="neutral.600">
+                Aktualna wersja: v{file.currentVersion?.versionNumber}
               </Text>
-            </FormControl>
+              <Badge colorScheme="level2" fontSize="xs">
+                {file.totalVersions} {file.totalVersions === 1 ? "wersja" : "wersji"}
+              </Badge>
+            </HStack>
           </VStack>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={handleClose} isDisabled={uploading}>
-            Anuluj
-          </Button>
+        </Alert>
+
+        <FormControl isRequired>
+          <FormLabel>Wybierz nowy plik</FormLabel>
+          <Input
+            ref={fileInputRef}
+            type="file"
+            accept="*/*"
+            onChange={handleFileChange}
+            display="none"
+          />
           <Button
-            colorScheme="primary"
-            leftIcon={<Upload size={18} />}
-            onClick={handleUpload}
-            isLoading={uploading}
-            loadingText="Przesyłanie..."
+            onClick={() => fileInputRef.current?.click()}
+            leftIcon={<FileText size={18} aria-hidden="true" />}
+            variant="outline"
+            width="100%"
+            minH="44px"
+            isDisabled={uploading}
           >
-            Prześlij wersję
+            {selectedFile ? selectedFile.name : "Wybierz plik"}
           </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+          {selectedFile && (
+            <Text fontSize="xs" color="neutral.600" mt={1}>
+              Rozmiar: {formatFileSize(selectedFile.size)}
+            </Text>
+          )}
+        </FormControl>
+
+        <FormControl>
+          <FormLabel>Komentarz do wersji (opcjonalnie)</FormLabel>
+          <Textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="np. Poprawiono błędy w sekcji 3, zaktualizowano dane..."
+            rows={3}
+            isDisabled={uploading}
+          />
+          <Text fontSize="xs" color="neutral.600" mt={1}>
+            Opisz zmiany wprowadzone w tej wersji
+          </Text>
+        </FormControl>
+      </VStack>
+    </AppModal>
   );
 }

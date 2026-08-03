@@ -16,6 +16,7 @@ public sealed class SetWorkScheduleStageWorkAssignmentsCommandHandlerTests
     private readonly Mock<IRepository<WorkScheduleStageWorkAssignment>> _assignmentRepoMock = new();
     private readonly Mock<IRepository<WorkSchedule>> _workScheduleRepoMock = new();
     private readonly Mock<IProjectMemberService> _projectMemberServiceMock = new();
+    private readonly Mock<IContractorService> _contractorServiceMock = new();
     private readonly Mock<IWorkScheduleNotificationService> _notificationServiceMock = new();
     private readonly Mock<IWorkScheduleCacheService> _scheduleCacheMock = new();
     private readonly Mock<IWorkScheduleAccessService> _accessServiceMock = new();
@@ -28,6 +29,7 @@ public sealed class SetWorkScheduleStageWorkAssignmentsCommandHandlerTests
             _assignmentRepoMock.Object,
             _workScheduleRepoMock.Object,
             _projectMemberServiceMock.Object,
+            _contractorServiceMock.Object,
             _notificationServiceMock.Object,
             _scheduleCacheMock.Object,
             _accessServiceMock.Object);

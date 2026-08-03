@@ -47,11 +47,24 @@ namespace Business.Interfaces.WebModels.AI
         public required DateTimeOffset CreatedAt { get; init; }
     }
 
+    public sealed record AICostImportRejectedFileWeb
+    {
+        public required string FileName { get; init; }
+        public required string Reason { get; init; }
+    }
+
     public sealed record AICostImportSubmitResultWeb
     {
         public required Guid BatchId { get; init; }
+
+        /// <summary>
+        /// Number of accepted files queued for background analysis (excludes rejected files).
+        /// </summary>
         public required int TotalFiles { get; init; }
+
         public required string Message { get; init; }
+
+        public IReadOnlyList<AICostImportRejectedFileWeb> RejectedFiles { get; init; } = [];
     }
 
     public sealed record AICostImportAcceptAllResultWeb

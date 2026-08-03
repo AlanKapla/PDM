@@ -13,6 +13,11 @@ export interface NotificationMetadata {
   pendingCount?: number;
   errorCount?: number;
   duplicateCount?: number;
+  FileId?: string;
+  PackageId?: string;
+  VersionId?: string;
+  CommentId?: string;
+  EntityType?: string;
 }
 
 export interface NotificationWeb {

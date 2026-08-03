@@ -73,9 +73,17 @@ export const loginRequest: RedirectRequest = {
 };
 
 // Silent token request - for acquireTokenSilent() calls
+// Używany przez redirect/popup flow (zachowany dla kompatybilności z msalConfig).
 export const silentRequest = {
   scopes: loginScopes,
   extraQueryParameters: {
     p: userFlow,
   },
+};
+
+// Silent token request dla Native Auth (Custom Auth) — bez p:userFlow.
+// Tylko scope API (bez openid/profile/offline_access) — pełny zestaw OIDC
+// w getAccessToken/acquireTokenSilent potrafi wisieć po udanym native sign-in.
+export const nativeSilentRequest = {
+  scopes: [`api://${apiClientId}/access_as_user`],
 };

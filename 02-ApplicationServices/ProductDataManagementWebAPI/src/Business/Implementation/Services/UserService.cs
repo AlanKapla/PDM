@@ -39,7 +39,7 @@ namespace Business.Implementation.Services
             Guid projectId,
             CancellationToken cancellationToken = default)
         {
-            string cacheKey = $"users:{tenantId}:{projectId}:members";
+            string cacheKey = $"users:{tenantId}:{projectId}:members:v2";
 
             var result = await cacheService.GetOrAddAsync(
                 cacheKey,
@@ -62,6 +62,7 @@ namespace Business.Implementation.Services
                         LastName = pm.TenantMember.User.LastName,
                         Email = pm.TenantMember.User.Email,
                         AzureAdB2CObjectId = pm.TenantMember.User.AzureAdB2CObjectId,
+                        CompanyName = pm.TenantMember.User.CompanyName,
                         JoinedAt = pm.JoinedAt
                     }).ToList();
                 },
@@ -86,7 +87,7 @@ namespace Business.Implementation.Services
             Guid projectId,
             CancellationToken cancellationToken = default)
         {
-            string cacheKey = $"users:{tenantId}:{projectId}:members";
+            string cacheKey = $"users:{tenantId}:{projectId}:members:v2";
             await cacheService.RemoveCacheByKeyAsync(cacheKey, cancellationToken);
             logger.LogDebug("Invalidated project members cache for project {ProjectId}", projectId);
         }
@@ -109,7 +110,8 @@ namespace Business.Implementation.Services
                 FirstName = member.User.FirstName,
                 LastName = member.User.LastName,
                 Email = member.User.Email,
-                AzureAdB2CObjectId = member.User.AzureAdB2CObjectId
+                AzureAdB2CObjectId = member.User.AzureAdB2CObjectId,
+                CompanyName = member.User.CompanyName
             };
         }
 

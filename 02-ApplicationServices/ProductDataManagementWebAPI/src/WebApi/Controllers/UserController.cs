@@ -1,5 +1,4 @@
-﻿using Business.Interfaces.WebModels.Users;
-using CQRS.Users.UserAuthStatus;
+﻿using CQRS.Users.UserAuthStatus;
 using CQRS.Users.UserDetails;
 using CQRS.Users.UserSyncFromB2C;
 using CQRS.Users.UserUpdate;
@@ -76,4 +75,5 @@ public class UserController : BaseApiController
         GetUserAssignedWorksQuery query = new GetUserAssignedWorksQuery();
         return Ok(await Send(query));
     }
+
 }

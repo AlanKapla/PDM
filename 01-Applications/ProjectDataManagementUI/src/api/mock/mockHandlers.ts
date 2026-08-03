@@ -6,11 +6,10 @@
 import { MOCK_DATA, getCostEstimateDetailsById, getProjectFileData, getProjectCosts, getWorkSchedules, getWorkScheduleDetails, getDashboard } from "./mockData";
 
 function delay(): Promise<void> {
-  const ms = 200 + Math.random() * 300;
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((r) => setTimeout(r, 25));
 }
 
-type MockResponse = [number, unknown];
+export type MockResponse = [number, unknown, Record<string, string>?];
 
 function ok<T>(data: T): MockResponse {
   return [200, data];
@@ -18,6 +17,21 @@ function ok<T>(data: T): MockResponse {
 
 function noContent(): MockResponse {
   return [204, null];
+}
+
+function okBlob(
+  blob: Blob,
+  fileName: string,
+  contentType: string
+): MockResponse {
+  return [
+    200,
+    blob,
+    {
+      "content-type": contentType,
+      "content-disposition": `attachment; filename="${fileName}"`,
+    },
+  ];
 }
 
 /** Wyciągnij parametr z URL po indeksie segmentu */
@@ -57,6 +71,154 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   }
   if (pathOnly === "/api/user/auth-status" && method === "get") {
     return ok({ isAuthenticated: true, userId: MOCK_DATA.userProfile.id });
+  }
+  if (pathOnly === "/api/activity/login" && method === "post") {
+    return noContent();
+  }
+  if (pathOnly === "/api/activity/demo" && method === "post") {
+    return noContent();
+  }
+  if (pathOnly === "/api/admin/activity-logs" && method === "get") {
+    return ok([
+      {
+        id: "demo-activity-001",
+        eventType: "Login",
+        ipAddress: "203.0.113.10",
+        occurredAtUtc: "2026-07-21T10:15:00Z",
+        route: "/dashboard",
+        userId: MOCK_DATA.userProfile.id,
+        azureAdB2CObjectId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      },
+      {
+        id: "demo-activity-002",
+        eventType: "DemoEnter",
+        ipAddress: "198.51.100.42",
+        occurredAtUtc: "2026-07-21T11:30:00Z",
+        route: "/",
+        userId: null,
+        azureAdB2CObjectId: null,
+      },
+    ]);
+  }
+  if (pathOnly === "/api/admin/users" && method === "get") {
+    return ok([
+      {
+        id: MOCK_DATA.userProfile.id,
+        email: MOCK_DATA.userProfile.email,
+        firstName: MOCK_DATA.userProfile.firstName,
+        lastName: MOCK_DATA.userProfile.lastName,
+        isActive: true,
+        systemRole: "SuperAdmin",
+        createdAt: "2025-01-10T08:00:00Z",
+        welcomeEmailSentAt: "2025-01-10T08:05:00Z",
+        phoneNumber: MOCK_DATA.userProfile.phoneNumber,
+        companyName: null,
+        taxId: null,
+        street: null,
+        city: null,
+        postalCode: null,
+        country: null,
+      },
+      {
+        id: "demo-user-002",
+        email: "anna.nowak@example.com",
+        firstName: "Anna",
+        lastName: "Nowak",
+        isActive: true,
+        systemRole: "User",
+        createdAt: "2025-06-01T10:00:00Z",
+        welcomeEmailSentAt: null,
+        phoneNumber: null,
+        companyName: "Budinvest",
+        taxId: null,
+        street: null,
+        city: "Warszawa",
+        postalCode: null,
+        country: "PL",
+      },
+    ]);
+  }
+  if (pathOnly.match(/^\/api\/admin\/users\/[^/]+\/welcome-email$/) && method === "post") {
+    return ok({
+      id: "demo-user-002",
+      email: "anna.nowak@example.com",
+      firstName: "Anna",
+      lastName: "Nowak",
+      isActive: true,
+      systemRole: "User",
+      createdAt: "2025-06-01T10:00:00Z",
+      welcomeEmailSentAt: new Date().toISOString(),
+      phoneNumber: null,
+      companyName: "Budinvest",
+      taxId: null,
+      street: null,
+      city: "Warszawa",
+      postalCode: null,
+      country: "PL",
+    });
+  }
+  if (pathOnly === "/api/admin/welcome-emails/send" && method === "post") {
+    return ok({ sentCount: 3, skippedCount: 0 });
+  }
+  if (pathOnly === "/api/admin/cold-mails/template" && method === "get") {
+    return ok({
+      htmlTemplate: `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#F1EFE8;padding:24px;"><div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e0ddd6;"><div style="background:#0047AB;padding:28px 40px;color:#fff;font-weight:bold;">Brickly</div><div style="padding:32px 40px;"><p style="font-size:11px;font-weight:bold;text-transform:uppercase;color:#185FA5;">Brickly</p><h1 style="font-size:22px;">{subject}</h1><p style="color:#5F5E5A;line-height:1.7;">{bodyText}</p><p><a href="{appUrl}">{ctaLabel}</a></p></div></div></body></html>`,
+      appUrl: "https://brickly.pro",
+      ctaLabel: "Poznaj Brickly",
+    });
+  }
+  if (pathOnly === "/api/admin/cold-mails/send" && method === "post") {
+    const emails: string[] = Array.isArray(data?.emails) ? data.emails : [];
+    const batchId = "demo-cold-mail-batch-001";
+    const items = emails.map((recipientEmail: string) => ({
+      recipientEmail,
+      status: "Queued",
+      errorMessage: null,
+    }));
+    return ok({
+      batchId,
+      queuedCount: items.length,
+      failedCount: 0,
+      items,
+    });
+  }
+  if (pathOnly === "/api/admin/cold-mails" && method === "get") {
+    const query = urlPath.includes("?") ? urlPath.split("?")[1] : "";
+    const emailFilter = new URLSearchParams(query).get("email")?.toLowerCase() ?? "";
+    const history = [
+      {
+        id: "demo-cold-mail-001",
+        batchId: "demo-cold-mail-batch-001",
+        recipientEmail: "prospect@acme.com",
+        subject: "Brickly — zaproszenie do współpracy",
+        body: "Dzień dobry,\n\nchcielibyśmy przedstawić Brickly.\n",
+        htmlBody:
+          "<!DOCTYPE html><html><body style=\"font-family:Arial,sans-serif;padding:24px;\"><h1>Brickly — zaproszenie do współpracy</h1><p>Dzień dobry,</p><p>chcielibyśmy przedstawić Brickly.</p></body></html>",
+        status: "Sent",
+        errorMessage: null,
+        sentByUserId: MOCK_DATA.userProfile.id,
+        sentAt: "2026-07-15T10:00:00Z",
+      },
+      {
+        id: "demo-cold-mail-002",
+        batchId: "demo-cold-mail-batch-001",
+        recipientEmail: "anna.nowak@example.com",
+        subject: "Brickly — zaproszenie do współpracy",
+        body: "Dzień dobry,\n\nchcielibyśmy przedstawić Brickly.\n",
+        htmlBody:
+          "<!DOCTYPE html><html><body style=\"font-family:Arial,sans-serif;padding:24px;\"><h1>Brickly — zaproszenie do współpracy</h1><p>Dzień dobry,</p><p>chcielibyśmy przedstawić Brickly.</p></body></html>",
+        status: "Failed",
+        errorMessage: "SMTP timeout",
+        sentByUserId: MOCK_DATA.userProfile.id,
+        sentAt: "2026-07-15T10:00:01Z",
+      },
+    ];
+    const filtered = emailFilter
+      ? history.filter((item) =>
+          item.recipientEmail.toLowerCase().includes(emailFilter)
+        )
+      : history;
+    return ok(filtered);
   }
 
   // ============================================
@@ -112,6 +274,24 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/cost-estimate\/details\/[^/]+$/.test(pathOnly) && method === "get") {
     const ceId = pathOnly.split("/").pop() || "ce-001";
     return ok(getCostEstimateDetailsById(ceId));
+  }
+  // GET .../cost-estimate/{id}/export/xlsx
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/cost-estimate\/[^/]+\/export\/xlsx$/.test(pathOnly) && method === "get") {
+    const blob = new Blob(["PK\u0003\u0004mock-xlsx"], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    return okBlob(
+      blob,
+      `Kosztorys_20260721.xlsx`,
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+  }
+  // GET .../cost-estimate/{id}/export/pdf
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/cost-estimate\/[^/]+\/export\/pdf$/.test(pathOnly) && method === "get") {
+    const blob = new Blob(["%PDF-1.4 mock cost estimate"], {
+      type: "application/pdf",
+    });
+    return okBlob(blob, `Kosztorys_20260721.pdf`, "application/pdf");
   }
   // AI preview
   if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/cost-estimate\/generate-ai-preview$/.test(pathOnly) && method === "post") {
@@ -315,6 +495,24 @@ export async function handleMockRequest(method: string, url: string, data?: any)
   // ============================================
   if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/parse\/\w+$/.test(pathOnly) && method === "post") {
     return ok(MOCK_DATA.aiCostImport);
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending\/count$/.test(pathOnly) && method === "get") {
+    return ok({ pendingCount: 0, errorCount: 0, duplicateCount: 0 });
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending\/accept-all$/.test(pathOnly) && method === "post") {
+    return noContent();
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending\/[^/]+\/accept$/.test(pathOnly) && method === "post") {
+    return noContent();
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending\/[^/]+$/.test(pathOnly) && method === "get") {
+    return ok([]);
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/pending$/.test(pathOnly) && method === "get") {
+    return ok([]);
+  }
+  if (/^\/api\/tenants\/[^/]+\/projects\/[^/]+\/ai\/cost\/import\/batch$/.test(pathOnly) && method === "post") {
+    return ok({ batchId: "mock-batch", itemCount: 0, status: "Queued" });
   }
 
   // ============================================

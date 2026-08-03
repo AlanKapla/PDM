@@ -1,138 +1,223 @@
-import { Box, Button, Container, Text, Link, VStack, Flex, Spinner } from "@chakra-ui/react";
+import { Button, Flex, Spinner, Text, VStack, useToast } from "@chakra-ui/react";
 import { LogIn } from "lucide-react";
-import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import { useMsal, useIsAuthenticated, useAccount } from "@azure/msal-react";
-import { loginRequest } from "../config/authConfig";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
+import { useMsal } from "@azure/msal-react";
+import { DemoModeHomeToggle } from "../components/DemoModeHomeToggle";
+import {
+  AuthPageHeading,
+  AuthPageShell,
+} from "../features/auth/components/AuthPageShell";
+import { getCustomAuthClient } from "../auth/customAuthInstance";
+import { clearStaleMsalInteraction } from "../auth/clearStaleMsalInteraction";
+import { getRememberedSignInEmail } from "../auth/rememberedSignIn";
+import { tryResumeNativeSession } from "../auth/tryResumeNativeSession";
+import { useAuth } from "../context/AuthContext";
+
+const HOME_SPINNER_STUCK_MS = 12_000;
+
+function resetSessionAndReload(): void {
+  clearStaleMsalInteraction();
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith("msal."))
+      .forEach((key) => localStorage.removeItem(key));
+    sessionStorage.clear();
+  } catch {
+    // ignore
+  }
+  window.location.reload();
+}
 
 export default function Home() {
-  const location = useLocation();
-  const { instance, accounts, inProgress } = useMsal();
-  const isAuthenticated = useIsAuthenticated();
-  const account = useAccount(accounts[0] || null);
+  const { accounts, inProgress } = useMsal();
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  const toast = useToast();
 
+  const rememberedEmail: string | null = getRememberedSignInEmail();
+  const cacheEmail: string | null =
+    accounts[0]?.username ?? rememberedEmail;
+  const canContinueAs: boolean =
+    !isAuthenticated && Boolean(cacheEmail) && accounts.length > 0;
+
+  const [isResuming, setIsResuming] = useState(false);
+  const [spinnerStuck, setSpinnerStuck] = useState(false);
+  const spinnerSinceRef = useRef<number | null>(null);
   const isLoading = inProgress === "login" || inProgress === "acquireToken";
-  const authLoading = isAuthenticated && !account;
+  const showBootSpinner =
+    isLoading || isResuming || (isAuthenticated && authLoading);
 
-  useEffect(() => {}, [isAuthenticated, isLoading, authLoading, account]);
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      window.location.assign("/dashboard");
+    }
+  }, [isAuthenticated, user]);
 
-  const handleLogin = async () => {
+  useEffect(() => {
+    if (!showBootSpinner) {
+      spinnerSinceRef.current = null;
+      setSpinnerStuck(false);
+      return;
+    }
+
+    if (spinnerSinceRef.current === null) {
+      spinnerSinceRef.current = Date.now();
+    }
+
+    const elapsed: number = Date.now() - spinnerSinceRef.current;
+    const remaining: number = Math.max(0, HOME_SPINNER_STUCK_MS - elapsed);
+    const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      setSpinnerStuck(true);
+    }, remaining);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [showBootSpinner]);
+
+  const handleContinueAs = useCallback(async () => {
+    setIsResuming(true);
     try {
-      const returnUrl = (location.state as { from?: { pathname?: string } })?.from?.pathname || "/dashboard";
-      await instance.loginRedirect({
-        ...loginRequest,
-        state: JSON.stringify({ returnUrl }),
+      const client = await getCustomAuthClient();
+      const resume = await tryResumeNativeSession(client);
+      if (!resume.resumed) {
+        toast({
+          title: "Sesja wygasła",
+          description: "Zaloguj się ponownie hasłem.",
+          status: "info",
+          duration: 4000,
+          isClosable: true,
+        });
+        window.location.assign("/login");
+      }
+    } catch {
+      toast({
+        title: "Nie udało się wznowić sesji",
+        description: "Zaloguj się ponownie.",
+        status: "error",
+        duration: 4000,
+        isClosable: true,
       });
-    } catch {}
-  };
+      window.location.assign("/login");
+    } finally {
+      setIsResuming(false);
+    }
+  }, [toast]);
 
-  if (isLoading) {
+  if (showBootSpinner) {
+    if (spinnerStuck) {
+      return (
+        <Flex minH="100vh" align="center" justify="center" bg="white" p={6}>
+          <VStack spacing={4} maxW="md" textAlign="center">
+            <Text fontWeight="semibold">Nie można potwierdzić sesji</Text>
+            <Text color="neutral.600" fontSize="sm">
+              Logowanie trwa zbyt długo. Zresetuj sesję, aby kontynuować.
+            </Text>
+            <Button colorScheme="primary" onClick={resetSessionAndReload}>
+              Zresetuj sesję i odśwież
+            </Button>
+          </VStack>
+        </Flex>
+      );
+    }
+
     return (
       <Flex minH="100vh" align="center" justify="center" bg="white">
         <VStack spacing={4}>
-          <Spinner size="xl" color="gray.400" thickness="3px" />
-          <Text color="gray.500">Przetwarzanie logowania...</Text>
+          <Spinner size="xl" color="primary.500" thickness="3px" />
+          <Text color="neutral.600">
+            {isResuming ? "Wznawianie sesji..." : "Przetwarzanie logowania..."}
+          </Text>
         </VStack>
       </Flex>
     );
   }
 
-  if (isAuthenticated && authLoading) {
+  if (isAuthenticated && user) {
     return (
       <Flex minH="100vh" align="center" justify="center" bg="white">
         <VStack spacing={4}>
-          <Spinner size="xl" color="gray.400" thickness="3px" />
-          <Text color="gray.500">Ładowanie profilu użytkownika...</Text>
-        </VStack>
-      </Flex>
-    );
-  }
-
-  if (isAuthenticated && account) {
-    return (
-      <Flex minH="100vh" align="center" justify="center" bg="white">
-        <VStack spacing={4}>
-          <Spinner size="xl" color="gray.400" thickness="3px" />
-          <Text color="gray.500">Przekierowywanie do aplikacji...</Text>
+          <Spinner size="xl" color="primary.500" thickness="3px" />
+          <Text color="neutral.600">Przekierowywanie do aplikacji...</Text>
         </VStack>
       </Flex>
     );
   }
 
   return (
-    <Flex minH="100vh" bg="white" align="flex-start" justify="center" pt="12vh" px={4}>
-      <Container maxW="440px">
-        <VStack spacing={12} align="center" textAlign="center">
-
-          {/* Logo */}
-          <VStack spacing={3}>
-            <Link href="https://brickly.pro" target="_blank" rel="noopener noreferrer">
-              <img src="/logo.png" alt="Brickly" style={{ height: "64px", width: "auto" }} />
-            </Link>
-          </VStack>
-
-          {/* Card */}
-          <Box
-            w="full"
-            bg="white"
-            border="1px solid"
-            borderColor="gray.200"
-            borderRadius="16px"
-            p={8}
-          >
-            <VStack spacing={4}>
-              <Text fontSize="sm" color="gray.500">
-                Zaloguj się, żeby kontynuować pracę
-              </Text>
-              <Button
-                size="lg"
-                w="full"
-                bg="#0047AB"
-                color="white"
-                fontWeight={700}
-                borderRadius="10px"
-                _hover={{ bg: "#003A8C", transform: "translateY(-1px)" }}
-                transition="all 0.2s"
-                leftIcon={<LogIn size={18} />}
-                onClick={handleLogin}
-                isLoading={isLoading}
-                loadingText="Przekierowywanie..."
-              >
-                Zaloguj się / Zarejestruj
-              </Button>
-            </VStack>
-          </Box>
-
-          <Text fontSize="sm" color="gray.400" textAlign="center">
-            Kosztorysy · Harmonogramy · Pliki · Komunikacja
-          </Text>
-
-          <Link
-            href="https://brickly.pro"
-            target="_blank"
-            rel="noopener noreferrer"
-            fontSize="sm"
-            color="gray.400"
-            _hover={{ color: "#0047AB" }}
-          >
-            brickly.pro
-          </Link>
-
-        </VStack>
-      </Container>
-
-      <Box
-        position="fixed"
-        bottom={4}
-        left={0}
-        right={0}
-        textAlign="center"
-      >
-        <Text fontSize="xs" color="gray.300">
-          © 2026 Brickly
+    <AuthPageShell
+      footer={
+        <Text fontSize="sm" color="neutral.600">
+          Kosztorysy · Harmonogramy · Pliki · Komunikacja
         </Text>
-      </Box>
-    </Flex>
+      }
+    >
+      <VStack spacing={5} align="stretch">
+        <AuthPageHeading
+          title="Witaj w Brickly"
+          hint="Zaloguj się, żeby kontynuować pracę."
+        />
+        {canContinueAs && cacheEmail ? (
+          <Button
+            size="lg"
+            w="full"
+            h="auto"
+            minH="12"
+            py={3}
+            colorScheme="primary"
+            fontWeight={700}
+            borderRadius="10px"
+            whiteSpace="normal"
+            leftIcon={<LogIn size={18} aria-hidden="true" />}
+            onClick={() => {
+              void handleContinueAs();
+            }}
+            isLoading={isResuming}
+          >
+            <VStack spacing={0} align="start" maxW="100%" overflow="hidden">
+              <Text as="span" fontSize="md" fontWeight={700} lineHeight="short">
+                Kontynuuj jako
+              </Text>
+              <Text
+                as="span"
+                fontSize="sm"
+                fontWeight={600}
+                lineHeight="short"
+                wordBreak="break-all"
+                noOfLines={2}
+              >
+                {cacheEmail}
+              </Text>
+            </VStack>
+          </Button>
+        ) : null}
+        <Button
+          as={RouterLink}
+          to="/login"
+          size="lg"
+          w="full"
+          colorScheme="primary"
+          fontWeight={700}
+          borderRadius="10px"
+          variant={canContinueAs ? "outline" : "solid"}
+          leftIcon={
+            canContinueAs ? undefined : <LogIn size={18} aria-hidden="true" />
+          }
+        >
+          {canContinueAs ? "Zaloguj się na inne konto" : "Zaloguj się"}
+        </Button>
+        <Button
+          as={RouterLink}
+          to="/register"
+          size="md"
+          w="full"
+          variant="outline"
+          colorScheme="primary"
+        >
+          Utwórz konto
+        </Button>
+        <DemoModeHomeToggle />
+      </VStack>
+    </AuthPageShell>
   );
 }
-

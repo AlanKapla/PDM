@@ -574,6 +574,7 @@ export function CostModal(props: CostModalProps): React.ReactElement {
                 <Input
                   type="file"
                   multiple
+                  accept=".jpg,.jpeg,.png,.pdf"
                   onChange={(e) =>
                     setForm((p) => ({
                       ...p,

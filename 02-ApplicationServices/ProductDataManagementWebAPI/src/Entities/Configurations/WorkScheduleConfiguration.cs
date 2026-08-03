@@ -129,7 +129,22 @@ namespace Entities.Configurations
     {
         public void Configure(EntityTypeBuilder<WorkScheduleStageWorkAssignment> builder)
         {
-            builder.HasKey(a => new { a.WorkScheduleStageWorkId, a.TenantId, a.ProjectId, a.UserId });
+            builder.HasKey(a => a.Id);
+
+            builder.Property(a => a.Id)
+                   .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+            builder.ToTable(t => t.HasCheckConstraint(
+                "CK_WorkScheduleStageWorkAssignments_AssigneeXor",
+                "([UserId] IS NOT NULL AND [ContractorId] IS NULL) OR ([UserId] IS NULL AND [ContractorId] IS NOT NULL)"));
+
+            builder.HasIndex(a => new { a.WorkScheduleStageWorkId, a.UserId })
+                   .IsUnique()
+                   .HasFilter("[UserId] IS NOT NULL");
+
+            builder.HasIndex(a => new { a.WorkScheduleStageWorkId, a.ContractorId })
+                   .IsUnique()
+                   .HasFilter("[ContractorId] IS NOT NULL");
 
             builder.HasOne(a => a.Work)
                    .WithMany(w => w.Assignments)
@@ -140,6 +155,7 @@ namespace Entities.Configurations
                    .WithMany()
                    .HasForeignKey(a => new { a.TenantId, a.ProjectId, a.UserId })
                    .HasPrincipalKey(pm => new { pm.TenantId, pm.ProjectId, pm.UserId })
+                   .IsRequired(false)
                    .OnDelete(DeleteBehavior.Restrict);
 
             builder.HasOne(a => a.Tenant)
@@ -156,7 +172,14 @@ namespace Entities.Configurations
                    .WithMany()
                    .HasForeignKey(a => new { a.TenantId, a.UserId })
                    .HasPrincipalKey(tm => new { tm.TenantId, tm.UserId })
+                   .IsRequired(false)
                    .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasOne(a => a.Contractor)
+                   .WithMany()
+                   .HasForeignKey(a => a.ContractorId)
+                   .IsRequired(false)
+                   .OnDelete(DeleteBehavior.NoAction);
         }
     }
 

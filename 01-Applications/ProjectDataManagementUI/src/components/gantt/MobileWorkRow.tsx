@@ -18,6 +18,7 @@ import { MoreVertical, MessageSquare, Calendar, Users, Move, Trash2, GitBranch, 
 import { useGantt } from "./GanttContext";
 import { fmtCompactDate } from "./ganttRowUtils";
 import type { WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
+import { getAssigneeKey, getAssigneeDisplayName } from "../../types/workSchedule.types";
 
 interface MobileWorkRowProps {
   work: WorkScheduleStageWorkWeb;
@@ -120,7 +121,7 @@ export default function MobileWorkRow({ work, stageId, depth }: MobileWorkRowPro
             {(work.assignees ?? []).length > 0 && (
               <AvatarGroup size="2xs" max={3}>
                 {work.assignees.map(a => (
-                  <Avatar key={a.userId} name={a.userName} size="2xs" />
+                  <Avatar key={getAssigneeKey(a)} name={getAssigneeDisplayName(a)} size="2xs" />
                 ))}
               </AvatarGroup>
             )}

@@ -1,13 +1,5 @@
 import { useState, useEffect, useContext } from "react";
 import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
-  Button,
   VStack,
   Text,
   Alert,
@@ -17,9 +9,9 @@ import {
   Divider,
   Checkbox,
 } from "@chakra-ui/react";
-import { Share2, User, Package } from "lucide-react";
+import { User, Package } from "lucide-react";
+import AppModal from "./ui/AppModal";
 import { projectApi } from "../api/projectApi";
-import { handleApiError } from "../utils/handleApiError";
 import { AuthContext } from "../context/AuthContext";
 import type { ProjectMemberWeb, ProjectFilePackageWeb } from "../types/project.types";
 import { useToastNotification } from "../hooks/useToastNotification";
@@ -47,7 +39,7 @@ export default function ShareFilesModal({
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const {showSuccess, showError, showWarning, showInfo, toast, showApiError } = useToastNotification();
+  const { showSuccess, showWarning, showError, showApiError } = useToastNotification();
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -59,7 +51,6 @@ export default function ShareFilesModal({
     }
   }, [isOpen, tenantId, projectId]);
 
-  // Synchronizuj paczki z propsem — gdy rodzic zmieni źródło danych (np. zmiana zakładki)
   useEffect(() => {
     if (isOpen) {
       setPackages(myPackages || []);
@@ -71,19 +62,17 @@ export default function ShareFilesModal({
       setLoadingMembers(true);
       const response = await projectApi.getProjectMembers(tenantId, projectId);
       const data = response.data;
-      // Wyklucz aktualnego użytkownika z listy (sprawdź po userId lub email)
-      const filteredMembers = data.filter((member: ProjectMemberWeb) => 
+      const filteredMembers = data.filter((member: ProjectMemberWeb) =>
         member.userId !== user?.id && member.email !== user?.email
       );
       setMembers(filteredMembers);
-    } catch (error) {
+    } catch {
       showError("Błąd", "Nie udało się pobrać listy członków projektu");
     } finally {
       setLoadingMembers(false);
     }
   };
 
-  // Helpers do kaskadowego zaznaczania
   const findNode = (id: string, list: ProjectFilePackageWeb[]): ProjectFilePackageWeb | undefined => {
     for (const cat of list) {
       if (cat.id === id) return cat;
@@ -101,11 +90,10 @@ export default function ShareFilesModal({
     return ids;
   };
 
-  // Zaznacz/odznacz katalog kaskadowo (wraz z podkatalogami)
   const togglePackageSelection = (packageId: string) => {
     const node = findNode(packageId, packages);
     const idsToToggle = node ? collectAllIds(node) : [packageId];
-    setSelectedPackageIds(prev => {
+    setSelectedPackageIds((prev) => {
       const isSelected = prev.has(packageId);
       const next = new Set(prev);
       for (const id of idsToToggle) {
@@ -131,6 +119,12 @@ export default function ShareFilesModal({
     });
   };
 
+  const handleClose = () => {
+    if (!loading) {
+      onClose();
+    }
+  };
+
   const handleShare = async () => {
     if (selectedPackageIds.size === 0) {
       showWarning("Błąd", "Wybierz przynajmniej jeden katalog");
@@ -144,10 +138,10 @@ export default function ShareFilesModal({
 
     try {
       setLoading(true);
-      
+
       const userIds = Array.from(selectedUserIds);
       const packageIds = Array.from(selectedPackageIds);
-      
+
       await projectApi.sharePackages(tenantId, projectId, packageIds, userIds);
 
       showSuccess("Sukces", `Udostępniono ${packageIds.length} katalogów dla ${userIds.length} użytkownik(ów)`);
@@ -161,150 +155,152 @@ export default function ShareFilesModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size={{ base: "full", md: "lg" }}>
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
-          <HStack spacing={2}>
-            <Box display={{ base: "none", md: "block" }}>
-              <Share2 size={24} aria-hidden="true" />
-            </Box>
-            <Box display={{ base: "block", md: "none" }}>
-              <Share2 size={20} aria-hidden="true" />
-            </Box>
-            <Text fontSize={{ base: "md", md: "lg" }}>Udostępnij pliki grupowo</Text>
-          </HStack>
-        </ModalHeader>
-        <ModalCloseButton />
-        <ModalBody>
-          <VStack spacing={4} align="stretch">
-            {/* Wybór paczek */}
-            <Box>
-              <Text fontWeight="bold" mb={2}>
-                Wybierz katalogi do udostępnienia ({selectedPackageIds.size} wybrano):
-              </Text>
-              {packages.length === 0 ? (
-                <Text fontSize="sm" color="gray.500">
-                  Nie masz jeszcze żadnych katalogów do udostępnienia
-                </Text>
-              ) : (
-                <VStack spacing={2} align="stretch" maxH="300px" overflowY="auto">
-                  {packages.map((pkg) => {
-                    const isSelected = selectedPackageIds.has(pkg.id);
-                    
-                    return (
-                      <Box 
-                        key={pkg.id} 
-                        borderWidth="1px" 
-                        borderRadius="md" 
-                        p={3}
-                        bg={isSelected ? "primary.50" : "transparent"}
-                        cursor="pointer"
-                        onClick={() => togglePackageSelection(pkg.id)}
-                        _hover={{ bg: isSelected ? "primary.100" : "gray.50" }}
-                      >
-                        <HStack spacing={2}>
-                          <Checkbox
-                            isChecked={isSelected}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              togglePackageSelection(pkg.id);
-                            }}
-                          />
-                          <Package size={16} aria-hidden="true" />
-                          <Text fontWeight="bold" fontSize="sm">{pkg.name}</Text>
-                          <Text fontSize="xs" color="gray.500">({pkg.totalFiles} plików)</Text>
-                        </HStack>
-                      </Box>
-                    );
-                  })}
-                </VStack>
-              )}
-            </Box>
+    <AppModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Udostępnij pliki grupowo"
+      actionLabel={`Udostępnij (${selectedPackageIds.size} katalogów dla ${selectedUserIds.size})`}
+      actionColorScheme="primary"
+      onAction={handleShare}
+      isActionLoading={loading}
+      isActionDisabled={selectedPackageIds.size === 0 || selectedUserIds.size === 0 || loadingMembers}
+      desktopSize="lg"
+    >
+      <VStack spacing={4} align="stretch">
+        <Box>
+          <Text fontWeight="bold" mb={2}>
+            Wybierz katalogi do udostępnienia ({selectedPackageIds.size} wybrano):
+          </Text>
+          {packages.length === 0 ? (
+            <Text fontSize="sm" color="neutral.600">
+              Nie masz jeszcze żadnych katalogów do udostępnienia
+            </Text>
+          ) : (
+            <VStack spacing={2} align="stretch" maxH={{ base: "30dvh", md: "300px" }} overflowY="auto">
+              {packages.map((pkg) => {
+                const isSelected = selectedPackageIds.has(pkg.id);
 
-            <Alert status="info" fontSize="xs">
-              <AlertIcon />
-              Udostępniasz katalogi wraz z podkatalogami. Wybrani członkowie otrzymają dostęp do wszystkich plików i podkatalogów w zaznaczonych katalogach.
-            </Alert>
-
-            <Divider />
-
-            {/* Wybór użytkowników */}
-            <Box>
-              <Text fontWeight="bold" mb={2}>
-                Udostępnij dla ({selectedUserIds.size}):
-              </Text>
-              {loadingMembers ? (
-                <Text fontSize="sm" color="gray.500">
-                  Ładowanie członków...
-                </Text>
-              ) : members.length === 0 ? (
-                <Text fontSize="sm" color="gray.500">
-                  Brak członków projektu do udostępnienia
-                </Text>
-              ) : (
-                <VStack align="stretch" spacing={2} maxH="200px" overflowY="auto" p={2} borderWidth="1px" borderRadius="md">
-                  {members.map((member) => (
-                    <HStack
-                      key={member.userId}
-                      p={2}
-                      borderRadius="md"
-                      cursor="pointer"
-                      bg={selectedUserIds.has(member.userId) ? "primary.50" : "transparent"}
-                      _hover={{ bg: selectedUserIds.has(member.userId) ? "primary.100" : "gray.50" }}
-                      onClick={() => toggleUserSelection(member.userId)}
-                    >
+                return (
+                  <Box
+                    key={pkg.id}
+                    borderWidth="1px"
+                    borderRadius="md"
+                    p={3}
+                    bg={isSelected ? "primary.50" : "transparent"}
+                    cursor="pointer"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => togglePackageSelection(pkg.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        togglePackageSelection(pkg.id);
+                      }
+                    }}
+                    _hover={{ bg: isSelected ? "primary.100" : "neutral.50" }}
+                    minH="44px"
+                  >
+                    <HStack spacing={2} align="flex-start">
                       <Checkbox
-                        isChecked={selectedUserIds.has(member.userId)}
+                        isChecked={isSelected}
                         onChange={(e) => {
                           e.stopPropagation();
-                          toggleUserSelection(member.userId);
+                          togglePackageSelection(pkg.id);
                         }}
+                        mt={0.5}
                       />
-                      <User size={16} />
-                      <VStack align="start" spacing={0} flex="1">
-                        <Text fontSize="sm" fontWeight="medium">
-                          {member.firstName} {member.lastName}
+                      <Package size={16} aria-hidden="true" />
+                      <VStack align="start" spacing={0} minW={0} flex="1">
+                        <Text fontWeight="bold" fontSize="sm" noOfLines={2}>
+                          {pkg.name}
                         </Text>
-                        <Text fontSize="xs" color="gray.600">
-                          {member.email}
+                        <Text fontSize="xs" color="neutral.600">
+                          ({pkg.totalFiles} plików)
                         </Text>
                       </VStack>
                     </HStack>
-                  ))}
-                </VStack>
-              )}
-            </Box>
+                  </Box>
+                );
+              })}
+            </VStack>
+          )}
+        </Box>
 
-            <Alert status="info" fontSize="sm">
-              <AlertIcon />
-              Wybrani członkowie otrzymają dostęp do wybranych katalogów i będą mogli je przeglądać oraz pobierać.
-            </Alert>
-          </VStack>
-        </ModalBody>
-        <ModalFooter flexDirection={{ base: "column", md: "row" }} gap={2}>
-          <Button 
-            variant="ghost" 
-            onClick={onClose}
-            width={{ base: "100%", md: "auto" }}
-            order={{ base: 2, md: 1 }}
-          >
-            Anuluj
-          </Button>
-          <Button
-            colorScheme="primary"
-            onClick={handleShare}
-            isLoading={loading}
-            loadingText="Udostępnianie..."
-            isDisabled={selectedPackageIds.size === 0 || selectedUserIds.size === 0 || loadingMembers}
-            leftIcon={<Share2 size={18} />}
-            width={{ base: "100%", md: "auto" }}
-            order={{ base: 1, md: 2 }}
-          >
-            Udostępnij ({selectedPackageIds.size} katalogów dla {selectedUserIds.size})
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        <Alert status="info" fontSize="xs">
+          <AlertIcon aria-hidden="true" />
+          Udostępniasz katalogi wraz z podkatalogami. Wybrani członkowie otrzymają dostęp do wszystkich plików i podkatalogów w zaznaczonych katalogach.
+        </Alert>
+
+        <Divider />
+
+        <Box>
+          <Text fontWeight="bold" mb={2}>
+            Udostępnij dla ({selectedUserIds.size}):
+          </Text>
+          {loadingMembers ? (
+            <Text fontSize="sm" color="neutral.600">
+              Ładowanie członków...
+            </Text>
+          ) : members.length === 0 ? (
+            <Text fontSize="sm" color="neutral.600">
+              Brak członków projektu do udostępnienia
+            </Text>
+          ) : (
+            <VStack
+              align="stretch"
+              spacing={2}
+              maxH={{ base: "30dvh", md: "200px" }}
+              overflowY="auto"
+              p={2}
+              borderWidth="1px"
+              borderRadius="md"
+            >
+              {members.map((member) => (
+                <HStack
+                  key={member.userId}
+                  p={2}
+                  borderRadius="md"
+                  cursor="pointer"
+                  role="button"
+                  tabIndex={0}
+                  minH="44px"
+                  bg={selectedUserIds.has(member.userId) ? "primary.50" : "transparent"}
+                  _hover={{ bg: selectedUserIds.has(member.userId) ? "primary.100" : "neutral.50" }}
+                  onClick={() => toggleUserSelection(member.userId)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleUserSelection(member.userId);
+                    }
+                  }}
+                >
+                  <Checkbox
+                    isChecked={selectedUserIds.has(member.userId)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      toggleUserSelection(member.userId);
+                    }}
+                  />
+                  <User size={16} aria-hidden="true" />
+                  <VStack align="start" spacing={0} flex="1" minW={0}>
+                    <Text fontSize="sm" fontWeight="medium" noOfLines={1}>
+                      {member.firstName} {member.lastName}
+                    </Text>
+                    <Text fontSize="xs" color="neutral.600" noOfLines={1}>
+                      {member.email}
+                    </Text>
+                  </VStack>
+                </HStack>
+              ))}
+            </VStack>
+          )}
+        </Box>
+
+        <Alert status="info" fontSize="sm">
+          <AlertIcon aria-hidden="true" />
+          Wybrani członkowie otrzymają dostęp do wybranych katalogów i będą mogli je przeglądać oraz pobierać.
+        </Alert>
+      </VStack>
+    </AppModal>
   );
 }

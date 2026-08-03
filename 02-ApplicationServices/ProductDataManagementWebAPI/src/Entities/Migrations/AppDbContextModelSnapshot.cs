@@ -154,6 +154,44 @@ namespace Entities.Migrations
                     b.ToTable("AICostImportItems", (string)null);
                 });
 
+            modelBuilder.Entity("Entities.Models.Activity.UserActivityLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AzureAdB2CObjectId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Route")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAtUtc")
+                        .IsDescending();
+
+                    b.ToTable("UserActivityLogs", (string)null);
+                });
+
             modelBuilder.Entity("Entities.Models.Chats.Chat", b =>
                 {
                     b.Property<Guid>("Id")
@@ -256,6 +294,64 @@ namespace Entities.Migrations
                     b.HasIndex("ChatId", "CreatedAt");
 
                     b.ToTable("MessageHistories");
+                });
+
+            modelBuilder.Entity("Entities.Models.ColdMails.ColdMailHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(100000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("HtmlBody")
+                        .IsRequired()
+                        .HasMaxLength(150000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SentByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("RecipientEmail");
+
+                    b.HasIndex("SentAt")
+                        .IsDescending();
+
+                    b.HasIndex("SentByUserId");
+
+                    b.ToTable("ColdMailHistories", (string)null);
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimate", b =>
@@ -1612,6 +1708,9 @@ namespace Entities.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<DateTime?>("WelcomeEmailSentAt")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AzureAdB2CObjectId")
@@ -1827,27 +1926,48 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.WorkSchedules.WorkScheduleStageWorkAssignment", b =>
                 {
-                    b.Property<Guid>("WorkScheduleStageWorkId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
 
-                    b.Property<Guid>("TenantId")
+                    b.Property<Guid?>("ContractorId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("WorkScheduleStageWorkId", "TenantId", "ProjectId", "UserId");
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkScheduleStageWorkId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContractorId");
 
                     b.HasIndex("ProjectId");
 
                     b.HasIndex("TenantId", "UserId");
 
+                    b.HasIndex("WorkScheduleStageWorkId", "ContractorId")
+                        .IsUnique()
+                        .HasFilter("[ContractorId] IS NOT NULL");
+
+                    b.HasIndex("WorkScheduleStageWorkId", "UserId")
+                        .IsUnique()
+                        .HasFilter("[UserId] IS NOT NULL");
+
                     b.HasIndex("TenantId", "ProjectId", "UserId");
 
-                    b.ToTable("WorkScheduleStageWorkAssignments");
+                    b.ToTable("WorkScheduleStageWorkAssignments", t =>
+                        {
+                            t.HasCheckConstraint("CK_WorkScheduleStageWorkAssignments_AssigneeXor", "([UserId] IS NOT NULL AND [ContractorId] IS NULL) OR ([UserId] IS NULL AND [ContractorId] IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Entities.Models.WorkSchedules.WorkScheduleStageWorkComment", b =>
@@ -2161,6 +2281,17 @@ namespace Entities.Migrations
                     b.Navigation("Chat");
 
                     b.Navigation("ReplyToMessage");
+                });
+
+            modelBuilder.Entity("Entities.Models.ColdMails.ColdMailHistory", b =>
+                {
+                    b.HasOne("Entities.Models.Users.User", "SentByUser")
+                        .WithMany()
+                        .HasForeignKey("SentByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SentByUser");
                 });
 
             modelBuilder.Entity("Entities.Models.CostEstimates.CostEstimate", b =>
@@ -2843,6 +2974,11 @@ namespace Entities.Migrations
 
             modelBuilder.Entity("Entities.Models.WorkSchedules.WorkScheduleStageWorkAssignment", b =>
                 {
+                    b.HasOne("Entities.Models.Tenants.Contractor", "Contractor")
+                        .WithMany()
+                        .HasForeignKey("ContractorId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Entities.Models.Projects.Project", "Project")
                         .WithMany()
                         .HasForeignKey("ProjectId")
@@ -2864,14 +3000,14 @@ namespace Entities.Migrations
                     b.HasOne("Entities.Models.Tenants.TenantMember", "TenantMember")
                         .WithMany()
                         .HasForeignKey("TenantId", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Entities.Models.Projects.ProjectMember", "ProjectMember")
                         .WithMany()
                         .HasForeignKey("TenantId", "ProjectId", "UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Contractor");
 
                     b.Navigation("Project");
 

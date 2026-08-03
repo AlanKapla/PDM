@@ -29,7 +29,9 @@ import { useLocation, Link as RouterLink } from "react-router-dom";
 import { useContext } from "react";
 import { InvitationStatus } from "../types/auth.types";
 import { useActiveInvitations, useActiveProjectInvitations } from "../hooks/queries";
+import { useAssignedWorksConflicts } from "../hooks/useAssignedWorksConflicts";
 import { ChatUnreadContext } from "../context/ChatUnreadContext";
+import { useAppSession } from "../hooks/useAppSession";
 
 // ===== SIDEBAR CONTENT COMPONENT =====
 export function SidebarContent() {
@@ -46,6 +48,7 @@ export function SidebarContent() {
   const invitationsCount =
     invitations.filter((inv) => inv.status === InvitationStatus.Pending).length +
     projectInvitations.filter((inv) => inv.status === InvitationStatus.Pending).length;
+  const { hasConflicts: hasAssignedWorksConflicts } = useAssignedWorksConflicts();
 
   const activeBg = useColorModeValue("primary.100", "primary.700");
   const hoverBg = useColorModeValue("gray.200", "gray.600");
@@ -168,6 +171,17 @@ export function SidebarContent() {
         textDecoration="none"
       >
         Zaplanowane prace
+        {hasAssignedWorksConflicts && (
+          <Badge
+            colorScheme="orange"
+            borderRadius="full"
+            fontSize="xs"
+            ml="auto"
+            aria-label="Konflikt terminów w zaplanowanych pracach"
+          >
+            !
+          </Badge>
+        )}
       </Button>
 
       {/* Zaplanowane prace */}
@@ -191,8 +205,12 @@ export function SidebarContent() {
 // ===== SIDEBAR COMPONENT =====
 export default function Sidebar() {
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isDemoOnlySession } = useAppSession();
   const bg = useColorModeValue("white", "gray.900");
   const border = useColorModeValue("gray.200", "gray.700");
+  const sidebarTop = isDemoOnlySession
+    ? { base: "112px", md: "108px" }
+    : { base: "60px", md: "60px" };
 
   return (
     <>
@@ -226,9 +244,13 @@ export default function Sidebar() {
       <Box
         position="fixed"
         left="0"
-        top="60px"
+        top={sidebarTop}
         w="250px"
-        h="calc(100vh - 60px)"
+        h={
+          isDemoOnlySession
+            ? { base: "calc(100vh - 112px)", md: "calc(100vh - 108px)" }
+            : "calc(100vh - 60px)"
+        }
         bg={bg}
         borderRight="1px solid"
         borderColor={border}

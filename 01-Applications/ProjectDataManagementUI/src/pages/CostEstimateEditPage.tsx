@@ -90,9 +90,11 @@ import {
   useReorderCostEstimateItems,
   useReorderCostEstimateItemChildren,
   useReorderCostEstimateGroups,
+  useExportCostEstimate,
   costEstimateKeys,
   invalidateCostEstimateLists,
 } from '../hooks/queries';
+import { downloadBlob, sanitizeDownloadFileName } from '../utils/downloadBlob';
 import { recalculateCostEstimateDetails } from '../utils/recalculateCostEstimateDetails';
 import {
   isInProgressNumericInput,
@@ -111,6 +113,7 @@ import type {
   CostEstimateFieldValueWeb,
   CostEstimateAdditionalFieldValueWeb,
   CostEstimateAdditionalFieldWeb,
+  CostEstimateExportFormat,
   AddGroupRequestDto,
   AddItemRequestDto,
 } from '../types/costEstimate.types.new';
@@ -352,6 +355,16 @@ export const CostEstimateEditPage: React.FC = () => {
     projectId ?? '',
     estimateId ?? ''
   );
+  const exportMutation = useExportCostEstimate(
+    user?.activeTenantId ?? '',
+    projectId ?? '',
+    estimateId ?? ''
+  );
+  const isExportingXlsx: boolean =
+    exportMutation.isPending && exportMutation.variables === 'xlsx';
+  const isExportingPdf: boolean =
+    exportMutation.isPending && exportMutation.variables === 'pdf';
+  const { mutateAsync: exportCostEstimate, isPending: isExportPending } = exportMutation;
 
   // ---- React Query: pobieranie szczegółów kosztorysu ----
   const { data: fetchedDetails, isPending, isFetching, refetch } = useCostEstimateDetails(
@@ -834,6 +847,42 @@ export const CostEstimateEditPage: React.FC = () => {
       setIsSyncing(false);
     }
   };
+
+  /**
+   * Eksportuje kosztorys do PDF lub XLSX (stan serwera — bez confirm przy hasChanges).
+   * Sukces: cichy download; toast tylko przy błędzie.
+   */
+  const handleExport = useCallback(
+    async (format: CostEstimateExportFormat): Promise<void> => {
+      if (!user?.activeTenantId || !projectId || !estimateId) {
+        return;
+      }
+      if (isExportPending) {
+        return;
+      }
+
+      try {
+        const file = await exportCostEstimate(format);
+        const dateStamp: string = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const extension: string = format === 'xlsx' ? 'xlsx' : 'pdf';
+        const nameBase: string = sanitizeDownloadFileName(details?.name ?? 'Kosztorys');
+        // Zawsze nazwa kosztorysu + data eksportu (nie polegaj wyłącznie na Content-Disposition / CORS).
+        const downloadName: string = `${nameBase}_${dateStamp}.${extension}`;
+        downloadBlob(file.blob, downloadName);
+      } catch (error: unknown) {
+        showApiError(error);
+      }
+    },
+    [
+      user?.activeTenantId,
+      projectId,
+      estimateId,
+      isExportPending,
+      exportCostEstimate,
+      details?.name,
+      showApiError,
+    ]
+  );
 
   /**
    * Przelicza kosztorys na backendzie i pobiera aktualne dane.
@@ -2346,6 +2395,8 @@ export const CostEstimateEditPage: React.FC = () => {
           hasSchedule={!!details.workScheduleId}
           isSyncing={isSyncing}
           isRecalculating={isRecalculating}
+          isExportingXlsx={isExportingXlsx}
+          isExportingPdf={isExportingPdf}
           onExpandAll={() => modernViewRef.current?.expandAll()}
           onCollapseAll={() => modernViewRef.current?.collapseAll()}
           onOpenSchema={onSchemaModalOpen}
@@ -2363,6 +2414,12 @@ export const CostEstimateEditPage: React.FC = () => {
           }}
           onSyncSchedule={handleSyncSchedule}
           onShare={onShareModalOpen}
+          onExportXlsx={() => {
+            void handleExport('xlsx');
+          }}
+          onExportPdf={() => {
+            void handleExport('pdf');
+          }}
           isFullscreen={isFullscreen}
           onToggleFullscreen={() => setIsFullscreen((v) => !v)}
         />

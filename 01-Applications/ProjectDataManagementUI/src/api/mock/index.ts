@@ -3,8 +3,8 @@
 //   Odczytuje sessionStorage "demoMode"
 // ============================================
 
-import type { AxiosInstance } from "axios";
-import { handleMockRequest } from "./mockHandlers";
+import type { AxiosInstance, AxiosResponseHeaders, InternalAxiosRequestConfig } from "axios";
+import { handleMockRequest, type MockResponse } from "./mockHandlers";
 
 const STORAGE_KEY = "demoMode";
 
@@ -20,52 +20,63 @@ export function setDemoMode(active: boolean): void {
   }
 }
 
+function applyMockAdapter(
+  config: InternalAxiosRequestConfig,
+  status: number,
+  mockData: unknown,
+  responseHeaders?: Record<string, string>
+): void {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    ...responseHeaders,
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (config as any).adapter = () =>
+    Promise.resolve({
+      data: mockData,
+      status,
+      statusText: "OK (mock)",
+      headers: headers as AxiosResponseHeaders,
+      config,
+    });
+}
+
 export function setupMockInterceptors(instance: AxiosInstance): void {
-  // Request interceptor — przechwytuje żądanie, zwraca mockowaną odpowiedź
   instance.interceptors.request.use(
     async (config) => {
-      // Demo mode nieaktywny — przepuść normalnie
       if (!isDemoModeActive()) {
         return config;
       }
 
       const url = `${config.baseURL || ""}${config.url || ""}`;
 
-      // Interceptuj tylko zapytania do naszego API (ścieżka zaczyna się od /api/)
-      // Działa zarówno dla dev (https://localhost:5001/api/...) 
-      // jak i prod (/api/...) oraz Vite proxy
       if (!url.includes("/api/")) {
         return config;
       }
 
+      // Activity telemetry must hit the real API even while demo mocks other calls.
+      if (url.includes("/api/activity/demo") || url.includes("/activity/demo")) {
+        return config;
+      }
+
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const [status, mockData] = await handleMockRequest(
+        const mockResult: MockResponse = await handleMockRequest(
           config.method || "get",
           url,
           config.data
         );
-
-        // Zwracamy odpowiedź bez wysyłania zapytania do sieci
-        // Poprzez podmianę adaptera na funkcję, która natychmiast zwraca mock
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (config as any).adapter = () => {
-          return Promise.resolve({
-            data: mockData,
-            status,
-            statusText: "OK (mock)",
-            headers: { "content-type": "application/json" },
-            config,
-          });
-        };
+        const status: number = mockResult[0];
+        const mockData: unknown = mockResult[1];
+        const responseHeaders: Record<string, string> | undefined = mockResult[2];
+        applyMockAdapter(config, status, mockData, responseHeaders);
       } catch (err) {
         console.error("[PDMDemo] Mock handler error:", err);
+        applyMockAdapter(config, 200, []);
       }
 
       return config;
     },
     (error) => Promise.reject(error)
   );
-
-  console.log("[PDMDemo] Mock interceptors registered.");
 }

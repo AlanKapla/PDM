@@ -12,6 +12,7 @@ namespace Entities.Models.Users
         public string LastName { get; set; } = default!;
         public string AzureAdB2CObjectId { get; set; } = default!;
         public bool IsActive { get; set; } = false;
+        public DateTime? WelcomeEmailSentAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public SystemRole SystemRole { get; set; } = SystemRole.User;
 

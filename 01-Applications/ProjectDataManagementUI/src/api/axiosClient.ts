@@ -1,8 +1,14 @@
 import axios from "axios";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
-import { msalInstance } from "../main";
-import { silentRequest } from "../config/authConfig";
+import { msalInstance } from "../auth/msalInstance";
+import { isSoftLoggedOut } from "../auth/rememberedSignIn";
+import { setPendingLoginError } from "../auth/pendingLoginError";
+import { withTimeout } from "../auth/withTimeout";
+import { nativeSilentRequest } from "../config/authConfig";
 import { setupMockInterceptors, isDemoModeActive } from "./mock";
+
+/** Mobile cold-start / powrót z tła — acquireTokenSilent nie może wisieć w nieskończoność. */
+const TOKEN_ACQUIRE_TIMEOUT_MS = 10_000;
 
 // Wymagamy jawnego ustawienia zmiennych środowiskowych, aby uniknąć cichego łączenia z błędnym backendem.
 function requireEnvVar(key: string): string {
@@ -17,11 +23,67 @@ function requireEnvVar(key: string): string {
 
 const API_BASE_URL = requireEnvVar("VITE_API_BASE_URL");
 
-// Zapobiega wielokrotnym równoległym wywołaniom loginRedirect.
-// Bez tego kilka równoczesnych żądań API może zawiesić flagę MSAL
-// `interaction_in_progress` w localStorage i trwale zablokować aplikację
-// na ekranie "Sprawdzanie sesji...".
+// Zapobiega wielokrotnym równoległym przekierowaniom na /login
+// przy równoczesnych 401 / InteractionRequired.
 let interactiveRedirectTriggered = false;
+
+/** Czy MSAL ma już trwającą interakcję (localStorage / sessionStorage). */
+function isMsalInteractionInProgress(): boolean {
+  if (interactiveRedirectTriggered) {
+    return true;
+  }
+
+  try {
+    const storages: Storage[] = [sessionStorage, localStorage];
+    for (const storage of storages) {
+      for (let index = 0; index < storage.length; index++) {
+        const key: string | null = storage.key(index);
+        if (key === null || !key.includes("interaction.status")) {
+          continue;
+        }
+        const value: string | null = storage.getItem(key);
+        if (value !== null && value !== "" && value !== "none") {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // Storage niedostępny — zakładamy brak interakcji.
+  }
+
+  return false;
+}
+
+function isOnAuthEntryPath(): boolean {
+  const path: string = window.location.pathname;
+  return (
+    path === "/login" ||
+    path === "/register" ||
+    path === "/reset-password" ||
+    path === "/logged-out" ||
+    path === "/" ||
+    path.startsWith("/auth/")
+  );
+}
+
+async function redirectToLoginSafely(reason?: string): Promise<void> {
+  if (isMsalInteractionInProgress()) {
+    return;
+  }
+
+  // Już na /login (np. race podczas finalize) — nie remountuj z czerwonym alertem.
+  // Resume / formularz obsłużą sesję; pending error tylko gdy użytkownik wpada z appki.
+  if (isOnAuthEntryPath()) {
+    return;
+  }
+
+  interactiveRedirectTriggered = true;
+  if (reason) {
+    setPendingLoginError(reason);
+  }
+  // Native auth only — nie używamy loginRedirect (hosted Microsoft UI)
+  window.location.assign("/login");
+}
 
 export const axiosClient = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -46,38 +108,51 @@ axiosClient.interceptors.request.use(
       return config;
     }
 
+    // Soft logout: nie doklejaj tokenu — użytkownik świadomie wyszedł z sesji UI.
+    if (isSoftLoggedOut()) {
+      return config;
+    }
+
     const accounts = msalInstance.getAllAccounts();
-    
+
     if (accounts.length > 0) {
       const account = msalInstance.getActiveAccount() || accounts[0];
-      
+
       try {
-        // Try to acquire token silently from cache
-        const response = await msalInstance.acquireTokenSilent({
-          ...silentRequest,
-          account: account,
-        });
-        
+        // Try to acquire token silently from cache (timeout — mobile po tle często wisi)
+        const response = await withTimeout(
+          msalInstance.acquireTokenSilent({
+            ...nativeSilentRequest,
+            account: account,
+          }),
+          TOKEN_ACQUIRE_TIMEOUT_MS,
+          "axios acquireTokenSilent timed out"
+        );
+
         // Add token to Authorization header
         config.headers.Authorization = `Bearer ${response.accessToken}`;
-      } catch (error: any) {
-        // Tylko InteractionRequiredAuthError oznacza, że użytkownik musi się zalogować interaktywnie.
-        // Inne błędy (np. sieciowe) nie powinny wymuszać przekierowania do logowania.
+      } catch (error: unknown) {
+        // InteractionRequiredAuthError, timeout lub inny fail silent = sesja wygasła / sieć.
+        // Czyścimy active account i przekierowujemy do logowania (koniec zombie sesji).
         if (error instanceof InteractionRequiredAuthError) {
-          if (!interactiveRedirectTriggered) {
-            interactiveRedirectTriggered = true;
-            await msalInstance.loginRedirect(silentRequest);
-          }
-          return Promise.reject(new Error("Token acquisition required - redirecting to login"));
+          msalInstance.setActiveAccount(null);
         }
-        // Dla innych błędów odrzuć żądanie bez przekierowania
-        return Promise.reject(error);
+        try {
+          await redirectToLoginSafely(
+            "Sesja Entra nie ma ważnego tokenu API. Zaloguj się ponownie."
+          );
+        } catch {
+          // Redirect failed or interaction already in progress — reject below.
+        }
+        return Promise.reject(
+          new Error("Token acquisition required - redirecting to login")
+        );
       }
     } else {
       // Don't add Authorization header - let the request proceed
       // Backend will return 401 and trigger error interceptor
     }
-    
+
     return config;
   },
   (error) => {
@@ -89,12 +164,16 @@ axiosClient.interceptors.request.use(
 axiosClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (isDemoModeActive()) {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
 
     // If 401 Unauthorized
     if (error.response?.status === 401) {
       // Special case: /user/sync-b2c failed - token is invalid
-      if (originalRequest.url?.includes('/user/sync-b2c')) {
+      if (originalRequest.url?.includes("/user/sync-b2c")) {
         // Don't redirect here - ProtectedRoute will handle it when user becomes null
       }
 
@@ -103,30 +182,39 @@ axiosClient.interceptors.response.use(
         originalRequest._retry = true;
 
         const accounts = msalInstance.getAllAccounts();
-        
+
         if (accounts.length > 0) {
           const account = msalInstance.getActiveAccount() || accounts[0];
-          
+
           try {
-            // Try to acquire a new token
-            const response = await msalInstance.acquireTokenSilent({
-              ...silentRequest,
-              account: account,
-              forceRefresh: true, // Force refresh to get a new token
-            });
-            
+            // Try to acquire a new token (timeout — uniknij wiecznego spinnera na mobile)
+            const response = await withTimeout(
+              msalInstance.acquireTokenSilent({
+                ...nativeSilentRequest,
+                account: account,
+                forceRefresh: true,
+              }),
+              TOKEN_ACQUIRE_TIMEOUT_MS,
+              "axios acquireTokenSilent(forceRefresh) timed out"
+            );
+
             // Update the Authorization header with new token
             originalRequest.headers.Authorization = `Bearer ${response.accessToken}`;
-            
+
             // Retry the original request
             return axiosClient(originalRequest);
-          } catch (tokenError) {
-            // Don't redirect - ProtectedRoute will handle when user is null
-            return Promise.reject(tokenError);
+          } catch {
+            // Refresh token wygasł / timeout / nieważny — sesja martwa.
+            // Czyścimy active account i przekierowujemy do logowania.
+            msalInstance.setActiveAccount(null);
+            await redirectToLoginSafely(
+              "Sesja wygasła lub odświeżenie tokenu API nie powiodło się. Zaloguj się ponownie."
+            );
+            return Promise.reject(new Error("Session expired - redirecting to login"));
           }
         } else {
-          // No accounts - token acquisition failed
-          // Don't redirect - ProtectedRoute will handle it
+          // Brak kont — wymuś logowanie
+          await redirectToLoginSafely("Brak aktywnego konta MSAL. Zaloguj się ponownie.");
         }
       }
     }

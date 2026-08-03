@@ -20,6 +20,7 @@ import { LoadingSpinner } from "../components/common";
 import { useToastNotification } from "../hooks/useToastNotification";
 import { axiosClient } from "../api/axiosClient";
 import { hasActiveTenant } from "../utils/tenantUtils";
+import { LegalLinks } from "../components/legal/LegalLinks";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -211,9 +212,23 @@ export default function Profile() {
                   <Text fontSize="lg" color={cardText}>{user.country || "—"}</Text>
                 </Box>
 
-                <Button colorScheme="primary" onClick={handleEdit} mt={4}>
-                  Edytuj profil
-                </Button>
+                <HStack spacing={3} mt={4} flexWrap="wrap">
+                  <Button colorScheme="primary" onClick={handleEdit}>
+                    Edytuj profil
+                  </Button>
+                  <Button
+                    variant="outline"
+                    colorScheme="primary"
+                    onClick={() => {
+                      const emailQuery = user.email
+                        ? `?email=${encodeURIComponent(user.email)}`
+                        : "";
+                      navigate(`/reset-password${emailQuery}`);
+                    }}
+                  >
+                    Zmień hasło
+                  </Button>
+                </HStack>
               </>
             ) : (
               <>
@@ -349,6 +364,10 @@ export default function Profile() {
               </>
             )}
           </VStack>
+        </Box>
+
+        <Box mt={6} textAlign="center">
+          <LegalLinks size="sm" variant="footer" />
         </Box>
       </Box>
     </MainLayout>

@@ -28,6 +28,8 @@ public sealed class SetWorkScheduleDependenciesCommandHandlerTests
 
     public SetWorkScheduleDependenciesCommandHandlerTests()
     {
+        Mock<IContractorService> contractorServiceMock = new();
+
         WorkScheduleBuilder builder = new WorkScheduleBuilder(
             _workScheduleRepoMock.Object,
             _stageRepoMock.Object,
@@ -36,7 +38,8 @@ public sealed class SetWorkScheduleDependenciesCommandHandlerTests
             _assignmentRepoMock.Object,
             _commentRepoMock.Object,
             _dependencyRepoMock.Object,
-            _userServiceMock.Object);
+            _userServiceMock.Object,
+            contractorServiceMock.Object);
 
         _handler = new SetWorkScheduleDependenciesCommandHandler(
             _workScheduleRepoMock.Object,

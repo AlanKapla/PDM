@@ -3,16 +3,13 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import { ChakraProvider} from "@chakra-ui/react";
 import { MsalProvider } from "@azure/msal-react";
-import { PublicClientApplication, EventType } from "@azure/msal-browser";
+import { EventType } from "@azure/msal-browser";
 import type { EventMessage, AuthenticationResult } from "@azure/msal-browser";
 import App from "./App.tsx";
 import theme from "./theme.ts";
-import { msalConfig } from "./config/authConfig";
+import { initializeMsalInstance, msalInstance } from "./auth/msalInstance";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-
-// Initialize MSAL instance
-const msalInstance = new PublicClientApplication(msalConfig);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,11 +29,11 @@ export { queryClient };
 
 // Initialize MSAL and render app
 async function initializeApp() {
-  // Initialize MSAL before using it
-  await msalInstance.initialize();
+  // Jedna CustomAuth PCA (native + redirect + axios) — musi być przed MsalProvider
+  await initializeMsalInstance();
 
-  // Note: handleRedirectPromise is now handled in AuthCallback component
-  // This ensures proper routing after OAuth code exchange
+  // handleRedirectPromise: wywoływane przez MsalProvider przy mount.
+  // AuthCallback tylko czeka na inProgress === None i nawiguje dalej.
 
   // Default to using the first account if no account is active on page load
   if (!msalInstance.getActiveAccount() && msalInstance.getAllAccounts().length > 0) {
@@ -103,19 +100,34 @@ async function initializeApp() {
   }
 }
 
-// Register Service Worker for PWA
-if ("serviceWorker" in navigator) {
+// Service worker tylko w produkcji — w dev cache SW powoduje konflikt z HMR
+// (duplicate React, invalid hook call przy mieszaniu starych i nowych chunków).
+if (!import.meta.env.DEV && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
+    // ?v=3 wymusza pobranie nowego SW (stary cache-first trzymał JS auth na iOS PWA).
     navigator.serviceWorker
-      .register("/sw.js")
+      .register("/sw.js?v=3")
       .then((registration) => {
-        registration.update();
+        void registration.update();
+        // Po aktywacji nowego SW — jeden reload, żeby odpalić świeży bundel.
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing) {
+            return;
+          }
+          refreshing = true;
+          window.location.reload();
+        });
       })
       .catch((error) => {
-        if (import.meta.env.DEV) {
-          console.error("Service worker registration failed:", error);
-        }
+        console.error("Service worker registration failed:", error);
       });
+  });
+} else if (import.meta.env.DEV && "serviceWorker" in navigator) {
+  void navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => {
+      void registration.unregister();
+    });
   });
 }
 
@@ -134,11 +146,24 @@ if (import.meta.env.DEV) {
 
 // Start the app
 initializeApp().catch((error) => {
-  // Logujemy błąd inicjalizacji w DEV, aby ułatwić diagnostykę
   if (import.meta.env.DEV) {
     console.error("Błąd inicjalizacji aplikacji:", error);
   }
+  // iOS PWA: create/initialize MSAL może wisieć / fail — pokaż recovery zamiast białego ekranu.
+  const root = document.getElementById("root");
+  if (root && root.childNodes.length === 0) {
+    root.innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;text-align:center">' +
+      "<div><p style=\"font-weight:600;margin:0 0 8px\">Nie udało się uruchomić aplikacji</p>" +
+      "<p style=\"color:#666;font-size:14px;margin:0 0 16px\">Sesja mogła zostać przerwana. Odśwież lub zaloguj się ponownie.</p>" +
+      '<button type="button" id="pdm-boot-retry" style="background:#1B4FD8;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:600">Odśwież</button></div></div>';
+    document.getElementById("pdm-boot-retry")?.addEventListener("click", () => {
+      try {
+        sessionStorage.removeItem("pdm:boot.watchdog");
+      } catch {
+        // ignore
+      }
+      window.location.reload();
+    });
+  }
 });
-
-// Export msalInstance for use in other modules (e.g., axios interceptors)
-export { msalInstance };

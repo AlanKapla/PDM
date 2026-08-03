@@ -7,44 +7,71 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { activityApi } from "../api/activityApi";
 import { isDemoModeActive, setDemoMode as setStorage } from "../api/mock";
-import { useAuth } from "./AuthContext";
+import { chatHubService } from "../services/chatHubService";
+import { clearAllTabCache } from "../hooks/useTabCache";
+
 
 interface DemoContextType {
   isDemoMode: boolean;
   toggleDemoMode: () => void;
+  enterDemoMode: () => Promise<void>;
+  exitDemoMode: () => Promise<void>;
 }
 
 const DemoContext = createContext<DemoContextType>({
   isDemoMode: false,
   toggleDemoMode: () => {},
+  enterDemoMode: async () => {},
+  exitDemoMode: async () => {},
 });
 
 export function DemoProvider({ children }: { children: ReactNode }) {
   const [isDemoMode, setIsDemoMode] = useState(() => isDemoModeActive());
   const queryClient = useQueryClient();
-  const { refreshUser } = useAuth();
+
+  const applyDemoModeChange = useCallback(
+    async (next: boolean) => {
+      // Record BEFORE enabling demo — otherwise mock interceptor swallows the call.
+      if (next === true) {
+        try {
+          await activityApi.recordDemo({ route: window.location.pathname });
+        } catch {
+          // Telemetry must not block entering demo.
+        }
+      }
+      setStorage(next);
+      setIsDemoMode(next);
+      void chatHubService.stopConnection();
+      queryClient.cancelQueries();
+      clearAllTabCache();
+      queryClient.clear();
+      window.dispatchEvent(new CustomEvent("pdm:demoModeChanged"));
+    },
+    [queryClient]
+  );
 
   const toggleDemoMode = useCallback(() => {
-    const next = !isDemoMode;
-    // Zapisz do sessionStorage SYNCHRONICZNIE przed resetem —
-    // inaczej mock interceptor przeczyta starą wartość podczas refetcha.
-    setStorage(next);
-    setIsDemoMode(next);
-    // Reset wszystkich query — usuwa dane i wymusza refetch,
-    // ale w przeciwieństwie do clear() nie niszczy obserwerów,
-    // więc useQuery dostaje nowy snapshot i przerenderowuje się.
-    queryClient.resetQueries();
-    // Czyści globalny cache useTabCache — komponenty (np. kosztorysy)
-    // które nie używają React Query odświeżą dane przy następnym renderze.
-    window.dispatchEvent(new CustomEvent("pdm:demoModeChanged"));
-    // Odśwież profil usera — /api/user/me zwraca inne dane
-    // w zależności od trybu (mock vs rzeczywiste), w tym activeTenantId.
-    refreshUser();
-  }, [isDemoMode, queryClient, refreshUser]);
+    void applyDemoModeChange(!isDemoMode);
+  }, [applyDemoModeChange, isDemoMode]);
+
+  const enterDemoMode = useCallback(async () => {
+    if (isDemoMode) {
+      return;
+    }
+    await applyDemoModeChange(true);
+  }, [applyDemoModeChange, isDemoMode]);
+
+  const exitDemoMode = useCallback(async () => {
+    if (!isDemoMode) {
+      return;
+    }
+    await applyDemoModeChange(false);
+  }, [applyDemoModeChange, isDemoMode]);
 
   return (
-    <DemoContext.Provider value={{ isDemoMode, toggleDemoMode }}>
+    <DemoContext.Provider value={{ isDemoMode, toggleDemoMode, enterDemoMode, exitDemoMode }}>
       {children}
     </DemoContext.Provider>
   );

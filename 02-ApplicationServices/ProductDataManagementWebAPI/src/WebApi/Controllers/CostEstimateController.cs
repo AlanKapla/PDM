@@ -7,6 +7,7 @@ using CQRS.CostEstimates.CreateCostEstimate;
 using CQRS.CostEstimates.DeleteCostEstimate;
 using CQRS.CostEstimates.DeleteCostEstimateGroup;
 using CQRS.CostEstimates.DeleteCostEstimateItem;
+using CQRS.CostEstimates.ExportCostEstimate;
 using CQRS.CostEstimates.GetCostEstimateDetails;
 using CQRS.CostEstimates.GetCostEstimates;
 using CQRS.CostEstimates.ReorderCostEstimateGroups;
@@ -98,6 +99,56 @@ namespace WebApi.Controllers
             };
 
             return Ok(await Send(query));
+        }
+
+        /// <summary>
+        /// Export cost estimate as XLSX file
+        /// </summary>
+        [HttpGet("{id:guid}/export/xlsx")]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
+        [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> ExportXlsx(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid id)
+        {
+            ExportCostEstimateQuery query = new ExportCostEstimateQuery
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CostEstimateId = id,
+                Format = CostEstimateExportFormat.Xlsx
+            };
+
+            CostEstimateExportFile file = await Send(query);
+            return File(file.Content, file.ContentType, file.FileName);
+        }
+
+        /// <summary>
+        /// Export cost estimate as PDF file
+        /// </summary>
+        [HttpGet("{id:guid}/export/pdf")]
+        [Authorize(Policy = PermissionCodes.ProjectEstimates)]
+        [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> ExportPdf(
+            [FromRoute] Guid tenantId,
+            [FromRoute] Guid projectId,
+            [FromRoute] Guid id)
+        {
+            ExportCostEstimateQuery query = new ExportCostEstimateQuery
+            {
+                TenantId = tenantId,
+                ProjectId = projectId,
+                CostEstimateId = id,
+                Format = CostEstimateExportFormat.Pdf
+            };
+
+            CostEstimateExportFile file = await Send(query);
+            return File(file.Content, file.ContentType, file.FileName);
         }
 
         /// <summary>

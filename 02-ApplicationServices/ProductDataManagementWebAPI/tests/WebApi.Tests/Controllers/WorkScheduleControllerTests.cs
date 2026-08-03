@@ -19,6 +19,7 @@ using CQRS.WorkSchedules.ReorderWorkScheduleStageWorks;
 using CQRS.WorkSchedules.ReorderWorkScheduleStages;
 using CQRS.WorkSchedules.SetWorkScheduleDependencies;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkAssignments;
+using CQRS.WorkSchedules.GetWorkScheduleAssignableAssignees;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkColorRgb;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkIsClosed;
 using CQRS.WorkSchedules.SetWorkScheduleStageWorkPeriodIsClosed;
@@ -343,6 +344,19 @@ namespace WebApi.Tests.Controllers
             result.Should().BeOfType<NoContentResult>();
             VerifyMediatorCalledOnce<SetWorkScheduleStageWorkAssignmentsCommand>(c =>
                 c.WorkScheduleId == workScheduleId && c.WorkScheduleStageWorkId == workId);
+        }
+
+        [Fact]
+        public async Task GetAssignableAssignees_ReturnsOk_WithRouteParams()
+        {
+            Guid tenantId = Guid.NewGuid();
+            Guid projectId = Guid.NewGuid();
+
+            IActionResult result = await sut.GetAssignableAssignees(tenantId, projectId);
+
+            result.Should().BeOfType<OkObjectResult>();
+            VerifyMediatorCalledOnce<GetWorkScheduleAssignableAssigneesQuery>(q =>
+                q.TenantId == tenantId && q.ProjectId == projectId);
         }
 
         [Fact]

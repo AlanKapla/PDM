@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, Plus, Trash2, MoreHorizontal, ArrowRight, GripVertical, X, MessageCircle, Users, Link2 } from "lucide-react";
-import { Button, IconButton } from "@chakra-ui/react";
+import { Button, IconButton, Avatar, AvatarGroup } from "@chakra-ui/react";
 import ConfirmDialog from "../common/ConfirmDialog";
 import { AddInlineButton } from "../CostEstimate/PrototypeActionButtons";
 import { useGantt } from "./GanttContext";
@@ -13,7 +13,7 @@ import { G } from "./ganttTokens";
 import { stageProgress, workCheckState, fmtCompactDate, getStageRange, type FlatRow } from "./ganttRowUtils";
 import { getStageDeleteDialogCopy } from "./ganttStageDeleteDialog";
 import type { WorkScheduleStageWeb, WorkScheduleStageWorkWeb } from "../../types/workSchedule.types";
-import { WorkDependencyType } from "../../types/workSchedule.types";
+import { WorkDependencyType, getAssigneeKey, getAssigneeDisplayName } from "../../types/workSchedule.types";
 
 const WORK_COLORS = [
   "#3182CE", "#E53E3E", "#38A169", "#C05621",
@@ -38,6 +38,7 @@ export default function GanttLeftPanel({ flatRows, leftBodyRef, scrollbarH, onRo
   const {
     mode,
     members,
+    contractors,
     expandedStages,
     collapsedWorks,
     toggleStage,
@@ -627,26 +628,15 @@ const noPeriods = (work.periods ?? []).length === 0;
 
         {/* Avatary */}
         {assignees.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-            {assignees.slice(0, 3).map((a, i) => (
-              <div
-                key={a.userId}
-                title={a.userName}
-                style={{
-                  width: 22, height: 22, borderRadius: "50%",
-                  background: G.accentLight, color: G.accent,
-                  fontSize: 9, fontWeight: 700,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  border: `1.5px solid ${G.surface}`,
-                  marginLeft: i > 0 ? -6 : 0,
-                  zIndex: assignees.length - i,
-                  position: "relative",
-                }}
-              >
-                {a.userName?.[0]?.toUpperCase() ?? "?"}
-              </div>
+          <AvatarGroup size="xs" max={3} flexShrink={0}>
+            {assignees.map((a) => (
+              <Avatar
+                key={getAssigneeKey(a)}
+                name={getAssigneeDisplayName(a)}
+                title={getAssigneeDisplayName(a)}
+              />
             ))}
-          </div>
+          </AvatarGroup>
         )}
 
         {/* Menu kontekstowe zakresu (⋯) — zastępuje osobne guziki akcji */}
@@ -908,11 +898,24 @@ const noPeriods = (work.periods ?? []).length === 0;
       {/* Popover przypisanych */}
       {assigneesFor && (
         <GanttAssigneesPopover
-          assigneeIds={assigneesFor.work.assignees.map(a => a.userId)}
+          stageId={assigneesFor.stageId}
+          workId={assigneesFor.work.id}
+          workPeriods={(assigneesFor.work.periods ?? []).map(p => ({
+            startDate: p.startDate,
+            endDate: p.endDate,
+            isClosed: p.isClosed,
+          }))}
+          selectedUserIds={assigneesFor.work.assignees
+            .map(a => a.userId)
+            .filter((id): id is string => !!id)}
+          selectedContractorIds={assigneesFor.work.assignees
+            .map(a => a.contractorId)
+            .filter((id): id is string => !!id)}
           members={members}
+          contractors={contractors}
           onClose={() => setAssigneesFor(null)}
-          onSave={async userIds => {
-            await setAssignments(assigneesFor.stageId, assigneesFor.work.id, userIds);
+          onSave={async (userIds, contractorIds) => {
+            await setAssignments(assigneesFor.stageId, assigneesFor.work.id, userIds, contractorIds);
           }}
         />
       )}

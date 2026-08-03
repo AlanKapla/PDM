@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { BottomNavBar } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import { useAppSession } from "../hooks/useAppSession";
 import { hasActiveTenant } from "../utils/tenantUtils";
 
 interface MainLayoutProps {
@@ -13,7 +14,11 @@ interface MainLayoutProps {
 export default function MainLayout({ children }: MainLayoutProps) {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { user } = useAuth();
+  const { isDemoOnlySession } = useAppSession();
   const showNavigation = hasActiveTenant(user?.activeTenantId);
+  const contentTopPadding = isDemoOnlySession
+    ? { base: "112px", md: "108px" }
+    : { base: "60px", md: "60px" };
 
   return (
     <Box>
@@ -43,7 +48,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         as="main"
         id="main-content"
         ml={{ base: 0, md: showNavigation ? "250px" : 0 }}
-        pt={{ base: "60px", md: "60px" }}
+        pt={contentTopPadding}
         pb={{ base: showNavigation ? "64px" : 0, md: 0 }}
         minH="100vh"
       >

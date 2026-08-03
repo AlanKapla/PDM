@@ -162,7 +162,7 @@ public class UserServiceTests
         // Arrange
         Guid tenantId = Guid.NewGuid();
         Guid projectId = Guid.NewGuid();
-        string expectedKey = $"users:{tenantId}:{projectId}:members";
+        string expectedKey = $"users:{tenantId}:{projectId}:members:v2";
         string capturedKey = string.Empty;
 
         _cacheMock

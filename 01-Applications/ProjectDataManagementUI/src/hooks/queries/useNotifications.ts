@@ -20,6 +20,8 @@ export function useUnreadCounter() {
     queryKey: notificationKeys.unreadCounter(),
     queryFn: () => notificationApi.getUnreadCounter(),
     staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+    refetchIntervalInBackground: true,
   });
 }
 

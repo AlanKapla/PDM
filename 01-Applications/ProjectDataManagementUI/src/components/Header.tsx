@@ -1,5 +1,6 @@
-import { useEffect, useState, useContext } from "react";
+import { useContext, type ReactElement } from "react";
 import {
+  Badge,
   Box,
   Text,
   HStack,
@@ -13,22 +14,25 @@ import {
   Icon,
   VStack,
 } from "@chakra-ui/react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { User as UserIcon, RefreshCw, Building2, Home } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User as UserIcon, RefreshCw, Building2, Home, LogIn, Shield } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import NotificationBell from "./NotificationBell";
-import DemoModeMenuItem from "./DemoModeMenuItem";
 import { useMyTenants } from "../hooks/queries";
 import { hasActiveTenant } from "../utils/tenantUtils";
+import { useAppSession } from "../hooks/useAppSession";
+import { useDemoMode } from "../context/DemoContext";
+import { DemoModeBanner } from "./DemoModeBanner";
 
 interface HeaderProps {
   onMenuOpen?: () => void;
 }
 
-export default function Header({ onMenuOpen }: HeaderProps) {
+export default function Header(_props: HeaderProps): ReactElement {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, logout, isAuthenticated } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
+  const { hasSession, isDemoOnlySession, isAuthenticated } = useAppSession();
+  const { exitDemoMode } = useDemoMode();
 
   const bg = useColorModeValue("white", "gray.800");
   const border = useColorModeValue("gray.200", "gray.700");
@@ -36,37 +40,43 @@ export default function Header({ onMenuOpen }: HeaderProps) {
   const mutedColor = useColorModeValue("gray.600", "gray.400");
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : "U";
 
-  const { data: tenants } = useMyTenants(isAuthenticated);
+  const { data: tenants } = useMyTenants(hasSession);
   const activeTenantName =
     tenants?.find((t) => t.id === user?.activeTenantId)?.name ?? null;
   const showHomeLink = isAuthenticated && user && !hasActiveTenant(user.activeTenantId);
+
+  const handleGoToLogin = async () => {
+    await exitDemoMode();
+    navigate("/");
+  };
 
   return (
     <Box
       bg={bg}
       borderBottom="1px solid"
       borderColor={border}
-      px={{ base: 1, sm: 3, md: 4 }}
-      py={{ base: 1, md: 2 }}
       position="fixed"
       top={0}
       left={0}
       right={0}
       zIndex={1000}
-      minH={{ base: "auto", md: "56px" }}
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
     >
-      <HStack
-        maxW="100%"
-        mx="auto"
-        justify="space-between"
-        spacing={{ base: 1, sm: 2, md: 3 }}
-        w="100%"
+      <Box
+        px={{ base: 1, sm: 3, md: 4 }}
+        py={{ base: 1, md: 2 }}
+        minH={{ base: "auto", md: "56px" }}
+        display="flex"
         alignItems="center"
+        justifyContent="center"
       >
-        {/* Logo + nazwa aplikacji */}
+        <HStack
+          maxW="100%"
+          mx="auto"
+          justify="space-between"
+          spacing={{ base: 1, sm: 2, md: 3 }}
+          w="100%"
+          alignItems="center"
+        >
         <HStack
           spacing={{ base: 0.5, md: 1 }}
           cursor="pointer"
@@ -77,23 +87,29 @@ export default function Header({ onMenuOpen }: HeaderProps) {
           <img src="/logo.png" alt="Brickly" style={{ height: "40px", width: "auto", display: "block" }} />
         </HStack>
 
-        {/* Nazwa tenanta + imię i nazwisko - wycentrowane na mobilach */}
-        {isAuthenticated && user && (
+        {hasSession && user && (
           <VStack
             align="center"
             spacing={0}
             flex={{ base: 1, md: "unset" }}
             display={{ base: "flex", md: "none" }}
           >
-            <Text
-              fontSize={{ base: "xs", md: "sm" }}
-              fontWeight="medium"
-              color={textColor}
-              whiteSpace="nowrap"
-              lineHeight="1"
-            >
-              {user.firstName} {user.lastName}
-            </Text>
+            <HStack spacing={1}>
+              <Text
+                fontSize={{ base: "xs", md: "sm" }}
+                fontWeight="medium"
+                color={textColor}
+                whiteSpace="nowrap"
+                lineHeight="1"
+              >
+                {user.firstName} {user.lastName}
+              </Text>
+              {isDemoOnlySession && (
+                <Badge colorScheme="orange" fontSize="2xs">
+                  Demo
+                </Badge>
+              )}
+            </HStack>
 
             {activeTenantName && (
               <HStack spacing={0.5} fontSize={{ base: "2xs", md: "xs" }} color={mutedColor}>
@@ -104,24 +120,29 @@ export default function Header({ onMenuOpen }: HeaderProps) {
           </VStack>
         )}
 
-        {/* Menu użytkownika - notifications + avatar + tenant (na PC) */}
-        {isAuthenticated && user ? (
+        {hasSession && user ? (
           <HStack spacing={{ base: 1, md: 1.5 }} flexShrink={0}>
-            {/* Nazwa tenanta + imię i nazwisko - tylko na PC */}
             <VStack
               align="flex-end"
               spacing={0}
               display={{ base: "none", md: "flex" }}
             >
-              <Text
-                fontSize={{ base: "xs", md: "sm" }}
-                fontWeight="medium"
-                color={textColor}
-                whiteSpace="nowrap"
-                lineHeight="1"
-              >
-                {user.firstName} {user.lastName}
-              </Text>
+              <HStack spacing={2}>
+                <Text
+                  fontSize={{ base: "xs", md: "sm" }}
+                  fontWeight="medium"
+                  color={textColor}
+                  whiteSpace="nowrap"
+                  lineHeight="1"
+                >
+                  {user.firstName} {user.lastName}
+                </Text>
+                {isDemoOnlySession && (
+                  <Badge colorScheme="orange" fontSize="xs">
+                    Demo
+                  </Badge>
+                )}
+              </HStack>
 
               {activeTenantName && (
                 <HStack spacing={0.5} fontSize={{ base: "2xs", md: "xs" }} color={mutedColor}>
@@ -131,7 +152,7 @@ export default function Header({ onMenuOpen }: HeaderProps) {
               )}
             </VStack>
 
-            <NotificationBell />
+            {!isDemoOnlySession && <NotificationBell />}
 
             <Menu placement="bottom-end" strategy="fixed">
               <MenuButton cursor="pointer">
@@ -147,42 +168,61 @@ export default function Header({ onMenuOpen }: HeaderProps) {
               </MenuButton>
 
               <MenuList zIndex={1001}>
-                {showHomeLink && (
-                  <MenuItem icon={<Home size={16} />} onClick={() => navigate("/dashboard")}>
-                    Strona główna
+                {isDemoOnlySession ? (
+                  <MenuItem
+                    icon={<LogIn size={16} />}
+                    onClick={() => {
+                      void handleGoToLogin();
+                    }}
+                  >
+                    Zaloguj się / Zarejestruj
                   </MenuItem>
-                )}
-
-                <MenuItem icon={<UserIcon size={16} />} onClick={() => navigate("/profile")}>
-                  Ustawienia profilu
-                </MenuItem>
-
-                {hasActiveTenant(user.activeTenantId) && (
+                ) : (
                   <>
+                    {showHomeLink && (
+                      <MenuItem icon={<Home size={16} />} onClick={() => navigate("/dashboard")}>
+                        Strona główna
+                      </MenuItem>
+                    )}
+
+                    {user.isSuperAdmin && (
+                      <>
+                        <MenuItem icon={<Shield size={16} aria-hidden />} onClick={() => navigate("/admin")}>
+                          Panel administratora
+                        </MenuItem>
+                        <MenuDivider />
+                      </>
+                    )}
+
+                    <MenuItem icon={<UserIcon size={16} />} onClick={() => navigate("/profile")}>
+                      Ustawienia profilu
+                    </MenuItem>
+
+                    {hasActiveTenant(user.activeTenantId) && (
+                      <>
+                        <MenuDivider />
+
+                        <MenuItem
+                          icon={<RefreshCw size={16} />}
+                          onClick={() => navigate("/tenants/collaborating")}
+                        >
+                          Zmień aktywnego tenanta
+                        </MenuItem>
+                      </>
+                    )}
+
                     <MenuDivider />
 
                     <MenuItem
-                      icon={<RefreshCw size={16} />}
-                      onClick={() => navigate("/tenants/collaborating")}
+                      color="red.500"
+                      onClick={() => {
+                        void logout();
+                      }}
                     >
-                      Zmień aktywnego tenanta
+                      Wyloguj się
                     </MenuItem>
                   </>
                 )}
-
-                <DemoModeMenuItem />
-
-                <MenuDivider />
-
-                <MenuItem
-                  color="red.500"
-                  onClick={async () => {
-                    await logout();
-                    navigate("/");
-                  }}
-                >
-                  Wyloguj się
-                </MenuItem>
               </MenuList>
             </Menu>
           </HStack>
@@ -191,7 +231,9 @@ export default function Header({ onMenuOpen }: HeaderProps) {
             Nie zalogowano
           </Text>
         )}
-      </HStack>
+        </HStack>
+      </Box>
+      {isDemoOnlySession && <DemoModeBanner />}
     </Box>
   );
 }

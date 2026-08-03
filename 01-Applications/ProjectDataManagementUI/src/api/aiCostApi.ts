@@ -1,7 +1,7 @@
 import { axiosClient } from './axiosClient';
 import type {
-  AICostImportBatchWeb,
   AICostImportItemWeb,
+  AICostImportSubmitResultWeb,
   ParsedCostDto,
   ParseCostDocumentRequest,
   PendingAICostImportCountWeb,
@@ -72,8 +72,8 @@ export const aiCostApi = {
     tenantId: string,
     projectId: string,
     data: SubmitAICostImportBatchRequest
-  ): Promise<AICostImportBatchWeb> => {
-    const response = await axiosClient.post<AICostImportBatchWeb>(
+  ): Promise<AICostImportSubmitResultWeb> => {
+    const response = await axiosClient.post<AICostImportSubmitResultWeb>(
       `/tenants/${tenantId}/projects/${projectId}/ai/cost/import/batch`,
       buildBatchFormData(data),
       {

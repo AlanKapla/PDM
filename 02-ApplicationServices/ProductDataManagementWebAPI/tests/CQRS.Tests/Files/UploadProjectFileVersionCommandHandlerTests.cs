@@ -2,6 +2,7 @@ using Business.Interfaces.Exceptions;
 using Business.Interfaces.Model;
 using Business.Interfaces.Services;
 using CQRS.Files.UploadProjectFileVersion;
+using CQRS.PostCommit;
 using Entities.Models.Files;
 using FluentAssertions;
 using MediatR;
@@ -22,13 +23,24 @@ public sealed class UploadProjectFileVersionCommandHandlerTests
     private readonly Mock<IBlobStorageService> _blobStorageServiceMock = new();
     private readonly Mock<IProjectFilesService> _projectFilesServiceMock = new();
     private readonly Mock<IFileAccessGuard> _fileAccessGuardMock = new();
+    private readonly Mock<IFileActivityNotificationService> _activityNotificationsMock = new();
+    private readonly Mock<IPostCommitDispatcher> _postCommitMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly Mock<ILogger<UploadProjectFileVersionCommandHandler>> _loggerMock = new();
     private readonly UploadProjectFileVersionCommandHandler _handler;
 
+    private static readonly Guid ActorUserId = Guid.NewGuid();
+
     public UploadProjectFileVersionCommandHandlerTests()
     {
-        _currentUserMock.Setup(u => u.Id).Returns(Guid.NewGuid());
+        _currentUserMock.Setup(u => u.Id).Returns(ActorUserId);
+        _currentUserMock.Setup(u => u.FirstName).Returns("Jan");
+        _currentUserMock.Setup(u => u.LastName).Returns("Kowalski");
+
+        _postCommitMock
+            .Setup(d => d.Enqueue(It.IsAny<Func<CancellationToken, Task>>()))
+            .Callback<Func<CancellationToken, Task>>(action =>
+                action(CancellationToken.None).GetAwaiter().GetResult());
 
         _blobStorageServiceMock
             .Setup(b => b.UploadAsync(
@@ -50,6 +62,8 @@ public sealed class UploadProjectFileVersionCommandHandlerTests
             _blobStorageServiceMock.Object,
             _projectFilesServiceMock.Object,
             _fileAccessGuardMock.Object,
+            _activityNotificationsMock.Object,
+            _postCommitMock.Object,
             _currentUserMock.Object,
             _loggerMock.Object);
     }
@@ -109,7 +123,7 @@ public sealed class UploadProjectFileVersionCommandHandlerTests
     // ─── Handle ───────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Handle_WhenFileExists_InsertsVersionAndUpdatesFile()
+    public async Task Handle_WhenFileExists_InsertsVersionUpdatesFileAndNotifies()
     {
         // Arrange
         UploadProjectFileVersionCommand command = ValidCommand();
@@ -123,10 +137,20 @@ public sealed class UploadProjectFileVersionCommandHandlerTests
         result.Should().Be(Unit.Value);
         _versionRepoMock.Verify(r => r.Insert(It.IsAny<ProjectFileVersion>()), Times.Once);
         _projectFileRepoMock.Verify(r => r.Update(file), Times.Once);
+        _activityNotificationsMock.Verify(n => n.NotifyVersionUploadedAsync(
+            It.Is<FileActivityNotificationContext>(c =>
+                c.FileId == file.Id
+                && c.OwnerId == file.OwnerId
+                && c.ActorUserId == ActorUserId
+                && c.PackageId == file.ProjectFilePackageId),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _activityNotificationsMock.Verify(
+            n => n.NotifyCommentAddedAsync(It.IsAny<FileActivityNotificationContext>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
-    public async Task Handle_WhenCommentProvided_InsertsComment()
+    public async Task Handle_WhenCommentProvided_InsertsComment_ButOnlyNotifiesVersion()
     {
         // Arrange
         UploadProjectFileVersionCommand command = ValidCommand(comment: "Version 2 changes");
@@ -138,6 +162,12 @@ public sealed class UploadProjectFileVersionCommandHandlerTests
 
         // Assert
         _commentRepoMock.Verify(r => r.Insert(It.IsAny<ProjectFileVersionComment>()), Times.Once);
+        _activityNotificationsMock.Verify(
+            n => n.NotifyVersionUploadedAsync(It.IsAny<FileActivityNotificationContext>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _activityNotificationsMock.Verify(
+            n => n.NotifyCommentAddedAsync(It.IsAny<FileActivityNotificationContext>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

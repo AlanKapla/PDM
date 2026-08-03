@@ -95,7 +95,7 @@ namespace CQRS.ProjectCosts.Shared
         }
 
         /// <summary>
-        /// Reguły dla dokumentu (IFormFile): typ (JPEG/JPG/PNG/PDF) i rozmiar (max 10MB).
+        /// Reguły dla dokumentu (IFormFile): typ (JPEG/JPG/PNG/PDF) i rozmiar (max 50MB).
         /// </summary>
         public static void ApplyDocumentRules<T>(
             this AbstractValidator<T> validator,
@@ -108,7 +108,7 @@ namespace CQRS.ProjectCosts.Shared
 
             validator.RuleFor(selector)
                 .Must(DocumentValidationHelper.IsValidDocumentSize)
-                .WithMessage($"{propertyName} size cannot exceed 10MB");
+                .WithMessage($"{propertyName} size cannot exceed 50MB");
         }
     }
 }

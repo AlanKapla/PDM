@@ -8,11 +8,13 @@ import {
   Grid,
   GridItem,
   HStack,
+  IconButton,
   Image,
   Text,
+  Tooltip,
   VStack,
 } from '@chakra-ui/react';
-import { Check, X } from 'lucide-react';
+import { Check, Eye, X } from 'lucide-react';
 import { AICostReviewItemForm } from './AICostReviewItemForm';
 import DeleteAlertDialog from '../ui/DeleteAlertDialog';
 import { useModal } from '../../hooks/useModal';
@@ -86,6 +88,11 @@ export function AICostReviewItem({
   const isImagePreview =
     item.contentType.startsWith('image/') ||
     /\.(jpg|jpeg|png)$/i.test(item.originalFileName);
+  const isPdfPreview =
+    item.contentType === 'application/pdf' ||
+    /\.pdf$/i.test(item.originalFileName);
+  const canOpenPreview =
+    Boolean(item.previewUrl) && (isImagePreview || isPdfPreview);
 
   const handleAccept = async (): Promise<void> => {
     if (!editedData.name.trim()) {
@@ -112,6 +119,13 @@ export function AICostReviewItem({
     } catch (err) {
       showApiError(err);
     }
+  };
+
+  const handleOpenFullSizePreview = (): void => {
+    if (!item.previewUrl) {
+      return;
+    }
+    window.open(item.previewUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -167,9 +181,33 @@ export function AICostReviewItem({
             bg="gray.50"
             minH="280px"
           >
-            <Text fontSize="sm" fontWeight="medium" mb={3} color="neutral.700">
-              Podgląd dokumentu
-            </Text>
+            <HStack justify="space-between" mb={3}>
+              <Text fontSize="sm" fontWeight="medium" color="neutral.700">
+                Podgląd dokumentu
+              </Text>
+              {canOpenPreview && (
+                <Tooltip
+                  label={
+                    isPdfPreview
+                      ? 'Otwórz PDF w nowej karcie'
+                      : 'Otwórz w pełnym rozmiarze'
+                  }
+                >
+                  <IconButton
+                    aria-label={
+                      isPdfPreview
+                        ? `Otwórz PDF w nowej karcie: ${item.originalFileName}`
+                        : `Otwórz dokument w pełnym rozmiarze: ${item.originalFileName}`
+                    }
+                    icon={<Eye size={16} aria-hidden="true" />}
+                    size="sm"
+                    variant="ghost"
+                    colorScheme="level2"
+                    onClick={handleOpenFullSizePreview}
+                  />
+                </Tooltip>
+              )}
+            </HStack>
             {item.previewUrl && isImagePreview ? (
               <Image
                 src={item.previewUrl}
@@ -179,6 +217,30 @@ export function AICostReviewItem({
                 mx="auto"
                 borderRadius="md"
               />
+            ) : item.previewUrl && isPdfPreview ? (
+              <VStack spacing={3} align="stretch">
+                <Box
+                  as="iframe"
+                  title={`Podgląd PDF: ${item.originalFileName}`}
+                  src={item.previewUrl}
+                  w="100%"
+                  maxH="400px"
+                  h="400px"
+                  border="none"
+                  borderRadius="md"
+                  bg="white"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorScheme="level2"
+                  leftIcon={<Eye size={16} aria-hidden="true" />}
+                  onClick={handleOpenFullSizePreview}
+                  aria-label={`Otwórz PDF w nowej karcie: ${item.originalFileName}`}
+                >
+                  Otwórz PDF
+                </Button>
+              </VStack>
             ) : (
               <Box
                 p={6}

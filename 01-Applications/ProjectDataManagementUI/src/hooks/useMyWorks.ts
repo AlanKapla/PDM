@@ -1,17 +1,24 @@
 import { useState, useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { projectApi } from "../api/projectApi";
 import { workScheduleApi } from "../api/workScheduleApi";
 import { useToastNotification } from "./useToastNotification";
 import { getApiErrorMessage } from "../utils/apiErrorUtils";
 import { updateWorkInTree } from "../utils/myWorksTree";
+import { workScheduleKeys } from "./queries";
 import type { UserAssignedWorksByTenantWeb } from "../types/workSchedule.types";
 
 export const useMyWorks = () => {
+  const queryClient = useQueryClient();
   const [data, setData] = useState<UserAssignedWorksByTenantWeb[]>([]);
   const [loading, setLoading] = useState(true);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showApiError } = useToastNotification();
+
+  const invalidateAssignedWorksNav = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: workScheduleKeys.myAssignedWorks() });
+  }, [queryClient]);
 
   const reload = useCallback(async () => {
     try {
@@ -19,12 +26,13 @@ export const useMyWorks = () => {
       setError(null);
       const res = await projectApi.getMyAssignedWorks();
       setData((res.data as UserAssignedWorksByTenantWeb[]) ?? []);
+      invalidateAssignedWorksNav();
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [invalidateAssignedWorksNav]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -45,13 +53,14 @@ export const useMyWorks = () => {
     try {
       setMutating(true);
       await workScheduleApi.setWorkIsClosed(tenantId, projectId, workScheduleId, stageId, workId, isClosed);
+      invalidateAssignedWorksNav();
     } catch (err) {
       showApiError(err);
       reload();
     } finally {
       setMutating(false);
     }
-  }, [reload, showApiError]);
+  }, [reload, showApiError, invalidateAssignedWorksNav]);
 
   const setPeriodIsClosed = useCallback(async (
     tenantId: string,
@@ -75,13 +84,14 @@ export const useMyWorks = () => {
     try {
       setMutating(true);
       await workScheduleApi.setPeriodIsClosed(tenantId, projectId, workScheduleId, stageId, workId, periodId, isClosed);
+      invalidateAssignedWorksNav();
     } catch (err) {
       showApiError(err);
       reload();
     } finally {
       setMutating(false);
     }
-  }, [reload, showApiError]);
+  }, [reload, showApiError, invalidateAssignedWorksNav]);
 
   const addComment = useCallback(async (
     tenantId: string,

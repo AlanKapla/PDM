@@ -54,8 +54,11 @@ namespace Business.Interfaces.WebModels.WorkSchedules
     );
 
     public sealed record WorkScheduleStageWorkAssigneeWeb(
-        Guid UserId,
-        string UserName
+        Guid? UserId,
+        string? UserName,
+        Guid? ContractorId,
+        string? ContractorName,
+        string? CompanyName
     );
 
     public sealed record WorkScheduleStageWorkCommentWeb(

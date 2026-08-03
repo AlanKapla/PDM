@@ -1,9 +1,37 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
+import { InteractionStatus } from "@azure/msal-browser";
+import { useQueryClient } from "@tanstack/react-query";
 import { HubConnectionState } from "@microsoft/signalr";
 import { axiosClient } from "../api/axiosClient";
+import { activityApi } from "../api/activityApi";
+import { isDemoModeActive, setDemoMode } from "../api/mock";
 import { notificationHubService } from "../services/notificationHubService";
+import { chatHubService } from "../services/chatHubService";
+import { logoutMsalSession } from "../auth/logoutSession";
+import { msalInstance } from "../auth/msalInstance";
+import { clearStaleMsalInteraction } from "../auth/clearStaleMsalInteraction";
+import { NATIVE_SESSION_READY_EVENT } from "../auth/nativeSessionEvents";
+import { isSoftLoggedOut } from "../auth/rememberedSignIn";
+import { withTimeout } from "../auth/withTimeout";
+import { nativeSilentRequest } from "../config/authConfig";
 import type { UserProfile } from "../types/auth.types";
+
+const LOGIN_ACTIVITY_RECORDED_KEY = "pdm:loginActivityRecorded";
+/** Escape hatch — nigdy nie trzymaj spinnera profilu w nieskończoność (mobile resume). */
+const PROFILE_LOADING_TIMEOUT_MS = 12_000;
+const VISIBILITY_TOKEN_REFRESH_TIMEOUT_MS = 10_000;
+
+function recordLoginActivityOnce(): void {
+  if (sessionStorage.getItem(LOGIN_ACTIVITY_RECORDED_KEY)) {
+    return;
+  }
+  void activityApi
+    .recordLogin({ route: window.location.pathname })
+    .catch(() => {});
+  sessionStorage.setItem(LOGIN_ACTIVITY_RECORDED_KEY, "1");
+}
+
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -31,68 +59,158 @@ export const AuthContext = createContext<AuthContextType>({
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { instance, accounts, inProgress } = useMsal();
-  const isAuthenticated = useIsAuthenticated();
+  const queryClient = useQueryClient();
+  const msalHookAuthenticated = useIsAuthenticated();
+  // Native Auth / setActiveAccount nie zawsze aktualizuje msal-react — czytamy też PCA.
+  // Tick wymusza re-render po evencie pdm:native-session-ready.
+  const [pcaAccountTick, setPcaAccountTick] = useState(0);
+  const hasAccountInPca: boolean =
+    accounts.length > 0 ||
+    instance.getAllAccounts().length > 0 ||
+    msalInstance.getAllAccounts().length > 0 ||
+    Boolean(instance.getActiveAccount() ?? msalInstance.getActiveAccount());
+  const isAuthenticated =
+    (msalHookAuthenticated || hasAccountInPca) && !isSoftLoggedOut();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Flaga zapobiegająca wielokrotnej inicjalizacji SignalR
   const [signalRInitialized, setSignalRInitialized] = useState(false);
 
-  // Fetch user profile when authenticated
+  useEffect(() => {
+    const onNativeReady = (): void => {
+      setPcaAccountTick((tick) => tick + 1);
+    };
+    window.addEventListener(NATIVE_SESSION_READY_EVENT, onNativeReady);
+    return () => {
+      window.removeEventListener(NATIVE_SESSION_READY_EVENT, onNativeReady);
+    };
+  }, []);
+
+  // pcaAccountTick — dependency do przeliczenia hasAccountInPca po native login
+  void pcaAccountTick;
+
+  // Fetch user profile when authenticated (MSAL) or in demo mode without login
   useEffect(() => {
     let isMounted = true;
+    let fetchInFlight = false;
 
-    const fetchUserProfile = async () => {
-      // Czekaj aż MSAL zakończy inicjalizację
-      if (inProgress !== "none") {
-        return;
-      }
-
-      if (!isAuthenticated) {
-        if (isMounted) {
-          setUser(null);
+    const fetchUserProfile = async (force = false) => {
+      // MSAL busy — nie blokuj UI na zawsze: zostaw loading tylko jeśli jeszcze
+      // nie mamy profilu; gdy interakcja się skończy, effect odpali się ponownie.
+      if (inProgress !== InteractionStatus.None) {
+        if (isMounted && user) {
           setLoading(false);
         }
         return;
       }
 
-      // Already have user - skip fetch
-      if (user) {
-        if (isMounted) setLoading(false);
+      const demoActive = isDemoModeActive();
+      const canLoadProfile = isAuthenticated || demoActive;
+      // Na /login podczas finalize — nie strzelaj API (mobile: fail tokenu → czerwony flash).
+      const path: string = window.location.pathname;
+      const onAuthEntry: boolean =
+        path === "/login" ||
+        path === "/register" ||
+        path === "/reset-password" ||
+        path === "/logged-out" ||
+        path.startsWith("/auth/");
+
+      if (!canLoadProfile || (onAuthEntry && !demoActive)) {
+        if (isMounted) {
+          if (!canLoadProfile) {
+            setUser(null);
+          }
+          setLoading(false);
+        }
         return;
       }
 
-      // Start fetching
-      if (isMounted) setLoading(true);
-      
+      if (!force && user) {
+        if (isMounted) {
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (fetchInFlight) {
+        return;
+      }
+
+      fetchInFlight = true;
+
+      if (isMounted) {
+        setLoading(true);
+      }
+
       try {
-        await axiosClient.post("/user/sync-b2c");
+        if (isAuthenticated) {
+          await axiosClient.post("/user/sync-b2c");
+        }
         const response = await axiosClient.get("/user/me");
-        
+
+        if (isAuthenticated) {
+          recordLoginActivityOnce();
+        }
+
         if (isMounted) {
           setUser(response.data);
           setLoading(false);
         }
-      } catch (error: any) {
+      } catch {
         if (isMounted) {
           setUser(null);
           setLoading(false);
         }
+      } finally {
+        fetchInFlight = false;
       }
     };
 
-    fetchUserProfile();
+    void fetchUserProfile();
+
+    const handleDemoModeChanged = () => {
+      void fetchUserProfile(true);
+    };
+    window.addEventListener("pdm:demoModeChanged", handleDemoModeChanged);
 
     return () => {
       isMounted = false;
+      window.removeEventListener("pdm:demoModeChanged", handleDemoModeChanged);
     };
-  }, [isAuthenticated, inProgress, user]); // Czekaj na MSAL initialization
+  }, [isAuthenticated, inProgress, hasAccountInPca, msalHookAuthenticated, accounts.length, pcaAccountTick]);
+
+  // Safety: jeśli /user/me lub MSAL hang — zejdź z loading po ~12s (mobile resume).
+  useEffect(() => {
+    if (!loading) {
+      return;
+    }
+
+    const timer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      setLoading(false);
+    }, PROFILE_LOADING_TIMEOUT_MS);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [loading]);
 
   // ✅ SignalR init - startuje gdy isAuthenticated (NIE czekaj na user/me!)
   useEffect(() => {
 
     if (!isAuthenticated) {
       setSignalRInitialized(false);
+      return;
+    }
+
+    const path: string = window.location.pathname;
+    if (
+      path === "/login" ||
+      path === "/register" ||
+      path === "/reset-password" ||
+      path === "/logged-out" ||
+      path.startsWith("/auth/")
+    ) {
       return;
     }
 
@@ -177,19 +295,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [isAuthenticated]);
 
-  // ✅ Sprawdź połączenie gdy użytkownik wraca do karty
+  // ✅ Sprawdź token + połączenie gdy użytkownik wraca do karty
+  // Silent refresh zapobiega "zombie sesji" po długim idle (np. po nocy).
+  const tokenRefreshInProgress = useRef(false);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const handleVisibilityChange = async () => {
-      if (!document.hidden) {
-        const state = notificationHubService.getConnectionState();
-        
-        if (state !== HubConnectionState.Connected) {
-          try {
-            await notificationHubService.forceRestart();
-          } catch (error) {
+      if (document.hidden) {
+        return;
+      }
+
+      // Mobile: po powrocie z tła wyczyść porzucony interaction.status zanim silent refresh.
+      clearStaleMsalInteraction();
+
+      // Proaktywny silent refresh tokena — zanim UI zacznie strzelać API.
+      if (!tokenRefreshInProgress.current) {
+        tokenRefreshInProgress.current = true;
+        try {
+          const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
+          if (account) {
+            await withTimeout(
+              msalInstance.acquireTokenSilent({
+                ...nativeSilentRequest,
+                account,
+              }),
+              VISIBILITY_TOKEN_REFRESH_TIMEOUT_MS,
+              "visibility acquireTokenSilent timed out"
+            );
           }
+        } catch {
+          // Silent refresh failed / timeout — axiosClient interceptor obsłuży kolejny request
+          // i przekieruje na /login jeśli sesja wygasła.
+        } finally {
+          tokenRefreshInProgress.current = false;
+        }
+      }
+
+      // Sprawdź / restartuj SignalR po powrocie do karty.
+      const state = notificationHubService.getConnectionState();
+      if (state !== HubConnectionState.Connected) {
+        try {
+          await notificationHubService.forceRestart();
+        } catch {
+          // ignore
         }
       }
     };
@@ -201,61 +351,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [isAuthenticated]);
 
-  // Legacy login method - now deprecated, redirects to B2C
+  // Legacy login — native auth na /login
   const login = async (_email: string, _password: string) => {
-    await instance.loginRedirect();
+    window.location.assign("/login");
     return { success: true };
   };
 
-  // Legacy Google login - now deprecated, use B2C Google provider
   const googleLogin = async (_token: string) => {
-    await instance.loginRedirect();
+    window.location.assign("/login");
     return { success: true };
   };
 
-  // Legacy Google register - now deprecated, use B2C
   const googleRegister = async (_token: string) => {
-    await instance.loginRedirect();
+    window.location.assign("/register");
     return { success: true };
   };
 
-  // Logout
-  // Logout - clear state and redirect to MSAL logout
+  // Logout — native: CustomAuth signOut; redirect login: logoutRedirect; demo: home
   const logout = async () => {
-    
-    // ✅ Zatrzymaj SignalR przed wylogowaniem
+    const demoOnlySession = isDemoModeActive() && !isAuthenticated;
+
     try {
       await notificationHubService.stopConnection();
-    } catch (error) {
+    } catch {
+      // ignore
     }
-    
-    // Clear app state
+    try {
+      await chatHubService.stopConnection();
+    } catch {
+      // ignore
+    }
+
     setUser(null);
-    
-    // Clear app storage (MSAL will handle its own cache)
-    Object.keys(localStorage).forEach(key => {
-      if (!key.startsWith('msal.')) {
-        localStorage.removeItem(key);
-      }
-    });
-    sessionStorage.clear();
-    
-    // Redirect to MSAL logout (will clear MSAL cache and redirect to Azure logout)
-    const account = instance.getActiveAccount() || accounts[0];
-    await instance.logoutRedirect({ account });
+    setSignalRInitialized(false);
+    setDemoMode(false);
+    queryClient.clear();
+
+    if (demoOnlySession) {
+      sessionStorage.clear();
+      window.location.assign("/");
+      return;
+    }
+
+    const account = instance.getActiveAccount() || accounts[0] || null;
+    await logoutMsalSession(msalInstance, account);
   };
 
   const setIsAuthenticated = (_value: boolean) => {
   };
 
-  // Refresh user data from /user/me (po zmianie aktywnego tenanta)
+  // Refresh user data from /user/me (po zmianie aktywnego tenanta lub trybu demo)
   const refreshUser = async () => {
-    if (!isAuthenticated) return;
-    
+    if (!isAuthenticated && !isDemoModeActive()) {
+      setUser(null);
+      return;
+    }
+
     try {
       const response = await axiosClient.get("/user/me");
       setUser(response.data);
-    } catch (error) {
+    } catch {
+      setUser(null);
     }
   };
 

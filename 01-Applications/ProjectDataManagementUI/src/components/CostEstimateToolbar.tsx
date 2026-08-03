@@ -17,6 +17,8 @@ import {
   ChevronsDown,
   ChevronsUp,
   Eye,
+  FileSpreadsheet,
+  FileText,
   LayoutGrid,
   List,
   Maximize2,
@@ -44,6 +46,8 @@ export interface CostEstimateToolbarProps {
   hasSchedule: boolean;
   isSyncing: boolean;
   isRecalculating: boolean;
+  isExportingXlsx: boolean;
+  isExportingPdf: boolean;
 
   onExpandAll: () => void;
   onCollapseAll: () => void;
@@ -53,6 +57,8 @@ export interface CostEstimateToolbarProps {
   onCreateSchedule: () => void;
   onSyncSchedule: () => void;
   onShare: () => void;
+  onExportXlsx: () => void;
+  onExportPdf: () => void;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
 }
@@ -69,6 +75,8 @@ export default function CostEstimateToolbar({
   hasSchedule,
   isSyncing,
   isRecalculating,
+  isExportingXlsx,
+  isExportingPdf,
   onExpandAll,
   onCollapseAll,
   onOpenSchema,
@@ -77,6 +85,8 @@ export default function CostEstimateToolbar({
   onCreateSchedule,
   onSyncSchedule,
   onShare,
+  onExportXlsx,
+  onExportPdf,
   isFullscreen,
   onToggleFullscreen,
 }: CostEstimateToolbarProps): React.ReactElement {
@@ -143,19 +153,47 @@ export default function CostEstimateToolbar({
               </MenuItem>
             )}
             <MenuItem
-              icon={isRecalculating ? <Spinner size="xs" /> : <RefreshCw size={16} />}
+              icon={isRecalculating ? <Spinner size="xs" /> : <RefreshCw size={16} aria-hidden="true" />}
               onClick={onRefresh}
-              isDisabled={isRecalculating}
+              isDisabled={isRecalculating || isExportingXlsx || isExportingPdf}
             >
               {isRecalculating ? "Odświeżam…" : "Odśwież"}
             </MenuItem>
+            <MenuItem
+              icon={
+                isExportingXlsx ? (
+                  <Spinner size="xs" />
+                ) : (
+                  <FileSpreadsheet size={16} aria-hidden="true" />
+                )
+              }
+              onClick={onExportXlsx}
+              isDisabled={isExportingXlsx || isExportingPdf}
+              aria-busy={isExportingXlsx}
+            >
+              {isExportingXlsx ? "Eksportuję…" : "Eksportuj do Excel"}
+            </MenuItem>
+            <MenuItem
+              icon={
+                isExportingPdf ? (
+                  <Spinner size="xs" />
+                ) : (
+                  <FileText size={16} aria-hidden="true" />
+                )
+              }
+              onClick={onExportPdf}
+              isDisabled={isExportingXlsx || isExportingPdf}
+              aria-busy={isExportingPdf}
+            >
+              {isExportingPdf ? "Eksportuję…" : "Eksportuj do PDF"}
+            </MenuItem>
             {canShare && (
-              <MenuItem icon={<Share2 size={16} />} onClick={onShare}>
+              <MenuItem icon={<Share2 size={16} aria-hidden="true" />} onClick={onShare}>
                 Udostępnij
               </MenuItem>
             )}
             {canEdit && (
-              <MenuItem icon={<Settings size={16} />} onClick={onOpenSchema}>
+              <MenuItem icon={<Settings size={16} aria-hidden="true" />} onClick={onOpenSchema}>
                 Pola dodatkowe
               </MenuItem>
             )}

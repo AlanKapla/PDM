@@ -9,7 +9,7 @@ namespace Business.Interfaces.Helpers
     {
         private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".pdf", ".png" };
         private static readonly string[] AllowedContentTypes = { "image/jpeg", "image/jpg", "image/png", "application/pdf" };
-        private const long MaxDocumentSize = 10 * 1024 * 1024; // 10MB
+        private const long MaxDocumentSize = 50L * 1024 * 1024; // 50MB
 
         /// <summary>
         /// Validates if document has allowed file type (JPEG, JPG, PDF)
@@ -21,14 +21,14 @@ namespace Business.Interfaces.Helpers
                 return true;
             }
 
-            var extension = Path.GetExtension(document.FileName).ToLowerInvariant();
-            var contentType = document.ContentType.ToLowerInvariant();
+            string extension = Path.GetExtension(document.FileName).ToLowerInvariant();
+            string contentType = document.ContentType.ToLowerInvariant();
 
             return AllowedExtensions.Contains(extension) && AllowedContentTypes.Contains(contentType);
         }
 
         /// <summary>
-        /// Validates if document size does not exceed maximum allowed size (10MB)
+        /// Validates if document size does not exceed maximum allowed size (50MB)
         /// </summary>
         public static bool IsValidDocumentSize(IFormFile? document)
         {

@@ -1,7 +1,8 @@
 import { useMsal } from "@azure/msal-react";
 import { InteractionStatus } from "@azure/msal-browser";
 import type { AccountInfo } from "@azure/msal-browser";
-import { loginRequest, silentRequest } from "../config/authConfig";
+import { nativeSilentRequest } from "../config/authConfig";
+import { isSoftLoggedOut } from "../auth/rememberedSignIn";
 import { useEffect, useState } from "react";
 
 export interface UseAuthReturn {
@@ -14,78 +15,52 @@ export interface UseAuthReturn {
 }
 
 /**
- * Custom hook for Azure AD B2C authentication using MSAL
+ * Custom hook for native / MSAL session helpers.
  */
 export const useAuth = (): UseAuthReturn => {
   const { instance, accounts, inProgress } = useMsal();
   const [isLoading, setIsLoading] = useState(true);
 
   const activeAccount = instance.getActiveAccount();
-  const isAuthenticated = accounts.length > 0 && activeAccount !== null;
+  const isAuthenticated =
+    accounts.length > 0 && activeAccount !== null && !isSoftLoggedOut();
 
   useEffect(() => {
-    // Set loading to false when interaction is complete
     if (inProgress === InteractionStatus.None) {
       setIsLoading(false);
     }
   }, [inProgress]);
 
-  /**
-   * Initiates the login flow using redirect
-   */
   const login = async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      await instance.loginRedirect(loginRequest);
-    } catch (error) {
-      setIsLoading(false);
-      throw error;
-    }
+    window.location.assign("/login");
   };
 
-  /**
-   * Logs out the current user
-   */
   const logout = async (): Promise<void> => {
     try {
       setIsLoading(true);
-      await instance.logoutRedirect({
-        account: activeAccount,
-      });
+      const { logoutMsalSession } = await import("../auth/logoutSession");
+      const { msalInstance } = await import("../auth/msalInstance");
+      await logoutMsalSession(msalInstance, activeAccount);
     } catch (error) {
       setIsLoading(false);
       throw error;
     }
   };
 
-  /**
-   * Acquires an access token silently, or falls back to interactive login
-   */
   const getAccessToken = async (): Promise<string | null> => {
-    if (!activeAccount) {
+    if (!activeAccount || isSoftLoggedOut()) {
       return null;
     }
 
     try {
-      // Try to acquire token silently
       const response = await instance.acquireTokenSilent({
-        ...silentRequest,
+        ...nativeSilentRequest,
         account: activeAccount,
       });
-
       return response.accessToken;
-    } catch (error) {
-
-      try {
-        // If silent acquisition fails, try redirect
-        await instance.acquireTokenRedirect({
-          ...silentRequest,
-          account: activeAccount,
-        });
-        return null; // Redirect will refresh the page
-      } catch (redirectError) {
-        throw redirectError;
-      }
+    } catch {
+      window.location.assign("/login");
+      return null;
     }
   };
 

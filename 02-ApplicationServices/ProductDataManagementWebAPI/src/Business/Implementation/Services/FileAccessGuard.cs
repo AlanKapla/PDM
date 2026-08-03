@@ -59,18 +59,58 @@ namespace Business.Implementation.Services
 
             if (kind == FileAccessKind.Read || kind == FileAccessKind.Write)
             {
-                bool hasShareAccess = await sharedRepo.AnyAsync(
-                    s => s.ProjectFileId == fileId
-                        && s.SharedWithUserId == currentUser.Id,
-                    cancellationToken);
-
-                if (hasShareAccess)
+                if (await HasSharedFileAccessAsync(
+                    tenantId,
+                    projectId,
+                    file.ProjectFilePackageId,
+                    fileId))
                 {
                     return;
                 }
             }
 
             throw new ForbiddenApiException("You do not have access to this file.");
+        }
+
+        private async Task<bool> HasSharedFileAccessAsync(
+            Guid tenantId,
+            Guid projectId,
+            Guid packageId,
+            Guid fileId)
+        {
+            IEnumerable<SharedProjectFile> shares = await sharedRepo.GetBySearch(
+                s => s.ProjectFilePackageId == packageId
+                    && s.ProjectId == projectId
+                    && s.TenantId == tenantId
+                    && s.SharedWithUserId == currentUser.Id
+                    && (s.ProjectFileId == null || s.ProjectFileId == fileId));
+
+            List<SharedProjectFile> sharesList = shares.ToList();
+            SharedProjectFile? packageShare = sharesList.FirstOrDefault(s => s.ProjectFileId is null);
+            SharedProjectFile? fileShare = sharesList.FirstOrDefault(s => s.ProjectFileId == fileId);
+
+            return EvaluateSharedFileAccess(packageShare, fileShare);
+        }
+
+        /// <summary>
+        /// Allow/Deny model aligned with <c>ProjectFilesService</c>:
+        /// Deny on file → no access; Allow on file → access; otherwise package share grants access.
+        /// </summary>
+        private static bool EvaluateSharedFileAccess(
+            SharedProjectFile? packageShare,
+            SharedProjectFile? fileShare)
+        {
+            if (fileShare?.Access == ProjectFileAccess.Deny)
+            {
+                return false;
+            }
+
+            if (fileShare?.Access == ProjectFileAccess.Allow)
+            {
+                return true;
+            }
+
+            return packageShare is not null;
         }
 
         public async Task EnsureCanAccessPackageAsync(

@@ -1,5 +1,8 @@
 ﻿import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "../pages/Home";
+import LoginPage from "../pages/LoginPage";
+import RegisterPage from "../pages/RegisterPage";
+import ResetPasswordPage from "../pages/ResetPasswordPage";
 import Dashboard from "../pages/Dashboard";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -26,6 +29,11 @@ import { CostEstimateEditPage } from "../pages/CostEstimateEditPage";
 import ChatPage from "../pages/ChatPage";
 import ProjectBudgetPage from "../pages/ProjectBudgetPage";
 import ContractorsPage from "../pages/ContractorsPage";
+import AdminPage from "../pages/AdminPage";
+import AdminUsersPage from "../pages/AdminUsersPage";
+import AdminColdMailsPage from "../pages/AdminColdMailsPage";
+import AdminActivityLogsPage from "../pages/AdminActivityLogsPage";
+import SuperAdminRoute from "./SuperAdminRoute";
 
 export default function AppRouter() {
   return (
@@ -44,8 +52,15 @@ export default function AppRouter() {
       />
 
       
-      {/* /register redirects to /home - MSAL handles both flows */}
-      <Route path="/register" element={<Navigate to="/" replace />} />
+      {/* Native auth register (givenName + surname + email + password) */}
+      <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <RegisterPage />
+          </PublicRoute>
+        }
+      />
 
       {/* 🔥 Swagger — publiczny, bez autoryzacji */}
       <Route path="/swagger" element={<div />} />
@@ -56,6 +71,19 @@ export default function AppRouter() {
         element={
           <PublicRoute>
             <Home />
+          </PublicRoute>
+        }
+      />
+
+      {/* Native auth reset / change password */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* Native auth login (email + password) */}
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <LoginPage />
           </PublicRoute>
         }
       />
@@ -274,6 +302,42 @@ export default function AppRouter() {
           <ProtectedRoute>
             <ContractorsPage />
           </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin"
+        element={
+          <SuperAdminRoute>
+            <AdminPage />
+          </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/users"
+        element={
+          <SuperAdminRoute>
+            <AdminUsersPage />
+          </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/cold-mails"
+        element={
+          <SuperAdminRoute>
+            <AdminColdMailsPage />
+          </SuperAdminRoute>
+        }
+      />
+
+      <Route
+        path="/admin/activity-logs"
+        element={
+          <SuperAdminRoute>
+            <AdminActivityLogsPage />
+          </SuperAdminRoute>
         }
       />
 

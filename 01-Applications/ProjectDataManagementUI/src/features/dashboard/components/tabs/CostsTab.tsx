@@ -16,6 +16,7 @@ import {
 } from '@chakra-ui/react';
 import { Trash2 } from 'lucide-react';
 import type { TrackedCostWeb } from '../../types/projectDashboard.types';
+import { DATE } from '../../utils/formatters';
 import { KpiCard } from '../shared/KpiCard';
 import { NetGrossAmount } from '../shared/NetGrossAmount';
 import { CostModal } from '../CostModal';
@@ -124,6 +125,9 @@ function CostTableRow({ cost, onEdit, onDelete }: CostTableRowProps): React.Reac
       </Td>
       <Td color="neutral.600" display={{ base: 'none', md: 'table-cell' }}>
         {cost.contractorName ?? '—'}
+      </Td>
+      <Td color="neutral.600" whiteSpace="nowrap" display={{ base: 'none', md: 'table-cell' }}>
+        {DATE(cost.date)}
       </Td>
       <Td isNumeric>
         <NetGrossAmount
@@ -243,6 +247,7 @@ export function CostsTab({
                   <Th>Źródło</Th>
                   <Th display={{ base: 'none', md: 'table-cell' }}>Etap / Zakres</Th>
                   <Th display={{ base: 'none', md: 'table-cell' }}>Wykonawca</Th>
+                  <Th display={{ base: 'none', md: 'table-cell' }}>Data</Th>
                   <Th isNumeric>Kwota</Th>
                   <Th w="48px">
                     <VisuallyHidden>Akcje</VisuallyHidden>
@@ -261,7 +266,7 @@ export function CostsTab({
               </Tbody>
               <Tfoot>
                 <Tr>
-                  <Td colSpan={6} borderTopWidth="1px" borderColor="neutral.200">
+                  <Td colSpan={7} borderTopWidth="1px" borderColor="neutral.200">
                     <Flex justify="flex-end" align="center" gap={2} fontWeight="medium" color="neutral.600">
                       <Text fontSize="sm">Suma łączna:</Text>
                       <NetGrossAmount

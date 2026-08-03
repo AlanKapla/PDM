@@ -224,7 +224,9 @@ function loadStageFromApi(stage: WorkScheduleStageWeb): StageFormData {
         endDate: new Date(period.endDate).toISOString().split("T")[0],
         isClosed: period.isClosed,
       })),
-      assignedUserIds: work.assignees.map(a => a.userId),
+      assignedUserIds: work.assignees
+        .map(a => a.userId)
+        .filter((id): id is string => !!id),
       comments: work.comments.map(c => ({
         id: c.id,
         tempId: `comment-${c.id}`,

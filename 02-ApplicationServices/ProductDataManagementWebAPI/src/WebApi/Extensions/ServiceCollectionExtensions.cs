@@ -18,6 +18,8 @@ using Entities.Models.CostEstimates;
 using Entities.Models.Costs;
 using Entities.Models.CostTrackers;
 using Entities.Models.AI;
+using Entities.Models.Activity;
+using Entities.Models.ColdMails;
 using Entities.Models.Files;
 using Entities.Models.Notifications;
 using Entities.Models.Projects;
@@ -69,6 +71,12 @@ namespace WebApi.Extensions
             services
                 .AddHttpContextAccessor()
                 .AddControllers();
+
+            services.AddHttpClient("NativeAuthProxy")
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+                {
+                    AllowAutoRedirect = false
+                });
 
             services.Configure<FormOptions>(options =>
             {
@@ -340,6 +348,9 @@ namespace WebApi.Extensions
                 .AddRepository<AICostImportBatch>()
                 .AddRepository<AICostImportItem>();
 
+            services
+                .AddRepository<ColdMailHistory>()
+                .AddRepository<UserActivityLog>();
 
             return services;
         }
@@ -379,6 +390,7 @@ namespace WebApi.Extensions
             services.AddScoped<ICostEstimateAccessService, CostEstimateAccessService>();
             services.AddScoped<IProjectCostAccessService, ProjectCostAccessService>();
             services.AddScoped<ICostEstimateShareService, CostEstimateShareService>();
+            services.AddScoped<ICostEstimateExportService, CostEstimateExportService>();
             services.AddScoped<IContractorService, ContractorService>();
             services.AddSingleton<ICostTrackerFinancialService, CostTrackerFinancialService>();
             services.AddScoped<ICostTrackerAttachmentService, CostTrackerAttachmentService>();
@@ -390,6 +402,8 @@ namespace WebApi.Extensions
             services.AddScoped<WorkScheduleBuilder>();
             services.AddScoped<IWorkScheduleAIGeneratorService, WorkScheduleAIGeneratorService>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IWelcomeEmailService, WelcomeEmailService>();
+            services.AddScoped<IColdMailHtmlBuilder, ColdMailHtmlBuilder>();
             services.AddScoped<IProjectMemberService, ProjectMemberService>();
             services.AddScoped<IProjectMembershipProvisioner, ProjectMembershipProvisioner>();
             services.AddSingleton<ICacheService, CacheService>();
@@ -397,6 +411,7 @@ namespace WebApi.Extensions
             services.AddScoped<IFileAccessGuard, FileAccessGuard>();
             services.AddSingleton<IFileShareDiffService, Business.Implementation.Services.Files.FileShareDiffService>();
             services.AddScoped<IFileShareNotificationService, Business.Implementation.Services.Files.FileShareNotificationService>();
+            services.AddScoped<IFileActivityNotificationService, Business.Implementation.Services.Files.FileActivityNotificationService>();
             services.AddSingleton<IFileVersionWebMapper, Business.Implementation.Services.Files.FileVersionWebMapper>();
             services.AddScoped<IDashboardDataLoader, DashboardDataLoader>();
             services.AddScoped<IScheduleSummaryBuilder, ScheduleSummaryBuilder>();
@@ -406,7 +421,9 @@ namespace WebApi.Extensions
             services.AddHostedService<StartupSeederService>();
 
             services.AddScoped<IDocumentParserService, DocumentParserService>();
+            services.AddScoped<IPdfToImageConverter, PdfToImageConverter>();
             services.AddScoped<ICostEstimateAIGeneratorService, CostEstimateAIGeneratorService>();
+
 
             services.AddScoped<IAICostDocumentEnrichmentService, Business.Implementation.Services.AI.AICostDocumentEnrichmentService>();
             services.AddScoped<IAICostImportBlobService, Business.Implementation.Services.AI.AICostImportBlobService>();
@@ -487,7 +504,8 @@ namespace WebApi.Extensions
                         .WithOrigins(origins)
                         .AllowAnyHeader()
                         .AllowAnyMethod()
-                        .AllowCredentials();
+                        .AllowCredentials()
+                        .WithExposedHeaders("Content-Disposition");
                 });
             });
 
@@ -505,10 +523,14 @@ namespace WebApi.Extensions
                     options.AddPolicy(permissionCode, policy =>
                         policy.Requirements.Add(new PermissionRequirement(permissionCode, scope)));
                 }
+
+                options.AddPolicy(AuthorizationPolicyNames.SuperAdminOnly, policy =>
+                    policy.Requirements.Add(new SuperAdminRequirement()));
             });
 
             // Permission-based handler
             services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+            services.AddScoped<IAuthorizationHandler, SuperAdminAuthorizationHandler>();
 
             return services;
         }

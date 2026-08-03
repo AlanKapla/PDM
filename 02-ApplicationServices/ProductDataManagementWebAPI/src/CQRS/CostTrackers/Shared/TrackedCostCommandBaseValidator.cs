@@ -1,5 +1,7 @@
-﻿using CQRS.Extensions;
+﻿using Business.Interfaces.Helpers;
+using CQRS.Extensions;
 using FluentValidation;
+using Microsoft.AspNetCore.Http;
 
 namespace CQRS.CostTrackers.Shared
 {
@@ -37,6 +39,23 @@ namespace CQRS.CostTrackers.Shared
             RuleFor(x => x.Gross)
                 .GreaterThanOrEqualTo(0).When(x => x.Gross.HasValue)
                 .WithMessage("'Gross' cannot be negative.");
+
+            When(x => x.NewFiles is not null && x.NewFiles.Count > 0, () =>
+            {
+                RuleForEach(x => x.NewFiles)
+                    .ChildRules(file =>
+                    {
+                        file.RuleFor(f => f)
+                            .Must(DocumentValidationHelper.IsValidDocumentType)
+                            .WithMessage("File must be JPEG, JPG, PNG or PDF")
+                            .When(f => f is not null);
+
+                        file.RuleFor(f => f)
+                            .Must(DocumentValidationHelper.IsValidDocumentSize)
+                            .WithMessage("File size cannot exceed 50MB")
+                            .When(f => f is not null);
+                    });
+            });
         }
     }
 }

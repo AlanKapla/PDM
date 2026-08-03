@@ -18,6 +18,7 @@ public sealed class UserSyncFromB2CCommandHandlerTests
     private readonly Mock<IRepository<User>> _userRepoMock = new();
     private readonly Mock<ICurrentUser> _currentUserMock = new();
     private readonly Mock<IMicrosoftGraphService> _graphServiceMock = new();
+    private readonly Mock<IWelcomeEmailService> _welcomeEmailServiceMock = new();
     private readonly Mock<ILogger<UserSyncFromB2CCommandHandler>> _loggerMock = new();
     private readonly UserSyncFromB2CCommandHandler _handler;
 
@@ -41,11 +42,16 @@ public sealed class UserSyncFromB2CCommandHandlerTests
             .Setup(g => g.GetUserDataAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new UserGraphData("John", "Doe"));
 
+        _welcomeEmailServiceMock
+            .Setup(s => s.SendWelcomeEmailAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _handler = new UserSyncFromB2CCommandHandler(
             _userReadRepoMock.Object,
             _userRepoMock.Object,
             _currentUserMock.Object,
             _graphServiceMock.Object,
+            _welcomeEmailServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -112,6 +118,9 @@ public sealed class UserSyncFromB2CCommandHandlerTests
         // Assert
         result.Should().Be(existingUser.Id);
         _userRepoMock.Verify(r => r.Insert(It.IsAny<User>()), Times.Never);
+        _welcomeEmailServiceMock.Verify(
+            s => s.SendWelcomeEmailAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -138,6 +147,64 @@ public sealed class UserSyncFromB2CCommandHandlerTests
         existingUser.AzureAdB2CObjectId.Should().Be(ValidB2CObjectId);
         _userRepoMock.Verify(r => r.Update(existingUser), Times.Once);
         _userRepoMock.Verify(r => r.Insert(It.IsAny<User>()), Times.Never);
+        _welcomeEmailServiceMock.Verify(
+            s => s.SendWelcomeEmailAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenNewUserCreated_SendsWelcomeEmailAndSetsSentAt()
+    {
+        // Arrange
+        UserSyncFromB2CCommand command = new();
+        User? capturedUser = null;
+
+        _userRepoMock
+            .Setup(r => r.Insert(It.IsAny<User>()))
+            .Callback<User>(u => capturedUser = u)
+            .Returns(Task.CompletedTask);
+
+        // Act
+        Guid result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeEmpty();
+        capturedUser.Should().NotBeNull();
+        capturedUser!.WelcomeEmailSentAt.Should().NotBeNull();
+        _userRepoMock.Verify(r => r.Insert(It.IsAny<User>()), Times.Once);
+        _userRepoMock.Verify(r => r.Update(It.IsAny<User>()), Times.Never);
+        _welcomeEmailServiceMock.Verify(
+            s => s.SendWelcomeEmailAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_WhenUserAlreadyExists_DoesNotSendWelcomeEmail()
+    {
+        // Arrange
+        User existingUser = new()
+        {
+            Id = Guid.NewGuid(),
+            AzureAdB2CObjectId = ValidB2CObjectId
+        };
+
+        _userReadRepoMock
+            .SetupSequence(r => r.GetFirstBySearch(
+                It.IsAny<Expression<Func<User, bool>>>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<Func<IQueryable<User>, IIncludableQueryable<User, object>>[]>()))
+            .ReturnsAsync(existingUser);
+
+        UserSyncFromB2CCommand command = new();
+
+        // Act
+        Guid result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Should().Be(existingUser.Id);
+        _welcomeEmailServiceMock.Verify(
+            s => s.SendWelcomeEmailAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

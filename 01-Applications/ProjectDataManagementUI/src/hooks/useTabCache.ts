@@ -92,18 +92,15 @@ export function useTabCache<T>(
     }
   }, [cacheKey, isCacheValid]);
 
-  // Nasłuchuj zmiany demo mode — wyczyść cache i odśwież dane
+  // Nasłuchuj zmiany demo mode — wyczyść lokalny cache (refetch robi React Query po clear())
   useEffect(() => {
     const handler = () => {
       globalCache.delete(cacheKey);
       setDataState(null);
-      fetch().catch((err) => {
-        console.error(`[useTabCache] pdm:demoModeChanged fetch error for ${cacheKey}:`, err);
-      });
     };
     window.addEventListener("pdm:demoModeChanged", handler);
     return () => window.removeEventListener("pdm:demoModeChanged", handler);
-  }, [cacheKey, fetch]);
+  }, [cacheKey]);
 
   const setData = useCallback((newData: T) => {
     const cacheEntry: CacheEntry<T> = {

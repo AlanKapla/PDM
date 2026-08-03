@@ -40,19 +40,55 @@ public sealed class AzureAICompletionService : IAICompletionService
         return response.Content[0].Text;
     }
 
-    public async Task<string> CompleteWithImageAsync(
+    public Task<string> CompleteWithImageAsync(
         string systemPrompt,
         byte[] imageBytes,
         string mediaType,
         CancellationToken cancellationToken)
     {
+        List<(byte[] ImageBytes, string MediaType)> images =
+        [
+            (imageBytes, mediaType)
+        ];
+        return CompleteWithImagesAsync(systemPrompt, images, cancellationToken);
+    }
+
+    public async Task<string> CompleteWithImagesAsync(
+        string systemPrompt,
+        IReadOnlyList<(byte[] ImageBytes, string MediaType)> images,
+        CancellationToken cancellationToken)
+    {
+        if (images is null || images.Count == 0)
+        {
+            throw new ArgumentException("At least one image is required.", nameof(images));
+        }
+
         ChatClient client = BuildChatClient();
+
+        List<ChatMessageContentPart> contentParts = new List<ChatMessageContentPart>(images.Count);
+        foreach ((byte[] ImageBytes, string MediaType) image in images)
+        {
+            contentParts.Add(
+                ChatMessageContentPart.CreateImagePart(
+                    BinaryData.FromBytes(image.ImageBytes),
+                    image.MediaType));
+        }
+
         List<ChatMessage> messages =
         [
             new SystemChatMessage(systemPrompt),
-            new UserChatMessage(ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(imageBytes), mediaType))
+            new UserChatMessage(contentParts)
         ];
-        ChatCompletion response = await client.CompleteChatAsync(messages, cancellationToken: cancellationToken);
+        ChatCompletionOptions options = new()
+        {
+            MaxOutputTokenCount = 4096,
+            Temperature = 0,
+            ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat()
+        };
+        ChatCompletion response = await client.CompleteChatAsync(
+            messages,
+            options,
+            cancellationToken: cancellationToken);
         return response.Content[0].Text;
     }
 

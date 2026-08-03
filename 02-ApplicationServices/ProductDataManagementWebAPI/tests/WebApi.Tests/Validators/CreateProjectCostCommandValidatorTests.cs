@@ -1,6 +1,8 @@
 using CQRS.ProjectCosts.CreateProjectCost;
 using FluentAssertions;
 using FluentValidation.Results;
+using Microsoft.AspNetCore.Http;
+using Moq;
 
 namespace WebApi.Tests.Validators;
 
@@ -203,6 +205,47 @@ public class CreateProjectCostCommandValidatorTests
         result.Errors.Should().NotContain(e => e.PropertyName == "Description");
     }
 
+    // ─── Document ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Document_11MB_Pdf_PassesValidation()
+    {
+        long sizeBytes = 11L * 1024 * 1024;
+        IFormFile document = CreateFormFile(sizeBytes, "invoice.pdf", "application/pdf");
+        CreateProjectCostCommand cmd = ValidCommand() with { Document = document };
+
+        ValidationResult result = _sut.Validate(cmd);
+
+        result.Errors.Should().NotContain(e => e.PropertyName == "Document");
+    }
+
+    [Fact]
+    public void Document_Over50MB_FailsValidation()
+    {
+        long sizeBytes = 50L * 1024 * 1024 + 1;
+        IFormFile document = CreateFormFile(sizeBytes, "invoice.pdf", "application/pdf");
+        CreateProjectCostCommand cmd = ValidCommand() with { Document = document };
+
+        ValidationResult result = _sut.Validate(cmd);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e =>
+            e.PropertyName == "Document" && e.ErrorMessage.Contains("50MB"));
+    }
+
+    [Fact]
+    public void Document_InvalidType_FailsValidation()
+    {
+        IFormFile document = CreateFormFile(1024, "invoice.txt", "text/plain");
+        CreateProjectCostCommand cmd = ValidCommand() with { Document = document };
+
+        ValidationResult result = _sut.Validate(cmd);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e =>
+            e.PropertyName == "Document" && e.ErrorMessage.Contains("JPEG"));
+    }
+
     // ─── Happy path ───────────────────────────────────────────────────────────
 
     [Fact]
@@ -227,5 +270,14 @@ public class CreateProjectCostCommandValidatorTests
         };
         ValidationResult result = _sut.Validate(cmd);
         result.IsValid.Should().BeTrue();
+    }
+
+    private static IFormFile CreateFormFile(long sizeBytes, string fileName, string contentType)
+    {
+        Mock<IFormFile> mock = new();
+        mock.Setup(f => f.FileName).Returns(fileName);
+        mock.Setup(f => f.ContentType).Returns(contentType);
+        mock.Setup(f => f.Length).Returns(sizeBytes);
+        return mock.Object;
     }
 }

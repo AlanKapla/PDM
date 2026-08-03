@@ -178,8 +178,67 @@ export interface WorkScheduleStageWorkWeb {
 }
 
 export interface WorkScheduleStageWorkAssigneeWeb {
+  userId?: string | null;
+  userName?: string | null;
+  contractorId?: string | null;
+  contractorName?: string | null;
+  companyName?: string | null;
+}
+
+export interface WorkScheduleAssignableMemberWeb {
   userId: string;
-  userName: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyName?: string | null;
+  assignments: WorkScheduleAssigneeBusyPeriodWeb[];
+}
+
+export interface WorkScheduleAssignableContractorWeb {
+  id: string;
+  name: string;
+  assignments: WorkScheduleAssigneeBusyPeriodWeb[];
+}
+
+export interface WorkScheduleAssignableAssigneesWeb {
+  members: WorkScheduleAssignableMemberWeb[];
+  contractors: WorkScheduleAssignableContractorWeb[];
+}
+
+export interface WorkScheduleAssigneeBusyPeriodWeb {
+  workId: string;
+  workName: string;
+  workScheduleId: string;
+  workScheduleName: string;
+  projectId: string;
+  projectName: string;
+  startDate: string;
+  endDate: string;
+}
+
+/** Konflikt wyliczony lokalnie na podstawie busy periods z assignable-assignees */
+export interface WorkScheduleAssignmentConflictWeb {
+  userId?: string | null;
+  contractorId?: string | null;
+  assigneeName: string;
+  conflictingWorkId: string;
+  conflictingWorkName: string;
+  conflictingWorkScheduleId: string;
+  conflictingWorkScheduleName: string;
+  conflictingProjectId: string;
+  conflictingProjectName: string;
+  overlapStart: string;
+  overlapEnd: string;
+}
+
+export function getAssigneeKey(a: WorkScheduleStageWorkAssigneeWeb): string {
+  return a.userId ?? a.contractorId ?? "";
+}
+
+export function getAssigneeDisplayName(a: WorkScheduleStageWorkAssigneeWeb): string {
+  const name = a.userName ?? a.contractorName ?? "Unknown";
+  const company = a.companyName?.trim();
+  return company ? `${name} (${company})` : name;
 }
 
 // Lokalne typy edycyjne — rozszerzają Web modele o opcjonalne ID nowo dodanych elementów przed zapisem

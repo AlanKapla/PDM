@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import React, { useId } from 'react';
 import { Box, Text, Icon, VStack } from '@chakra-ui/react';
 import { FileUp } from 'lucide-react';
 
@@ -11,12 +11,12 @@ interface DocumentDropzoneProps {
 }
 
 export function DocumentDropzone({
-  accept = '.jpg,.jpeg,.png',
+  accept = '.jpg,.jpeg,.png,.pdf',
   maxSizeMB = 20,
   value,
   onChange,
   isDisabled = false,
-}: DocumentDropzoneProps) {
+}: DocumentDropzoneProps): React.ReactElement {
   const inputId = useId();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,7 +81,7 @@ export function DocumentDropzone({
           {value ? value.name : 'Przeciągnij plik lub kliknij, aby wybrać'}
         </Text>
         <Text fontSize="xs" color="gray.400">
-          JPG, PNG · maks. {maxSizeMB} MB
+          JPG, PNG, PDF · maks. {maxSizeMB} MB
         </Text>
         {value && (
           <Text fontSize="xs" color="gray.400">

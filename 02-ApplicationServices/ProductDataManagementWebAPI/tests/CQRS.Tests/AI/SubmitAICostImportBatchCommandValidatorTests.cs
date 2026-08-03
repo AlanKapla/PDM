@@ -54,7 +54,24 @@ public sealed class SubmitAICostImportBatchCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_WhenInvalidExtension_HasValidationError()
+    public void Validate_WhenInvalidExtension_DoesNotFailEntireBatchValidation()
+    {
+        // Arrange — per-file type validation happens in handler (soft-fail)
+        Mock<IFormFile> invalid1 = AICostImportTestHelpers.BuildFormFileMock("a.txt");
+        Mock<IFormFile> invalid2 = AICostImportTestHelpers.BuildFormFileMock("b.txt");
+
+        SubmitAICostImportBatchCommand command = ValidCommand(
+            new FormFileCollection { invalid1.Object, invalid2.Object });
+
+        // Act
+        TestValidationResult<SubmitAICostImportBatchCommand> result = _validator.TestValidate(command);
+
+        // Assert
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Validate_WhenPdfFilesAreIncluded_HasNoValidationErrors()
     {
         // Arrange
         Mock<IFormFile> pdf1 = AICostImportTestHelpers.BuildFormFileMock("a.pdf");
@@ -67,7 +84,7 @@ public sealed class SubmitAICostImportBatchCommandValidatorTests
         TestValidationResult<SubmitAICostImportBatchCommand> result = _validator.TestValidate(command);
 
         // Assert
-        result.IsValid.Should().BeFalse();
+        result.ShouldNotHaveAnyValidationErrors();
     }
 
     [Fact]
