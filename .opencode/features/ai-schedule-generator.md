@@ -3,9 +3,9 @@
 ## Opis
 
 Użytkownik podczas tworzenia harmonogramu na podstawie kosztorysu podaje ramy czasowe
-(okno: data rozpoczęcia i zakończenia całego harmonogramu), a agent AI na podstawie
-nazw etapów (grup kosztorysowych) i pozycji (zakresów robót) dobiera czasy ich trwania
-oraz automatycznie tworzy zależności między zakresami robót.
+(okno: data rozpoczęcia i zakończenia całego harmonogramu), a agenci AI na podstawie
+nazw etapów (grup kosztorysowych) i pozycji (zakresów robót) dobierają czasy ich trwania
+oraz automatycznie tworzą zależności między zakresami robót.
 
 ## Przepływ
 
@@ -13,16 +13,41 @@ oraz automatycznie tworzy zależności między zakresami robót.
 2. Wybiera kosztorys
 3. **Nowy krok**: Podaje datę rozpoczęcia i zakończenia całego projektu (ramy czasowe)
 4. System wysyła do API żądanie wygenerowania harmonogramu z AI
-5. AI analizuje nazwy grup kosztorysowych (etapy) i pozycji (zakresy robót)
-6. AI zwraca:
+5. AI analizuje nazwy grup kosztorysowych (etapy) i pozycji (zakresy robót) — **per stage**
+6. AI zwraca (merge wyników):
    - Sugerowane czasy trwania (dni) dla każdego zakresu robót
    - Sugerowane zależności (predecessor/successor/dependencyType/lagDays) między zakresami
 7. System zapisuje harmonogram z etapami, zakresami, okresami i zależnościami
 8. User widzi gotowy harmonogram z wypełnionymi datami i zależnościami
 
+## Runtime (aktualny)
+
+### Per-stage agenci (równolegle, limit concurrency = 4)
+
+Dla każdego etapu uruchamiane są dwa agenci (`IAgentRunner.RunAsync`), współdzieląc `SemaphoreSlim(4)`:
+
+| Agent | Rola |
+|-------|------|
+| `schedule-duration-agent` | Estymacja `duration_days` tylko dla prac danego etapu |
+| `schedule-dependency-agent` | Max 2 zależności cross-stage dla focus stage (predecessor / successor) |
+
+Wyniki zbierane przez `await Task.WhenAll(...)` (bez `.Result`), potem merge + dedupe.
+
+### Deterministyczne post-processing (kod, nie AI)
+
+1. **Intra-stage FS** — sekwencyjne `FinishToStart` (lag=0) między kolejnymi pracami w etapie wg `Order`
+2. Walidacja durations/dependencies
+3. Sortowanie topologiczne (Kahn) → daty start/end
+4. **OverallEndDate skaluje łańcuch** — gdy `max(EndDate) > overallEndDate`, proporcjonalna kompresja offsetów i duration (min 1 dzień), potem enforce FS
+
+### Obsolete (nieaktualne)
+
+- ~~Monolityczny `schedule-generator-agent`~~ — usunięty (dead resource)
+- ~~Tool `analyze_schedule_structure`~~ — nieużywany; prompty budowane w `WorkScheduleAIGeneratorService`
+
 ## Wymagane zmiany
 
-### API — Nowy endpoint/CQRS
+### API — Endpoint/CQRS
 
 **Command**: `GenerateScheduleFromEstimateAICommand`
 - `TenantId`, `ProjectId`, `WorkScheduleId`
@@ -30,65 +55,41 @@ oraz automatycznie tworzy zależności między zakresami robót.
 - `OverallEndDate` (DateTime) — ramy czasowe: koniec
 
 **Handler**: `GenerateScheduleFromEstimateAICommandHandler`
-- Ładuje harmonogram z linked cost estimate
-- Pobiera wszystkie grupy i pozycje z kosztorysu
-- Wywołuje AI agent z kontekstem (nazwy etapów, nazwy pozycji, ramy czasowe)
-- AI zwraca JSON z durations i dependencies
-- Zapisuje okresy (WorkScheduleStageWorkPeriod) do każdego zakresu
-- Zapisuje zależności (WorkScheduleStageWorkDependency)
-- Unieważnia cache
+- Access check → sync z kosztorysem → load stages/works
+- Wywołuje `IWorkScheduleAIGeneratorService.GenerateScheduleAsync`
+- Zapisuje okresy (`SetWorkScheduleStageWorkPeriodsCommand`) i zależności (`SetWorkScheduleDependenciesCommand`)
+- Unieważnia cache → zwraca `WorkScheduleDetailsWeb`
 
 **Validator**: FluentValidation dla dat
 
-### AI Agent — Nowe narzędzie / agent
+### AI Agent — Per-stage
 
-**Nowy agent**: `schedule-generator-agent`
-- Używa modelu gpt-4o
-- Tools: `get_cost_estimate_items`, `get_project_info`
-- Prompt: analizuje nazwy grup/items i sugeruje durations + dependencies
+**Agenci** (EmbeddedResource w `Business.AIAgent/Resources/Agents/sub_agents/`):
+- `schedule_duration_agent.md` → `schedule-duration-agent`
+- `schedule_dependency_agent.md` → `schedule-dependency-agent`
 
-**Nowe narzędzie**: `analyze_schedule_structure`
-- Input: lista etapów (nazwa, kolejność), lista zakresów (nazwa, etap, kolejność), ramy czasowe
-- Output: JSON z durations (workId → liczba dni) i dependencies (predecessorWorkName → successorWorkName → typ → lagDays)
+**Serwis**: `WorkScheduleAIGeneratorService`
+- Buduje prompty per stage
+- Uruchamia agentów z limitem concurrency
+- Merge, intra-stage deps, walidacja, kalkulacja dat + scale do OverallEndDate
 
 ### UI — WorkScheduleFormModal
 
-**Nowy krok w modalu**:
+**Krok w modalu**:
 - Po wybraniu kosztorysu w trybie 'linked' i przed utworzeniem
-- Pojawia się sekcja "Ramy czasowe" z dwoma DatePickerami: data rozpoczęcia i zakończenia
+- Sekcja "Ramy czasowe" z dwoma DatePickerami
 - Przycisk "Generuj harmonogram z AI"
-- Stan ładowania podczas generowania
-- Po sukcesie: przekierowanie do widoku harmonogramu z gotowymi danymi
+- Stan ładowania / error / "Pomiń z ostrzeżeniem"
 
-**Nowy API call**: `generateScheduleFromEstimateAI(tenantId, projectId, workScheduleId, overallStartDate, overallEndDate)`
+**API call**: `generateScheduleFromEstimateAI(tenantId, projectId, workScheduleId, overallStartDate, overallEndDate)`
 
-### Nowa warstwa serwisowa
+### DB
 
-**Interface**: `IWorkScheduleAIGeneratorService`
-**Implementacja**: `WorkScheduleAIGeneratorService`
-- Odpowiada za komunikację z AI agentem
-- Parsuje odpowiedź AI do listy okresów i zależności
-- Zapisuje okresy przez istniejący `SetWorkScheduleStageWorkPeriodsCommand`
-- Zapisuje zależności przez istniejący `SetWorkScheduleDependenciesCommand`
+Brak nowych encji — używamy:
+- `WorkScheduleStageWorkPeriod`
+- `WorkScheduleStageWorkDependency`
 
-### Nowa encja / zmiany w DB
+## Powiązane refaktory
 
-Brak — używamy istniejących:
-- `WorkScheduleStageWorkPeriod` — do przechowywania okresów
-- `WorkScheduleStageWorkDependency` — do przechowywania zależności
-
-## Plan kroków
-
-1. Audyt API — analiza istniejących CQRS, AI agent tools, serwisów
-2. Audyt UI — analiza WorkScheduleFormModal, projectApi
-3. Implementacja API:
-   - a. Nowe narzędzie AI (`analyze_schedule_structure` tool)
-   - b. Nowy agent `schedule-generator-agent`
-   - c. Nowy serwis `IWorkScheduleAIGeneratorService` / `WorkScheduleAIGeneratorService`
-   - d. Nowy CQRS: `GenerateScheduleFromEstimateAI`
-   - e. Nowy endpoint w `WorkScheduleController`
-   - f. Rejestracja w DI
-4. Implementacja UI:
-   - a. Nowy API call w `projectApi.ts`
-   - b. Nowy typ TypeScript dla odpowiedzi
-   - c. Modyfikacja `WorkScheduleFormModal` — dodanie pól ram czasowych i przycisku AI
+Zobacz: `.opencode/subagents/rules/ai-schedule-periods-dependencies-*` (audit + refactor prompts).
+Starsze podsumowanie monolitycznego agenta: `ai-schedule-generator-summary.md` (superseded).

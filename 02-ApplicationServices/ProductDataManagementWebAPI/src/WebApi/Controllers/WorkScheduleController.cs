@@ -36,7 +36,7 @@ namespace WebApi.Controllers
 {
     [Route("api/tenants/{tenantId}/projects/{projectId}/work-schedule")]
     [ApiController]
-    public class WorkScheduleController(IMediator mediator) : BaseApiController(mediator)
+    public sealed class WorkScheduleController(IMediator mediator) : BaseApiController(mediator)
     {
         [HttpPost]
         [Authorize(Policy = PermissionCodes.ProjectSchedule)]
@@ -519,6 +519,7 @@ namespace WebApi.Controllers
 
         [HttpPost("{workScheduleId}/generate-from-ai")]
         [Authorize(Policy = PermissionCodes.ProjectSchedule)]
+        [ProducesResponseType(typeof(WorkScheduleDetailsWeb), StatusCodes.Status200OK)]
         public async Task<IActionResult> GenerateFromAI(
             [FromRoute] Guid tenantId,
             [FromRoute] Guid projectId,
@@ -529,6 +530,5 @@ namespace WebApi.Controllers
             WorkScheduleDetailsWeb result = await Send(command);
             return Ok(result);
         }
-
-            }
-        }
+    }
+}

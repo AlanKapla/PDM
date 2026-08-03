@@ -58,6 +58,8 @@ namespace Business.Implementation.Services
                 "Starting per-stage AI agents: {StageCount} stages, {WorkCount} works",
                 stageCount, works.Count);
 
+            using SemaphoreSlim gate = new SemaphoreSlim(4);
+
             // ── 2. Launch per-stage DURATION agents ──
             List<Task<AgentRunResult>> durationTasks = new List<Task<AgentRunResult>>(stageCount);
             List<Guid> durationStageOrder = new List<Guid>(stageCount);
@@ -75,7 +77,8 @@ namespace Business.Implementation.Services
                     stageName, stageId, stageWorks.Count);
 
                 durationStageOrder.Add(stageId);
-                durationTasks.Add(_agentRunner.RunAsync(
+                durationTasks.Add(RunWithLimitAsync(
+                    gate,
                     "schedule-duration-agent",
                     prompt,
                     context,
@@ -93,42 +96,43 @@ namespace Business.Implementation.Services
                 string stageName = stageNameById[stageId];
 
                 string prompt = BuildStageDependencyPrompt(
-                    stageWorks, works, stageName, overallStartDate, overallEndDate);
+                    stageWorks, works, stages, stageName, overallStartDate, overallEndDate);
 
                 _logger.LogDebug(
                     "Queueing dependency agent for stage '{StageName}' ({StageId}): {WorkCount} focus works, {TotalWorks} total context",
                     stageName, stageId, stageWorks.Count, works.Count);
 
                 dependencyStageOrder.Add(stageId);
-                dependencyTasks.Add(_agentRunner.RunAsync(
+                dependencyTasks.Add(RunWithLimitAsync(
+                    gate,
                     "schedule-dependency-agent",
                     prompt,
                     context,
                     cancellationToken));
             }
 
-            // ── 4. Wait for ALL agents in parallel ──
+            // ── 4. Wait for ALL agents in parallel (max 4 concurrent via gate) ──
             _logger.LogInformation(
                 "Waiting for {Total} AI agents ({DurationCount} duration + {DepCount} dependency)...",
                 durationTasks.Count + dependencyTasks.Count, durationTasks.Count, dependencyTasks.Count);
 
-            await Task.WhenAll(durationTasks);
-            await Task.WhenAll(dependencyTasks);
+            AgentRunResult[] durationResults = await Task.WhenAll(durationTasks);
+            AgentRunResult[] dependencyResults = await Task.WhenAll(dependencyTasks);
 
             // ── 5. Merge duration results ──
             List<AIDuration> mergedDurations = new List<AIDuration>();
 
-            for (Int32 i = 0; i < durationTasks.Count; i++)
+            for (Int32 i = 0; i < durationResults.Length; i++)
             {
                 Guid stageId = durationStageOrder[i];
-                AgentRunResult result = durationTasks[i].Result;
+                AgentRunResult result = durationResults[i];
 
                 if (!result.IsSuccess)
                 {
                     _logger.LogError(
                         "Duration agent for stage '{StageName}' ({StageId}) failed: {Error}",
                         stageNameById.GetValueOrDefault(stageId, "unknown"), stageId, result.ErrorMessage);
-                    throw new InvalidOperationException(
+                    throw new ValidationApiException(
                         $"AI duration estimation failed for stage '{stageNameById.GetValueOrDefault(stageId, "unknown")}': " +
                         $"{result.ErrorMessage ?? "Unknown error"}");
                 }
@@ -141,7 +145,7 @@ namespace Business.Implementation.Services
                     _logger.LogWarning(
                         "Duration agent for stage '{StageName}' ({StageId}) returned no durations",
                         stageNameById.GetValueOrDefault(stageId, "unknown"), stageId);
-                    throw new InvalidOperationException(
+                    throw new ValidationApiException(
                         $"AI duration agent for stage '{stageNameById.GetValueOrDefault(stageId, "unknown")}' " +
                         "returned no durations. Please try again.");
                 }
@@ -157,17 +161,17 @@ namespace Business.Implementation.Services
             HashSet<(String pred, String succ, String type)> seenDeps = new();
             List<AIDependency> mergedDependencies = new List<AIDependency>();
 
-            for (Int32 i = 0; i < dependencyTasks.Count; i++)
+            for (Int32 i = 0; i < dependencyResults.Length; i++)
             {
                 Guid stageId = dependencyStageOrder[i];
-                AgentRunResult result = dependencyTasks[i].Result;
+                AgentRunResult result = dependencyResults[i];
 
                 if (!result.IsSuccess)
                 {
                     _logger.LogError(
                         "Dependency agent for stage '{StageName}' ({StageId}) failed: {Error}",
                         stageNameById.GetValueOrDefault(stageId, "unknown"), stageId, result.ErrorMessage);
-                    throw new InvalidOperationException(
+                    throw new ValidationApiException(
                         $"AI dependency analysis failed for stage '{stageNameById.GetValueOrDefault(stageId, "unknown")}': " +
                         $"{result.ErrorMessage ?? "Unknown error"}");
                 }
@@ -185,7 +189,6 @@ namespace Business.Implementation.Services
 
                 foreach (AIDependency dep in parsed.dependencies)
                 {
-                    String key = $"{dep.predecessor_work_id}|{dep.successor_work_id}|{dep.dependency_type}";
                     if (seenDeps.Add((dep.predecessor_work_id ?? "", dep.successor_work_id ?? "", dep.dependency_type ?? "")))
                     {
                         mergedDependencies.Add(dep);
@@ -198,6 +201,13 @@ namespace Business.Implementation.Services
                     parsed.dependencies.Count,
                     mergedDependencies.Count);
             }
+
+            // ── 6b. Add sequential FinishToStart deps within each stage (by Order) ──
+            AddIntraStageDependencies(mergedDependencies, seenDeps, works);
+
+            _logger.LogInformation(
+                "After intra-stage deps: {TotalDeps} dependencies",
+                mergedDependencies.Count);
 
             // ── 7. Build unified raw response ──
             AIScheduleRawResponse rawResponse = new AIScheduleRawResponse
@@ -215,6 +225,60 @@ namespace Business.Implementation.Services
 
             // ── 9. Calculate dates from durations and dependencies ──
             return CalculateSchedule(rawResponse, works, overallStartDate, overallEndDate);
+        }
+
+        private async Task<AgentRunResult> RunWithLimitAsync(
+            SemaphoreSlim gate,
+            string agentName,
+            string prompt,
+            AgentContext context,
+            CancellationToken ct)
+        {
+            await gate.WaitAsync(ct);
+            try
+            {
+                return await _agentRunner.RunAsync(agentName, prompt, context, ct);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        /// <summary>
+        /// Adds sequential FinishToStart (lag=0) dependencies between consecutive works
+        /// within the same stage, ordered by <see cref="WorkInput.Order"/>.
+        /// Cross-stage dependencies remain AI-driven; intra-stage ordering is deterministic.
+        /// </summary>
+        private static void AddIntraStageDependencies(
+            List<AIDependency> mergedDependencies,
+            HashSet<(String pred, String succ, String type)> seenDeps,
+            List<WorkInput> works)
+        {
+            IEnumerable<IGrouping<Guid, WorkInput>> groups = works.GroupBy(w => w.StageId);
+            foreach (IGrouping<Guid, WorkInput> group in groups)
+            {
+                List<WorkInput> ordered = group.OrderBy(w => w.Order).ToList();
+                for (Int32 i = 0; i < ordered.Count - 1; i++)
+                {
+                    String predId = ordered[i].Id.ToString();
+                    String succId = ordered[i + 1].Id.ToString();
+                    String depType = "FinishToStart";
+
+                    if (!seenDeps.Add((predId, succId, depType)))
+                    {
+                        continue;
+                    }
+
+                    mergedDependencies.Add(new AIDependency
+                    {
+                        predecessor_work_id = predId,
+                        successor_work_id = succId,
+                        dependency_type = depType,
+                        lag_days = 0
+                    });
+                }
+            }
         }
 
         /// <summary>
@@ -367,31 +431,54 @@ Use the EXACT format:
         private static string BuildStageDependencyPrompt(
             List<WorkInput> focusWorks,
             List<WorkInput> allWorks,
+            List<StageInput> stages,
             string focusStageName,
             DateTime overallStartDate,
             DateTime overallEndDate)
         {
             // Collect all unique stage names with their works for the prompt
-            Dictionary<string, List<WorkInput>> worksByStage = allWorks
+            Dictionary<string, List<WorkInput>> worksByStageName = allWorks
                 .GroupBy(w => w.StageName)
                 .ToDictionary(g => g.Key, g => g.ToList());
+
+            Dictionary<Guid, int> stageOrderById = stages
+                .ToDictionary(s => s.Id, s => s.Order);
 
             // Mark which works belong to the focus stage
             HashSet<Guid> focusWorkIds = focusWorks.Select(w => w.Id).ToHashSet();
 
-            // Build a simplified "stage map": for each stage, list its works
+            // Build a simplified "stage map": for each stage, list its works (ordered by stage Order)
+            List<KeyValuePair<string, List<WorkInput>>> orderedStageGroups = worksByStageName
+                .OrderBy(kvp =>
+                {
+                    WorkInput? first = kvp.Value.FirstOrDefault();
+                    if (first is null)
+                    {
+                        return int.MaxValue;
+                    }
+
+                    return stageOrderById.TryGetValue(first.StageId, out int ord) ? ord : int.MaxValue;
+                })
+                .ToList();
+
             List<string> stageBlocks = new List<string>();
-            foreach (KeyValuePair<string, List<WorkInput>> kvp in worksByStage)
+            foreach (KeyValuePair<string, List<WorkInput>> kvp in orderedStageGroups)
             {
                 bool isFocus = kvp.Key == focusStageName;
                 string marker = isFocus ? " *** FOCUS STAGE ***" : "";
-                stageBlocks.Add($"Stage: {kvp.Key}{marker}");
+                int stageOrder = 0;
+                WorkInput? firstWork = kvp.Value.FirstOrDefault();
+                if (firstWork is not null && stageOrderById.TryGetValue(firstWork.StageId, out int ord))
+                {
+                    stageOrder = ord;
+                }
 
-                // List works in this stage
+                stageBlocks.Add($"Stage: {kvp.Key} (order: {stageOrder}){marker}");
+
                 foreach (WorkInput w in kvp.Value.OrderBy(x => x.Order))
                 {
                     string focusMarker = focusWorkIds.Contains(w.Id) ? " (focus)" : "";
-                    stageBlocks.Add($"  - [{w.Id}] {w.Name}{focusMarker}");
+                    stageBlocks.Add($"  - [{w.Id}] {w.Name} (order: {w.Order}){focusMarker}");
                 }
             }
 
@@ -661,15 +748,15 @@ If the focus stage has no dependencies at all (e.g., it is the only stage), retu
                                 DateTime sfEnd = startDateByWorkId[currentId].AddDays(lag);
                                 successorStart = sfEnd.AddDays(-(successorDuration - 1));
                                 break;
-                            default: // FinishToStart
-                                successorStart = currentEnd.AddDays(1 + lag);
+                            default: // FinishToStart — matches AdjustSuccessorPeriodsAsync (no +1)
+                                successorStart = currentEnd.AddDays(lag);
                                 break;
                         }
                     }
                     else
                     {
-                        // Default: FinishToStart with no lag
-                        successorStart = currentEnd.AddDays(1);
+                        // Default: FinishToStart with lag=0 (successor may start on pred end day)
+                        successorStart = currentEnd.AddDays(0);
                     }
 
                     // Ensure we don't go before overall start
@@ -702,18 +789,34 @@ If the focus stage has no dependencies at all (e.g., it is the only stage), retu
                 }
             }
 
-            // Handle any works not reached by topological sort (isolated or cycle)
+            // Detect cycles: nodes still with inDegree > 0 after Kahn's algorithm
+            bool hasCycle = inDegree.Any(kvp => kvp.Value > 0);
+            if (hasCycle)
+            {
+                throw new ValidationApiException(
+                    "AI returned dependencies that form a cycle. Please regenerate the schedule.");
+            }
+
+            // Handle any works not reached (isolated works without deps — start at overallStartDate)
             foreach (WorkInput work in works)
             {
                 if (!startDateByWorkId.ContainsKey(work.Id))
                 {
-                    // Place at overall start date, distributed by order
-                    DateTime wStart = overallStartDate.AddDays(work.Order * 2);
+                    DateTime wStart = overallStartDate;
                     startDateByWorkId[work.Id] = wStart;
                     endDateByWorkId[work.Id] = wStart.AddDays(
                         durationByWorkId.GetValueOrDefault(work.Id, 1) - 1);
                 }
             }
+
+            // Compress schedule into [overallStartDate, overallEndDate] when it overflows
+            ScaleScheduleToOverallEndDate(
+                startDateByWorkId,
+                endDateByWorkId,
+                durationByWorkId,
+                parsedDeps,
+                overallStartDate,
+                overallEndDate);
 
             // Build result
             AIScheduleResult result = new AIScheduleResult
@@ -737,6 +840,150 @@ If the focus stage has no dependencies at all (e.g., it is the only stage), retu
             };
 
             return result;
+        }
+
+        /// <summary>
+        /// When max(EndDate) exceeds overallEndDate, proportionally compress offsets and durations
+        /// so the chain fits in [overallStartDate, overallEndDate]. Min duration is 1 day.
+        /// Throws if the window is still too short after compression.
+        /// </summary>
+        private static void ScaleScheduleToOverallEndDate(
+            Dictionary<Guid, DateTime> startDateByWorkId,
+            Dictionary<Guid, DateTime> endDateByWorkId,
+            Dictionary<Guid, int> durationByWorkId,
+            List<AIDependency> parsedDeps,
+            DateTime overallStartDate,
+            DateTime overallEndDate)
+        {
+            if (endDateByWorkId.Count == 0)
+            {
+                return;
+            }
+
+            DateTime maxEnd = endDateByWorkId.Values.Max();
+            if (maxEnd <= overallEndDate)
+            {
+                return;
+            }
+
+            double availableDays = (overallEndDate - overallStartDate).TotalDays + 1;
+            double usedDays = (maxEnd - overallStartDate).TotalDays + 1;
+            if (usedDays <= 0)
+            {
+                return;
+            }
+
+            double scale = availableDays / usedDays;
+            ApplyLinearScale(startDateByWorkId, endDateByWorkId, durationByWorkId, overallStartDate, overallEndDate, scale);
+            EnforceFinishToStartAfterScale(startDateByWorkId, endDateByWorkId, durationByWorkId, parsedDeps);
+
+            DateTime finalMaxEnd = endDateByWorkId.Values.Max();
+            if (finalMaxEnd > overallEndDate)
+            {
+                throw new ValidationApiException(
+                    "The overall schedule window is too short for the number of works " +
+                    "even with minimum durations of 1 day each.");
+            }
+        }
+
+        private static void ApplyLinearScale(
+            Dictionary<Guid, DateTime> startDateByWorkId,
+            Dictionary<Guid, DateTime> endDateByWorkId,
+            Dictionary<Guid, int> durationByWorkId,
+            DateTime overallStartDate,
+            DateTime overallEndDate,
+            double scale)
+        {
+            List<Guid> workIds = startDateByWorkId.Keys.ToList();
+            foreach (Guid workId in workIds)
+            {
+                DateTime start = startDateByWorkId[workId];
+                int duration = durationByWorkId.GetValueOrDefault(workId, 1);
+                double offset = (start - overallStartDate).TotalDays * scale;
+                int scaledDuration = Math.Max(1, (int)Math.Floor(duration * scale));
+
+                DateTime newStart = overallStartDate.AddDays(offset);
+                DateTime newEnd = newStart.AddDays(scaledDuration - 1);
+                if (newEnd > overallEndDate)
+                {
+                    newEnd = overallEndDate;
+                }
+
+                startDateByWorkId[workId] = newStart;
+                endDateByWorkId[workId] = newEnd;
+                durationByWorkId[workId] = scaledDuration;
+            }
+        }
+
+        /// <summary>
+        /// One topological pass: if successor starts before predecessor end + lag (FinishToStart),
+        /// shift the successor forward to preserve dependency order after scaling.
+        /// </summary>
+        private static void EnforceFinishToStartAfterScale(
+            Dictionary<Guid, DateTime> startDateByWorkId,
+            Dictionary<Guid, DateTime> endDateByWorkId,
+            Dictionary<Guid, int> durationByWorkId,
+            List<AIDependency> parsedDeps)
+        {
+            Dictionary<Guid, List<(Guid succId, int lag)>> successorsByPred =
+                new Dictionary<Guid, List<(Guid, int)>>();
+            Dictionary<Guid, int> inDegree = new Dictionary<Guid, int>();
+
+            foreach (Guid workId in startDateByWorkId.Keys)
+            {
+                successorsByPred[workId] = new List<(Guid, int)>();
+                inDegree[workId] = 0;
+            }
+
+            foreach (AIDependency dep in parsedDeps)
+            {
+                if (!Guid.TryParse(dep.predecessor_work_id, out Guid predId) ||
+                    !Guid.TryParse(dep.successor_work_id, out Guid succId))
+                {
+                    continue;
+                }
+
+                if (!startDateByWorkId.ContainsKey(predId) || !startDateByWorkId.ContainsKey(succId))
+                {
+                    continue;
+                }
+
+                string depType = dep.dependency_type?.ToLowerInvariant() ?? "finishtostart";
+                if (depType is not ("finishtostart" or ""))
+                {
+                    continue;
+                }
+
+                int lag = dep.lag_days ?? 0;
+                successorsByPred[predId].Add((succId, lag));
+                inDegree[succId] = inDegree.GetValueOrDefault(succId) + 1;
+            }
+
+            Queue<Guid> queue = new Queue<Guid>(
+                inDegree.Where(kvp => kvp.Value == 0).Select(kvp => kvp.Key));
+
+            while (queue.Count > 0)
+            {
+                Guid currentId = queue.Dequeue();
+                DateTime predEnd = endDateByWorkId[currentId];
+
+                foreach ((Guid succId, int lag) in successorsByPred[currentId])
+                {
+                    DateTime minStart = predEnd.AddDays(lag);
+                    if (startDateByWorkId[succId] < minStart)
+                    {
+                        int duration = durationByWorkId.GetValueOrDefault(succId, 1);
+                        startDateByWorkId[succId] = minStart;
+                        endDateByWorkId[succId] = minStart.AddDays(duration - 1);
+                    }
+
+                    inDegree[succId]--;
+                    if (inDegree[succId] == 0)
+                    {
+                        queue.Enqueue(succId);
+                    }
+                }
+            }
         }
 
         private static WorkDependencyType ParseDependencyType(string? type)
